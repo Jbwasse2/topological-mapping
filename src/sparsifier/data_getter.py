@@ -3,13 +3,18 @@ import gzip
 import random
 from pathlib import Path
 
+import cv2
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pudb
 import torch
+import torchvision.transforms as transforms
+from PIL import Image
 from torch.utils.data import DataLoader, Dataset
-from torchvision import transforms, utils
+from torchvision import transforms as transforms
+from torchvision import utils
+from torchvision.transforms import ToTensor
 from tqdm import tqdm
 
 matplotlib.use("Agg")
@@ -31,7 +36,8 @@ def get_dict(fname):
 class GibsonDataset(Dataset):
     """ Dataset collect from Habitat """
 
-    def __init__(self, split_type, visualize=False, max_distance=10):
+    def __init__(self, split_type, seed, visualize=False, max_distance=10):
+        random.seed(seed)
         self.split_type = split_type
         self.max_distance = max_distance
         # This is changed in the train_large_data.py file
@@ -41,6 +47,7 @@ class GibsonDataset(Dataset):
         )
         self.dict_path = "../../data/datasets/pointnav/gibson/v2/train_large/content/"
         self.env_names = self.get_env_names()
+        random.shuffle(self.env_names)
         split = 0.85
         self.train_env = self.env_names[0 : int(len(self.env_names) * split)]
         self.test_env = self.env_names[int(len(self.env_names) * split) :]
@@ -51,9 +58,13 @@ class GibsonDataset(Dataset):
             self.dataset = self.get_dataset(self.train_env)
         elif split_type == "test":
             self.dataset = self.get_dataset(self.test_env)
-        self.dataset = self.balance_dataset()
+        self.dataset = self.balance_dataset(10000)
         self.dataset = self.flatten_dataset()
         self.verify_dataset()
+
+    def save_env_data(self, path):
+        np.save(path + "train_env.npy", self.train_env)
+        np.save(path + "test_env.npy", self.test_env)
 
     # Make sure all of the images exist
     def verify_dataset(self):
@@ -93,7 +104,7 @@ class GibsonDataset(Dataset):
     def balance_dataset(self, max_number_of_examples=2000):
         min_size = np.inf
         for i in range(self.max_distance):
-            min_size = min(min_size, len(self.dataset[0]))
+            min_size = min(min_size, len(self.dataset[i]))
         min_size = min(min_size, max_number_of_examples)
         far_away_keys = range(self.max_distance, len(self.dataset) - self.max_distance)
         ret = {}
@@ -111,7 +122,7 @@ class GibsonDataset(Dataset):
     # Don't forget map/trajectory is directed.
     def get_dataset(self, envs):
         ret = {}
-        for env in tqdm(envs[0:3]):
+        for env in tqdm(envs):
             # Get step difference between all points to each other
             for episode in range(self.episodes):
                 paths = glob.glob(
@@ -120,7 +131,7 @@ class GibsonDataset(Dataset):
                 for i in range(len(paths)):
                     for j in range(i, len(paths)):
                         key = j - i
-                        if key > 100:
+                        if key > 30:
                             break
                         if key not in ret:
                             ret[key] = []
@@ -159,14 +170,31 @@ class GibsonDataset(Dataset):
             + str(location).zfill(5)
             + ".jpg"
         )
+        image = cv2.resize(image, (224, 224)) / 255
         return image
 
     def __getitem__(self, idx):
         env, episode, l1, l2 = self.dataset[idx]
         image1 = self.get_image(env, episode, l1)
         image2 = self.get_image(env, episode, l2)
+        transform = transforms.Compose(
+            [
+                transforms.ToTensor(),
+                transforms.Normalize(
+                    mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+                ),
+            ]
+        )
+        image1 = transform(image1)
+        image2 = transform(image2)
+
         x = (image1, image2)
-        y = l2 - l1
+        #        y = min(l2 - l1, self.max_distance)
+        key = l2 - l1
+        if key <= 4:
+            y = 1
+        else:
+            y = 0
         return (x, y)
 
 

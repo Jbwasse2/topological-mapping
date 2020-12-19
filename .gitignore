@@ -1,3 +1,12 @@
+#
+#
+*.swp
+*.swo
+*.mkv
+data
+*.pth
+*.npy
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
