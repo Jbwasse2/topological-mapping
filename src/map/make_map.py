@@ -109,24 +109,100 @@ def visualize_traj_ind(traj_ind):
     plt.savefig(results_dir + "traj_ind.jpg", bbox_inches="tight")
 
 
+# Takes a list of trajectories and adds them to the graph
+# This does not make connecitons between the trajectories, just adds them.
+def add_trajs_to_graph(G, trajectories, traj_ind):
+    for trajectory_count, trajectory in tqdm(enumerate(trajectories)):
+        tail_node = None
+        for frame_count, frame in enumerate(trajectory):
+            # we want to keep track of what the actual frame is from in the trajectory
+            true_label = traj_ind[trajectory_count][frame_count]
+            current_node = (trajectory_count, true_label)
+            G.add_node(current_node)
+            if tail_node is not None:
+                G.add_edge(tail_node, current_node)
+            else:
+                pass
+            tail_node = current_node
+    return G
+
+
+# Note: add_traj_to_graph needs to be called first.
+# Takes the trajectories and connects them together by using the sparsifier
+def connect_graph_trajectories(G, trajectories, traj_ind, model, device):
+    for i in tqdm(range(len(trajectories))):
+        for j in range(i + 1, len(trajectories)):
+            traj_i = trajectories[i]
+            traj_j = trajectories[j]
+            # Iterate over trajectories and try to find similar parts
+            for frame_count_i, frame_i in enumerate(traj_i):
+                image2s = []
+                for frame_count_j, frame_j in enumerate(traj_j):
+                    image2 = frame_j.float().to(device)
+                    image2s.append(image2)
+
+                image2_stack = torch.stack(image2s)
+                image1 = frame_i.float().to(device)
+                image1_stack = torch.stack(
+                    [image1 for i in range(image2_stack.shape[0])]
+                )
+
+                results = model(image1_stack, image2_stack).cpu().detach().numpy()
+                for frame_count_j, result in enumerate(results):
+                    result_close = np.argmax(result)
+                    if result_close == 1:
+                        true_label_i = traj_ind[i][frame_count_i]
+                        true_label_j = traj_ind[j][frame_count_j]
+                        node_i = (i, true_label_i)
+                        node_j = (j, true_label_j)
+                        G.add_edge(node_i, node_j)
+    return G
+
+
+def create_topological_map(trajectories, traj_ind, model, device):
+    # Put all trajectories into graph
+    G = nx.DiGraph()
+    G = add_trajs_to_graph(G, trajectories, traj_ind)
+    G = connect_graph_trajectories(G, trajectories, traj_ind, model, device)
+    return G
+
+
 def main():
     VISUALIZE = True
+    CREATE_TRAJECTORIES = True
     device = torch.device("cuda:0")
     model = Siamese().to(device)
     model.load_state_dict(torch.load("./model/saved_model.pth"))
     model.eval()
-    test_envs = np.load("./model/test_env.npy")
-    data = GibsonMapDataset(test_envs)
-    trajs = get_trajectory_env(data, test_envs[0])
-    data_visual = GibsonMapDataset(test_envs, transform=False)
-    trajs_visual = get_trajectory_env(data_visual, test_envs[0])
-    traj_new, traj_ind = sparsify_trajectories(model, trajs, trajs_visual, device)
+    if CREATE_TRAJECTORIES == True:
+        test_envs = np.load("./model/test_env.npy")
+        data = GibsonMapDataset(test_envs)
+        # trajs is the trajectory of the 224x224 dataset, not sparsified
+        trajs = get_trajectory_env(data, test_envs[0])
+        # traj_new is sparsified trajectory with the traj_visual dataset
+        # traj_ind says which indices where used
+        traj_new, traj_ind = sparsify_trajectories(model, trajs, trajs, device)
+        np.save("traj_new.npy", traj_new)
+        np.save("traj_ind.npy", traj_ind)
+        np.save("trajs.npy", trajs)
+    else:
+        traj_new = np.load("traj_new.npy", allow_pickle=True)
+        traj_ind = np.load("traj_ind.npy", allow_pickle=True)
+    #        trajs_visual=np.load("trajs_visual.npy", allow_pickle=True)
+    #        trajs=np.load("trajs.npy", allow_pickle=True)
+    G = create_topological_map(traj_new, traj_ind, model, device)
+    nx.write_gpickle(G, "../../data/map/map.gpickle")
+    pu.db
+
     if VISUALIZE:
+        # trajs_visual is the 640x480 version of teh dataset, used for visualization mostly
+        trajs_visual = get_trajectory_env(data_visual, test_envs[0])
+        data_visual = GibsonMapDataset(test_envs, transform=False)
+        traj_new, traj_ind = sparsify_trajectories(model, trajs, trajs_visual, device)
         visualize_traj_ind(traj_ind)
         visualize_traj(trajs_visual[0], "old_traj")
         visualize_traj(traj_new[0], "new_traj")
 
 
 if __name__ == "__main__":
-
     main()

@@ -33,25 +33,25 @@ class Siamese(nn.Module):
         self.relu3 = nn.ReLU()
         self.drop3 = nn.Dropout(p=0.5)
         self.out2 = nn.Linear(128, 2)
-        self.batch1 = nn.BatchNorm2d(32)
-        self.batch2 = nn.BatchNorm1d(256)
-        self.batch3 = nn.BatchNorm1d(128)
-        self.batch4 = nn.BatchNorm1d(128)
+        # self.batch1 = nn.BatchNorm2d(32)
+        # self.batch2 = nn.BatchNorm1d(256)
+        # self.batch3 = nn.BatchNorm1d(128)
+        # self.batch4 = nn.BatchNorm1d(128)
 
     def encode(self, im):
         x = self.encoder(im)
         x = self.conv1(x)
         x = self.relu0(x)
-        x = self.batch1(x)
+        # x = self.batch1(x)
         x = x.reshape(x.shape[0], x.shape[1] * x.shape[2] * x.shape[3])
         x = self.fc1(x)
         x = self.relu1(x)
         x = self.drop1(x)
-        x = self.batch2(x)
+        # x = self.batch2(x)
         x = self.fc2(x)
         x = self.relu2(x)
         x = self.drop1(x)
-        x = self.batch3(x)
+        # x = self.batch3(x)
         return x
 
     def forward(self, x1, x2):
@@ -61,6 +61,6 @@ class Siamese(nn.Module):
         out = self.out1(out)
         out = self.relu3(out)
         out = self.drop3(out)
-        out = self.batch4(out)
+        # out = self.batch4(out)
         out = self.out2(out)
         return out

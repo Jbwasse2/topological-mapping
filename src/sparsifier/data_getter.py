@@ -36,7 +36,9 @@ def get_dict(fname):
 class GibsonDataset(Dataset):
     """ Dataset collect from Habitat """
 
-    def __init__(self, split_type, seed, visualize=False, max_distance=10):
+    def __init__(
+        self, split_type, seed, visualize=False, max_distance=10, samples=10000
+    ):
         random.seed(seed)
         self.split_type = split_type
         self.max_distance = max_distance
@@ -58,7 +60,7 @@ class GibsonDataset(Dataset):
             self.dataset = self.get_dataset(self.train_env)
         elif split_type == "test":
             self.dataset = self.get_dataset(self.test_env)
-        self.dataset = self.balance_dataset(10000)
+        self.dataset = self.balance_dataset(samples)
         self.dataset = self.flatten_dataset()
         self.verify_dataset()
 
@@ -131,8 +133,6 @@ class GibsonDataset(Dataset):
                 for i in range(len(paths)):
                     for j in range(i, len(paths)):
                         key = j - i
-                        if key > 30:
-                            break
                         if key not in ret:
                             ret[key] = []
                         ret[key].append((env, episode, i, j))
