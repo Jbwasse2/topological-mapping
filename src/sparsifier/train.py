@@ -17,13 +17,13 @@ from model import Siamese
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 
-def train(model, device, epochs=30):
+def train(model, device, epochs=20):
     current_time = time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime())
     results_dir = "../../data/results/sparsifier/" + current_time + "/"
     os.mkdir(results_dir)
     copyfile("./model.py", results_dir + "model.py")
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=1.0)
+    optimizer = optim.Adam(model.parameters(), lr=0.0001)
     BATCH_SIZE = 64
     seed = 0
     train_dataset = GibsonDataset("train", seed, samples=30000)

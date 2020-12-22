@@ -109,15 +109,50 @@ def visualize_traj_ind(traj_ind):
     plt.savefig(results_dir + "traj_ind.jpg", bbox_inches="tight")
 
 
+# Takes node label (0,0) and returns corresponding image as 640x480, useful for visulaizations.
+def get_node_image(node):
+    image_location = (
+        "../../data/datasets/pointnav/gibson/v2/train_large/images/"
+        + scene
+        + "/"
+        + "episode"
+        + str(node[0])
+        + "_"
+        + str(node[1]).zfill(5)
+        + ".jpg"
+    )
+    return plt.imread(image_location)
+
+
+def get_true_label(trajectory_count, frame_count, traj_ind):
+    return traj_ind[trajectory_count][frame_count]
+
+
 # Takes a list of trajectories and adds them to the graph
 # This does not make connecitons between the trajectories, just adds them.
-def add_trajs_to_graph(G, trajectories, traj_ind):
+def add_trajs_to_graph(G, trajectories, traj_ind, model, device):
     for trajectory_count, trajectory in tqdm(enumerate(trajectories)):
         tail_node = None
         for frame_count, frame in enumerate(trajectory):
             # we want to keep track of what the actual frame is from in the trajectory
-            true_label = traj_ind[trajectory_count][frame_count]
+            true_label = get_true_label(trajectory_count, frame_count, traj_ind)
             current_node = (trajectory_count, true_label)
+            image1 = frame.unsqueeze(0).float().to(device)
+            for node in list(G.nodes):
+                # Skip previous tail node from being too close to current node, otherwise you may just be sparsifying your graph extra.
+                if node == tail_node:
+                    continue
+                # Get the index in the trajectory where node is (sparse label)
+                node_traj_ind = traj_ind[node[0]]
+                node_ind = node_traj_ind.index(node[1])
+                # Get original node image
+                node_image = trajectories[node[0]][node_ind]
+                image2 = node_image.unsqueeze(0).float().to(device)
+                results = np.argmax(model(image1, image2).cpu().detach().numpy())
+                if results == 1:
+                    current_node = node
+                    break
+            # Check to see if there is already a similar enough edge in the graph
             G.add_node(current_node)
             if tail_node is not None:
                 G.add_edge(tail_node, current_node)
@@ -130,46 +165,40 @@ def add_trajs_to_graph(G, trajectories, traj_ind):
 # Note: add_traj_to_graph needs to be called first.
 # Takes the trajectories and connects them together by using the sparsifier
 def connect_graph_trajectories(G, trajectories, traj_ind, model, device):
-    for i in tqdm(range(len(trajectories))):
-        for j in range(i + 1, len(trajectories)):
-            traj_i = trajectories[i]
-            traj_j = trajectories[j]
-            # Iterate over trajectories and try to find similar parts
-            for frame_count_i, frame_i in enumerate(traj_i):
-                image2s = []
-                for frame_count_j, frame_j in enumerate(traj_j):
-                    image2 = frame_j.float().to(device)
-                    image2s.append(image2)
-
-                image2_stack = torch.stack(image2s)
-                image1 = frame_i.float().to(device)
-                image1_stack = torch.stack(
-                    [image1 for i in range(image2_stack.shape[0])]
-                )
-
-                results = model(image1_stack, image2_stack).cpu().detach().numpy()
-                for frame_count_j, result in enumerate(results):
-                    result_close = np.argmax(result)
-                    if result_close == 1:
-                        true_label_i = traj_ind[i][frame_count_i]
-                        true_label_j = traj_ind[j][frame_count_j]
-                        node_i = (i, true_label_i)
-                        node_j = (j, true_label_j)
-                        G.add_edge(node_i, node_j)
+    for node_i in tqdm(list(G.nodes)):
+        node_traj_ind_i = traj_ind[node_i[0]]
+        node_ind_i = node_traj_ind_i.index(node_i[1])
+        # Get original node image
+        node_image_i = (
+            trajectories[node_i[0]][node_ind_i].unsqueeze(0).float().to(device)
+        )
+        for node_j in list(G.nodes):
+            if node_i == node_j:
+                continue
+            node_traj_ind_j = traj_ind[node_j[0]]
+            node_ind_j = node_traj_ind_j.index(node_j[1])
+            # Get original node image
+            node_image_j = (
+                trajectories[node_j[0]][node_ind_j].unsqueeze(0).float().to(device)
+            )
+            result = model(node_image_i, node_image_j).cpu().detach().numpy()
+            result_close = np.argmax(result)
+            if result_close == 1:
+                G.add_edge(node_i, node_j)
     return G
 
 
 def create_topological_map(trajectories, traj_ind, model, device):
     # Put all trajectories into graph
     G = nx.DiGraph()
-    G = add_trajs_to_graph(G, trajectories, traj_ind)
+    G = add_trajs_to_graph(G, trajectories, traj_ind, model, device)
     G = connect_graph_trajectories(G, trajectories, traj_ind, model, device)
     return G
 
 
 def main():
     VISUALIZE = True
-    CREATE_TRAJECTORIES = True
+    CREATE_TRAJECTORIES = False
     device = torch.device("cuda:0")
     model = Siamese().to(device)
     model.load_state_dict(torch.load("./model/saved_model.pth"))
@@ -191,8 +220,7 @@ def main():
     #        trajs_visual=np.load("trajs_visual.npy", allow_pickle=True)
     #        trajs=np.load("trajs.npy", allow_pickle=True)
     G = create_topological_map(traj_new, traj_ind, model, device)
-    nx.write_gpickle(G, "../../data/map/map.gpickle")
-    pu.db
+    nx.write_gpickle(G, "../../data/map/map2.gpickle")
 
     if VISUALIZE:
         # trajs_visual is the 640x480 version of teh dataset, used for visualization mostly

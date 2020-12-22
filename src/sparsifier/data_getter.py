@@ -189,12 +189,12 @@ class GibsonDataset(Dataset):
         image2 = transform(image2)
 
         x = (image1, image2)
-        #        y = min(l2 - l1, self.max_distance)
-        key = l2 - l1
-        if key <= 4:
-            y = 1
-        else:
-            y = 0
+        y = min(l2 - l1, self.max_distance)
+        #key = l2 - l1
+        #if key <= 4:
+        #    y = 1
+        #else:
+        #    y = 0
         return (x, y)
 
 
