@@ -17,7 +17,7 @@ from model import Siamese
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 
-def train(model, device, epochs=20):
+def train(model, device, epochs=50):
     current_time = time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime())
     results_dir = "../../data/results/sparsifier/" + current_time + "/"
     os.mkdir(results_dir)
@@ -51,9 +51,9 @@ def train(model, device, epochs=20):
     accuracy_cum = []
     accuracy_v = []
     accuracy_v_cum = []
-    model.train()
     for epoch in range(epochs):
         print("epoch ", epoch)
+        model.train()
         for i, batch in enumerate(tqdm(train_dataloader)):
             x, y = batch
             im1, im2 = x
