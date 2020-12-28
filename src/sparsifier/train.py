@@ -23,7 +23,7 @@ def train(model, device, epochs=50):
     os.mkdir(results_dir)
     copyfile("./model.py", results_dir + "model.py")
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=0.0001)
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
     BATCH_SIZE = 64
     seed = 0
     train_dataset = GibsonDataset("train", seed, samples=30000)
@@ -99,11 +99,14 @@ def train(model, device, epochs=50):
         print(np.mean(accuracy_v))
         losses_v = []
         accuracy_v = []
+        if epoch % 5 == 0:
+            torch.save(model.state_dict(), results_dir + "saved_model.pth")
+    torch.save(model.state_dict(), results_dir + "saved_model.pth")
     np.save(results_dir + "losses.npy", losses_cum)
     np.save(results_dir + "losses_v.npy", losses_v_cum)
     np.save(results_dir + "accuracy.npy", accuracy_cum)
     np.save(results_dir + "accuracy_v.npy", accuracy_v_cum)
-    torch.save(model.state_dict(), results_dir + "saved_model.pth")
+    print(results_dir)
     return model
 
 

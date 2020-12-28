@@ -94,6 +94,24 @@ class GibsonDataset(Dataset):
             )
             assert img_file1.is_file()
             assert img_file2.is_file()
+        # Make sure all keys have same amount of data and are in the correct range
+        ret = {}
+        for data in self.dataset:
+            key = data[2] - data[3]
+            if key >= 10:
+                key = 10
+            if key <= -10:
+                key = -10
+            if key not in ret:
+                ret[key] = 0
+            ret[key] += 1
+        number_of_0s = ret[0]
+        range_of_keys = set(range(-self.max_distance, self.max_distance + 1))
+        for key, value in ret.items():
+            assert key in range(-self.max_distance, self.max_distance + 1)
+            assert value == number_of_0s
+            range_of_keys.remove(key)
+        assert range_of_keys == set()
 
     def flatten_dataset(self):
         # Dataset comes in as dict, would like it as a huge list of tuples
@@ -105,19 +123,28 @@ class GibsonDataset(Dataset):
 
     def balance_dataset(self, max_number_of_examples=2000):
         min_size = np.inf
-        for i in range(self.max_distance):
+        for i in range(-self.max_distance + 1, self.max_distance):
             min_size = min(min_size, len(self.dataset[i]))
         min_size = min(min_size, max_number_of_examples)
-        far_away_keys = range(self.max_distance, len(self.dataset) - self.max_distance)
+        far_away_keys = range(self.max_distance, max(self.dataset.keys()))
         ret = {}
         far_away_dataset = []
-        for i in range(min_size):
+        # Fill up with keys that are far away in forward direction
+        for i in range(int(min_size)):
             idx = np.random.choice(far_away_keys)
             key = self.max_distance
             if key not in ret:
                 ret[key] = []
             ret[key].append(random.choice(self.dataset[idx]))
-        for i in range(self.max_distance):
+        # fill up with keys that are faw away in backwards direction
+        far_away_keys = range(min(self.dataset), -self.max_distance + 1)
+        for i in range(int(min_size)):
+            idx = np.random.choice(far_away_keys)
+            key = -self.max_distance
+            if key not in ret:
+                ret[key] = []
+            ret[key].append(random.choice(self.dataset[idx]))
+        for i in range(-self.max_distance + 1, self.max_distance):
             ret[i] = random.sample(self.dataset[i], min_size)
         return ret
 
@@ -131,7 +158,9 @@ class GibsonDataset(Dataset):
                     self.image_data_path + env + "/" + "episode" + str(episode) + "_*"
                 )
                 for i in range(len(paths)):
-                    for j in range(i, len(paths)):
+                    # Put this if we dont have negative predictions class
+                    # for j in range(len(paths)):
+                    for j in range(len(paths)):
                         key = j - i
                         if key not in ret:
                             ret[key] = []
@@ -170,9 +199,10 @@ class GibsonDataset(Dataset):
             + str(location).zfill(5)
             + ".jpg"
         )
-        image = cv2.resize(image, (224, 224)) / 255
+        image = cv2.resize(image, (224, 224)) / 1
         return image
 
+    # Images are offset by self.max_distance, because this should also detect going backwards which the robot can not do.
     def __getitem__(self, idx):
         env, episode, l1, l2 = self.dataset[idx]
         image1 = self.get_image(env, episode, l1)
@@ -189,15 +219,29 @@ class GibsonDataset(Dataset):
         image2 = transform(image2)
 
         x = (image1, image2)
-        y = min(l2 - l1, self.max_distance)
         # key = l2 - l1
         # if key <= 4:
         #    y = 1
         # else:
         #    y = 0
+        #    y = min(l2 - l1, self.max_distance)
+        y = l2 - l1
+        if y >= 10:
+            y = 10
+        if y <= -10:
+            y = -10
+        y = y + self.max_distance
+
         return (x, y)
 
 
 if __name__ == "__main__":
-    data = GibsonDataset("train")
-    f = data[0]
+    dataset = GibsonDataset("train", samples=10, seed=0)
+    key = {}
+    for batch in dataset:
+        x, y = batch
+        im1, im2 = x
+        y = y
+        if y not in key:
+            key[y] = 0
+        key[y] += 1

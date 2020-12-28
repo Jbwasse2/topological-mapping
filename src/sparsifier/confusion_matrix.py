@@ -2,7 +2,7 @@
 import matplotlib.pyplot as plt
 import seaborn as sns
 import matplotlib
-from model import Siamese
+from data.results.sparsifier.best_model.model import Siamese
 from tqdm import tqdm
 from data_getter import GibsonDataset
 from torch.utils import data
@@ -27,7 +27,7 @@ model_path = os.path.join(args.directory_location, "saved_model.pth")
 model = Siamese().to(device)
 model.load_state_dict(torch.load(model_path))
 model.eval()
-NUMBER_OF_SAMPLES = 3500
+NUMBER_OF_SAMPLES = 10000
 test_dataset = GibsonDataset("test", seed, samples=NUMBER_OF_SAMPLES)
 test_dataloader = data.DataLoader(
     test_dataset,
