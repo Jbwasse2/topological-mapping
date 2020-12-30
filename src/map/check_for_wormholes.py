@@ -51,6 +51,7 @@ def main():
     sim = create_sim(scene)
     d = get_dict(scene)
     G = nx.read_gpickle("../../data/map/map_Goodwine.gpickle")
+    pu.db
     lengths = {}
     # For now only search over edges that go between different trajectories
     # The following will search over all edges

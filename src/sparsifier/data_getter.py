@@ -15,9 +15,7 @@ from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms as transforms
 from torchvision import utils
 from torchvision.transforms import ToTensor
-from tqdm import tqdm
-
-matplotlib.use("Agg")
+from rich.progress import track
 
 
 def get_dict(fname):
@@ -37,9 +35,10 @@ class GibsonDataset(Dataset):
     """ Dataset collect from Habitat """
 
     def __init__(
-        self, split_type, seed, visualize=False, max_distance=10, samples=10000
+        self, split_type, seed, visualize=False, max_distance=10, samples=10000, ignore_0 = False
     ):
         random.seed(seed)
+        self.ignore_0 = ignore_0
         self.split_type = split_type
         self.max_distance = max_distance
         # This is changed in the train_large_data.py file
@@ -61,6 +60,8 @@ class GibsonDataset(Dataset):
         elif split_type == "test":
             self.dataset = self.get_dataset(self.test_env)
         self.dataset = self.balance_dataset(samples)
+        if self.ignore_0:
+            self.dataset.pop(0, None)
         self.dataset = self.flatten_dataset()
         self.verify_dataset()
 
@@ -98,15 +99,17 @@ class GibsonDataset(Dataset):
         ret = {}
         for data in self.dataset:
             key = data[2] - data[3]
-            if key >= 10:
-                key = 10
-            if key <= -10:
-                key = -10
+            if key >= self.max_distance:
+                key = self.max_distance
+            if key <= -self.max_distance:
+                key = -self.max_distance
             if key not in ret:
                 ret[key] = 0
             ret[key] += 1
-        number_of_0s = ret[0]
+        number_of_0s = ret[list(ret.keys())[0]]
         range_of_keys = set(range(-self.max_distance, self.max_distance + 1))
+        if self.ignore_0:
+            range_of_keys.remove(0)
         for key, value in ret.items():
             assert key in range(-self.max_distance, self.max_distance + 1)
             assert value == number_of_0s
@@ -151,7 +154,7 @@ class GibsonDataset(Dataset):
     # Don't forget map/trajectory is directed.
     def get_dataset(self, envs):
         ret = {}
-        for env in tqdm(envs):
+        for env in track(envs,description="[green] Collecting Large Dataset"):
             # Get step difference between all points to each other
             for episode in range(self.episodes):
                 paths = glob.glob(
@@ -199,7 +202,7 @@ class GibsonDataset(Dataset):
             + str(location).zfill(5)
             + ".jpg"
         )
-        image = cv2.resize(image, (224, 224)) / 1
+        image = cv2.resize(image, (224, 224)) / 255
         return image
 
     # Images are offset by self.max_distance, because this should also detect going backwards which the robot can not do.
@@ -226,17 +229,17 @@ class GibsonDataset(Dataset):
         #    y = 0
         #    y = min(l2 - l1, self.max_distance)
         y = l2 - l1
-        if y >= 10:
-            y = 10
-        if y <= -10:
-            y = -10
+        if y >= self.max_distance:
+            y = self.max_distance
+        if y <= -self.max_distance:
+            y = -self.max_distance
         y = y + self.max_distance
 
         return (x, y)
 
 
 if __name__ == "__main__":
-    dataset = GibsonDataset("train", samples=10, seed=0)
+    dataset = GibsonDataset("train", samples=10, seed=0, max_distance = 5, ignore_0 = True)
     key = {}
     for batch in dataset:
         x, y = batch
@@ -245,3 +248,4 @@ if __name__ == "__main__":
         if y not in key:
             key[y] = 0
         key[y] += 1
+    pu.db

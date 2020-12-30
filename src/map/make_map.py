@@ -20,6 +20,12 @@ from test_data import GibsonMapDataset
 
 from habitat.datasets.utils import get_action_shortest_path
 
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+matplotlib.rcParams["font.family"] = "Helvetica"
+font = {"weight": "bold"}
+
+matplotlib.rc("font", **font)
+
 
 def create_sim(scene):
     cfg = habitat.get_config()
@@ -59,13 +65,6 @@ def actual_edge_len(edge, d, sim):
     return len(shortest_path)
 
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
-matplotlib.rcParams["font.family"] = "Helvetica"
-font = {"weight": "bold"}
-
-matplotlib.rc("font", **font)
-
-
 def get_dict(fname):
     f = gzip.open(
         "../../data/datasets/pointnav/gibson/v2/train_large/content/"
@@ -82,6 +81,7 @@ def get_dict(fname):
 # Takes images of trajectory and sparsifies them
 def sparsify_trajectories(model, trajs, trajs_visual, device, sparsity=4):
     #        trajs=np.load("trajs.npy", allow_pickle=True)
+    pu.db
     traj_ind = []
     for traj in tqdm(trajs):
         image_indices = [0]
@@ -97,7 +97,7 @@ def sparsify_trajectories(model, trajs, trajs_visual, device, sparsity=4):
                 image2 = traj[i + 1 + j].unsqueeze(0).float().to(device)
                 j += 1
                 results = np.argmax(model(image1, image2).cpu().detach().numpy())
-                if results > sparsity:
+                if results > sparsity + 10:
                     skip_index = i + j
                     image_indices.append(skip_index)
                     break
@@ -113,7 +113,8 @@ def get_trajectory_env(data, env):
     data.set_env(env)
     counter = 0
     trajs = []
-    for i in tqdm(range(data.number_of_trajectories)):
+    #    for i in tqdm(range(data.number_of_trajectories)):
+    for i in range(3):
         done = False
         traj = []
         while not done:
@@ -211,7 +212,7 @@ def add_trajs_to_graph(G, trajectories, traj_ind, model, device, similarity):
                 node_image = trajectories[node[0]][node_ind]
                 image2 = node_image.unsqueeze(0).float().to(device)
                 results = np.argmax(model(image1, image2).cpu().detach().numpy())
-                if results <= similarity:
+                if results <= similarity + 10:
                     current_node = node
                     break
             # Check to see if there is already a similar enough edge in the graph
@@ -251,12 +252,10 @@ def connect_graph_trajectories(
             )
             result = model(node_image_i, node_image_j).cpu().detach().numpy()
             result_close = np.argmax(result)
-            if result_close <= similarity:
+            if result_close <= similarity + 10:
                 G.add_edge(node_i, node_j)
                 # Check for wormholes
                 if sim != None and d != None:
-                    if counter == 1:
-                        pu.db
                     true_length = actual_edge_len((node_i, node_j), d, sim)
                     # Perform visualizations
                     if scene != None:
@@ -291,7 +290,7 @@ def create_topological_map(
 
 def main():
     VISUALIZE = True
-    CREATE_TRAJECTORIES = False
+    CREATE_TRAJECTORIES = True
     device = torch.device("cuda:0")
     model = Siamese().to(device)
     model.load_state_dict(torch.load("./model/saved_model.pth"))
@@ -312,9 +311,7 @@ def main():
         np.save("trajs.npy", trajs)
     else:
         traj_new = np.load("traj_new.npy", allow_pickle=True)
-        traj_new = traj_new[0:2]
         traj_ind = np.load("traj_ind.npy", allow_pickle=True)
-        traj_ind = traj_ind[0:2]
     if VISUALIZE:
         visualize_traj_ind(traj_ind)
 
@@ -330,8 +327,8 @@ def main():
         scene=ENV,
     )
 
-
-#    nx.write_gpickle(G, "../../data/map/map_" + str(ENV) + ".gpickle")
+    print(ENV)
+    nx.write_gpickle(G, "../../data/map/map_" + str(ENV) + ".gpickle")
 
 
 if __name__ == "__main__":

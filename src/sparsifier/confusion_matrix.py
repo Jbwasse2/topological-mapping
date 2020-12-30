@@ -36,7 +36,7 @@ test_dataloader = data.DataLoader(
     num_workers=16,
 )
 
-confusion = np.zeros((11, 11))
+confusion = np.zeros((21, 21))
 for i, batch in enumerate(tqdm(test_dataloader)):
     x, y = batch
     im1, im2 = x
