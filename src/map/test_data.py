@@ -43,7 +43,7 @@ class GibsonMapDataset(Dataset):
     def get_image(self, path):
         image = plt.imread(path)
         if self.transform:
-            image = cv2.resize(image, (224, 224)) / 1
+            image = cv2.resize(image, (224, 224)) / 255
         return image
 
     def last_image_in_episode(self, dataset):
