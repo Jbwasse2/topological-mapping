@@ -35,9 +35,17 @@ class GibsonDataset(Dataset):
     """ Dataset collect from Habitat """
 
     def __init__(
-        self, split_type, seed, visualize=False, max_distance=10, samples=10000, ignore_0 = False
+        self,
+        split_type,
+        seed,
+        visualize=False,
+        max_distance=10,
+        samples=10000,
+        ignore_0=False,
+        debug=False,
     ):
         random.seed(seed)
+        self.debug = debug
         self.ignore_0 = ignore_0
         self.split_type = split_type
         self.max_distance = max_distance
@@ -154,7 +162,9 @@ class GibsonDataset(Dataset):
     # Don't forget map/trajectory is directed.
     def get_dataset(self, envs):
         ret = {}
-        for env in track(envs,description="[green] Collecting Large Dataset"):
+        if self.debug:
+            envs = envs[0:3]
+        for env in track(envs, description="[green] Collecting Large Dataset"):
             # Get step difference between all points to each other
             for episode in range(self.episodes):
                 paths = glob.glob(
@@ -239,7 +249,9 @@ class GibsonDataset(Dataset):
 
 
 if __name__ == "__main__":
-    dataset = GibsonDataset("train", samples=10, seed=0, max_distance = 5, ignore_0 = True)
+    dataset = GibsonDataset(
+        "train", samples=10, seed=0, max_distance=5, ignore_0=True, debug=True
+    )
     key = {}
     for batch in dataset:
         x, y = batch

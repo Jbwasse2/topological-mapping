@@ -2,7 +2,7 @@
 import matplotlib.pyplot as plt
 import seaborn as sns
 import matplotlib
-from data.results.sparsifier.best_model.model import Siamese
+from data.results.sparsifier.latest_model.model import Siamese
 from tqdm import tqdm
 from data_getter import GibsonDataset
 from torch.utils import data
