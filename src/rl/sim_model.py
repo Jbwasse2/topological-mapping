@@ -5,7 +5,9 @@ import time
 from copy import deepcopy
 from typing import ClassVar, Dict, List
 
+import cv2
 import habitat
+import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 import pudb
@@ -83,19 +85,33 @@ def example_forward(model, hidden_state, scene, device):
     model.act(ob, hidden_state, prev_action, not_done_masks, deterministic=False)
 
 
-def try_to_reach(G, start_node, end_node, model, hidden_state, scene, device):
+# Takes a node such as (0,5) and reutrns its heading/position in the collected trajectory
+def get_node_pose(node, d):
+    pose = d[node[0]]["shortest_paths"][0][node[1]]
+    position = pose["position"]
+    rotation = pose["rotation"]
+    return position, rotation
+
+
+def try_to_reach(G, start_node, end_node, d, model, hidden_state, sim, device):
+    ob = sim.reset()
     # Perform high level planning over graph
     try:
         path = nx.dijkstra_path(G, start_node, end_node)
     except nx.exception.NetworkXNoPath as e:
         return 2
-    pu.db
-    # Move robot to starting position/heading
     current_node = path[0]
     local_goal = path[1]
+    # Move robot to starting position/heading
+    agent_state = sim.agents[0].get_state()
+    pos, rot = get_node_pose(current_node, d)
+    agent_state.position = pos
+    agent_state.rotation = rot
+    sim.agents[0].set_state(agent_state)
+    # Start experiments!
     for i in range(len(path) - 1):
         success = try_to_reach_local(
-            current_node, local_goal, model, hidden_state, scene, device
+            current_node, local_goal, d, model, hidden_state, sim, device
         )
         if not success:
             return 1
@@ -105,20 +121,87 @@ def try_to_reach(G, start_node, end_node, model, hidden_state, scene, device):
     return 0
 
 
-def try_to_reach_local(start_node, local_goal_node, model, hidden_state, scene, device):
+def get_node_image(node, scene_name):
+    image_location = (
+        "../../data/datasets/pointnav/gibson/v2/train_large/images/"
+        + scene_name
+        + "/"
+        + "episode"
+        + str(node[0])
+        + "_"
+        + str(node[1]).zfill(5)
+        + ".jpg"
+    )
+    return plt.imread(image_location)
+
+
+# Returns 1 on success, and 0 on failure
+def try_to_reach_local(
+    start_node, local_goal_node, d, model, hidden_state, sim, device, visualize=True
+):
+    pu.db
     MAX_NUMBER_OF_STEPS = 50
     prev_action = torch.zeros(1, 1).to(device)
     not_done_masks = torch.zeros(1, 1).to(device)
-    ob = scene.reset()
+    ob = sim.get_observations_at(sim.get_agent_state())
+    actions = []
+    if visualize:
+        scene_name = os.path.splitext(os.path.basename(sim.config.sim_cfg.scene.id))[0]
+
+        start_image = cv2.resize(get_node_image(start_node, scene_name), (256, 256))
+        goal_image = cv2.resize(get_node_image(local_goal_node, scene_name), (256, 256))
+        # visualize_observation(ob, start_image, goal_image)
+        pu.db
+        video_name = "local.mkv"
+        video = cv2.VideoWriter(video_name, 0, 3, (256, 256 * 3))
+        image = np.vstack([ob["rgb"], start_image, goal_image])
+        video.write(image)
+
     for i in range(MAX_NUMBER_OF_STEPS):
-        pass
+        displacement = torch.from_numpy(
+            get_displacement_local_goal(sim, local_goal_node, d)
+        ).type(torch.float32)
+        ob["pointgoal_with_gps_compass"] = displacement.unsqueeze(0).to(device)
+        ob["depth"] = torch.from_numpy(ob["depth"]).unsqueeze(0).to(device)
+        _, action, _, hidden_state = model.act(
+            ob, hidden_state, prev_action, not_done_masks, deterministic=False
+        )
+        actions.append(action[0].item())
+        if action[0].item() == 0:  # This is stop action
+            if visualize:
+                cv2.destroyAllWindows()
+                video.release()
+            return 1
+        ob = sim.step(action[0].item())
+        if visualize:
+            image = np.vstack([ob["rgb"], start_image, goal_image])
+            video.write(image)
+            # visualize_observation(ob, start_image, goal_image)
+    if visualize:
+        cv2.destroyAllWindows()
+        video.release()
+    return 0
 
 
-def visualize_observation(observation):
-    pass
+def get_displacement_local_goal(sim, local_goal, d):
+    pos_goal, rot_goal = get_node_pose(local_goal, d)
+    pos_agent = sim.get_agent_state().position
+    diff = pos_goal - pos_agent
+    return np.array([diff[2], diff[0]])
 
 
-def run_experiment(G, model, hidden_state, scene, device, experiments=100):
+def visualize_observation(observation, start, goal):
+    f, ax = plt.subplots(1, 3)
+    ax[0].imshow(observation["rgb"])
+    ax[0].title.set_text("Current Observation")
+    ax[1].imshow(start)
+    ax[1].title.set_text("Local Start Image")
+    ax[2].imshow(goal)
+    ax[2].title.set_text("Local Goal Image")
+    plt.show()
+
+
+def run_experiment(G, d, model, hidden_state, scene, device, experiments=100):
     # Choose 2 random nodes in graph
     return_codes = [0 for i in range(3)]
     for _ in range(experiments):
@@ -127,7 +210,7 @@ def run_experiment(G, model, hidden_state, scene, device, experiments=100):
         node1 = (13, 10)
         node2 = (31, 60)
         results = try_to_reach(
-            G, node1, node2, model, deepcopy(hidden_state), scene, device
+            G, node1, node2, d, model, deepcopy(hidden_state), scene, device
         )
         return_codes[results] += 1
     return return_codes
@@ -147,8 +230,8 @@ def main():
         else torch.device("cpu")
     )
     scene = create_sim("Goodwine")
-    #  model, hidden_state = get_ddppo_model(config, device)
-    #  example_forward(model, hidden_state, scene, device)
+    model, hidden_state = get_ddppo_model(config, device)
+    # example_forward(model, hidden_state, scene, device)
     G = nx.read_gpickle("./data/map/map_Goodwine.gpickle")
     d = get_dict("Goodwine")
     #    traj_ind = np.load("./traj_ind.npy", allow_pickle=True)
@@ -156,7 +239,7 @@ def main():
     #    traj_new = np.load("./traj_new.npy", allow_pickle=True)
     #    traj_new_eval = np.load("./traj_new_eval.npy", allow_pickle=True)
     #    eval_trajs = np.load("./eval_trajs.npy", allow_pickle=True)
-    run_experiment(G, None, None, scene, device)
+    run_experiment(G, d, model, hidden_state, scene, device)
     pu.db
 
 
