@@ -1,10 +1,18 @@
 import gzip
+import torch.nn.functional as F
+import random
 import pathlib
 import shutil
 import habitat
 import itertools
 import os
 
+import quaternion
+from habitat.utils.geometry_utils import (
+    quaternion_to_list,
+    angle_between_quaternions,
+    quaternion_from_coeff,
+)
 import cv2
 import matplotlib
 import matplotlib.pyplot as plt
@@ -20,15 +28,28 @@ from test_data import GibsonMapDataset
 
 from habitat.datasets.utils import get_action_shortest_path
 
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+matplotlib.rcParams["font.family"] = "Helvetica"
+font = {"weight": "bold"}
+
+matplotlib.rc("font", **font)
+
 
 def create_sim(scene):
-    cfg = habitat.get_config()
-    cfg.defrost()
-    cfg.SIMULATOR.SCENE = "../../data/scene_datasets/gibson/" + scene + ".glb"
-    cfg.SIMULATOR.AGENT_0.SENSORS = ["RGB_SENSOR"]
-    cfg.freeze()
+    cfg = create_cfg(scene)
     sim = habitat.sims.make_sim("Sim-v0", config=cfg.SIMULATOR)
     return sim
+
+
+def create_cfg(scene):
+    cfg = habitat.get_config("../../configs/tasks/pointnav_gibson.yaml")
+    cfg.defrost()
+    cfg.SIMULATOR.SCENE = "../../data/scene_datasets/gibson/" + scene + ".glb"
+    cfg.DATASET.SCENES_DIR = "../../data/scene_datasets/"
+    cfg.SIMULATOR.AGENT_0.SENSORS = ["RGB_SENSOR"]
+    cfg.TASK.MEASUREMENTS.append("TOP_DOWN_MAP")
+    cfg.freeze()
+    return cfg
 
 
 # Returns the length of the shortest path between two edges
@@ -44,11 +65,11 @@ def actual_edge_len(edge, d, sim):
     position2 = pose2["position"]
     rotation2 = pose2["rotation"]
     # Get actual distance from simulator, use same settings as the one used in data collection
-    if position1 == position2:
+    if position1 == position2 and rotation1 == rotation2:
         return 0
     shortest_path_success_distance = 0.2
     shortest_path_max_steps = 500
-    shortest_path = get_action_shortest_path(
+    shortest_path, final_state_rotation = get_action_shortest_path(
         sim,
         source_position=position1,
         source_rotation=rotation1,
@@ -56,14 +77,13 @@ def actual_edge_len(edge, d, sim):
         success_distance=shortest_path_success_distance,
         max_episode_steps=shortest_path_max_steps,
     )
-    return len(shortest_path)
-
-
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
-matplotlib.rcParams["font.family"] = "Helvetica"
-font = {"weight": "bold"}
-
-matplotlib.rc("font", **font)
+    if not isinstance(rotation2, quaternion.quaternion):
+        rotation2 = quaternion_from_coeff(rotation2)
+    angle = angle_between_quaternions(final_state_rotation, rotation2)
+    actuation_rotation = np.deg2rad(
+        sim.config.agents[0].action_space[2].actuation.amount
+    )
+    return len(shortest_path) + int(angle / actuation_rotation)
 
 
 def get_dict(fname):
@@ -80,27 +100,14 @@ def get_dict(fname):
 
 
 # Takes images of trajectory and sparsifies them
-def sparsify_trajectories(model, trajs, trajs_visual, device, sparsity=4):
-    #        trajs=np.load("trajs.npy", allow_pickle=True)
+# Assumes we have perfect knowledge of distance, but this doesn't matter for localization problem.
+def sparsify_trajectories(model, trajs, trajs_visual, device, d, sim, sparsity=4):
     traj_ind = []
     for traj in tqdm(trajs):
-        image_indices = [0]
-        skip_index = 0
+        image_indices = []
         for i in range(len(traj)):
-            if i < skip_index:
-                continue
-            image1 = traj[i].unsqueeze(0).float().to(device)
-            j = 0
-            while 1:
-                if i + j + 1 >= len(traj):
-                    break
-                image2 = traj[i + 1 + j].unsqueeze(0).float().to(device)
-                j += 1
-                results = np.argmax(model(image1, image2).cpu().detach().numpy())
-                if results > sparsity:
-                    skip_index = i + j
-                    image_indices.append(skip_index)
-                    break
+            if i % sparsity == 0:
+                image_indices.append(i)
         traj_ind.append(image_indices)
     ret = []
     for traj, indices in tqdm(zip(trajs_visual, traj_ind)):
@@ -192,25 +199,24 @@ def visualize_edge(node1, node2, scene, out_file_name):
 # Takes a list of trajectories and adds them to the graph
 # This does not make connecitons between the trajectories, just adds them.
 # Does not add node in trajectory if node is too similar to another node in graph
-def add_trajs_to_graph(G, trajectories, traj_ind, model, device, similarity):
-    for trajectory_count, trajectory in tqdm(enumerate(trajectories)):
+def add_trajs_to_graph(
+    G, trajectories, traj_ind, model, device, similarity, episodes, d, sim
+):
+    for trajectory_count, (trajectory_count_episode, trajectory) in tqdm(
+        enumerate(zip(episodes, trajectories))
+    ):
         tail_node = None
         for frame_count, frame in enumerate(trajectory):
+            print(trajectory_count)
             # we want to keep track of what the actual frame is from in the trajectory
             true_label = get_true_label(trajectory_count, frame_count, traj_ind)
-            current_node = (trajectory_count, true_label)
-            image1 = frame.unsqueeze(0).float().to(device)
+            current_node = (trajectory_count_episode, true_label)
             for node in list(G.nodes):
                 # Skip previous tail node from being too close to current node, otherwise you may just be sparsifying your graph extra.
                 if node == tail_node:
                     continue
-                # Get the index in the trajectory where node is (sparse label)
-                node_traj_ind = traj_ind[node[0]]
-                node_ind = node_traj_ind.index(node[1])
-                # Get original node image
-                node_image = trajectories[node[0]][node_ind]
-                image2 = node_image.unsqueeze(0).float().to(device)
-                results = np.argmax(model(image1, image2).cpu().detach().numpy())
+                edge = (current_node, node)
+                results = actual_edge_len(edge, d, sim)
                 if results <= similarity:
                     current_node = node
                     break
@@ -227,7 +233,7 @@ def add_trajs_to_graph(G, trajectories, traj_ind, model, device, similarity):
 # Note: add_traj_to_graph needs to be called first.
 # Takes the trajectories and connects them together by using the sparsifier
 def connect_graph_trajectories(
-    G, trajectories, traj_ind, model, device, similarity, sim=None, d=None, scene=None
+    G, trajectories, traj_ind, model, device, similarity, episodes, sim=None, d=None
 ):
     img_dir = "../../data/results/map/edges/"
     shutil.rmtree(img_dir)
@@ -249,55 +255,45 @@ def connect_graph_trajectories(
             node_image_j = (
                 trajectories[node_j[0]][node_ind_j].unsqueeze(0).float().to(device)
             )
-            result = model(node_image_i, node_image_j).cpu().detach().numpy()
+            # result = model(node_image_i, node_image_j).cpu().detach().numpy()
+            results = actual_edge_len(edge, d, sim)
             result_close = np.argmax(result)
             if result_close <= similarity:
                 G.add_edge(node_i, node_j)
-                # Check for wormholes
-                if sim != None and d != None:
-                    if counter == 1:
-                        pu.db
-                    true_length = actual_edge_len((node_i, node_j), d, sim)
-                    # Perform visualizations
-                    if scene != None:
-                        visualize_edge(
-                            node_i,
-                            node_j,
-                            scene,
-                            img_dir
-                            + "edge_"
-                            + str(counter).zfill(4)
-                            + "_pred_"
-                            + str(result_close)
-                            + "_true_"
-                            + str(true_length)
-                            + ".png",
-                        )
-                        counter += 1
     return G
 
 
 def create_topological_map(
-    trajectories, traj_ind, model, device, similarity=2, sim=None, d=None, scene=None
+    trajectories,
+    traj_ind,
+    model,
+    device,
+    episodes,
+    similarity=2,
+    sim=None,
+    d=None,
+    scene=None,
 ):
     # Put all trajectories into graph
     G = nx.DiGraph()
-    G = add_trajs_to_graph(G, trajectories, traj_ind, model, device, similarity)
-    G = connect_graph_trajectories(
-        G, trajectories, traj_ind, model, device, similarity, sim=sim, d=d, scene=scene
+    G = add_trajs_to_graph(
+        G, trajectories, traj_ind, model, device, similarity, episodes, sim=sim, d=d
     )
     return G
 
 
-def main():
-    VISUALIZE = True
-    CREATE_TRAJECTORIES = False
+def build_graph(hold_out_percent=0.10):
+    VISUALIZE = False
+    CREATE_TRAJECTORIES = True
     device = torch.device("cuda:0")
     model = Siamese().to(device)
     model.load_state_dict(torch.load("./model/saved_model.pth"))
     model.eval()
     test_envs = np.load("./model/test_env.npy")
     ENV = test_envs[0]
+    d = get_dict(ENV)
+    sim = create_sim(ENV)
+
     if CREATE_TRAJECTORIES == True:
         data = GibsonMapDataset(test_envs)
         # trajs is the trajectory of the 224x224 dataset, not sparsified
@@ -305,34 +301,117 @@ def main():
         # traj_new is sparsified trajectory with the traj_visual dataset
         # traj_ind says which indices where used
         traj_new, traj_ind = sparsify_trajectories(
-            model, trajs, trajs, device, sparsity=4
+            model, trajs, trajs, device, d, sim, sparsity=10
         )
         np.save("traj_new.npy", traj_new)
         np.save("traj_ind.npy", traj_ind)
         np.save("trajs.npy", trajs)
+        pu.db
     else:
         traj_new = np.load("traj_new.npy", allow_pickle=True)
-        traj_new = traj_new[0:2]
         traj_ind = np.load("traj_ind.npy", allow_pickle=True)
-        traj_ind = traj_ind[0:2]
     if VISUALIZE:
         visualize_traj_ind(traj_ind)
+    # some trajectories will be used to build the map, some will be used to evaluate the failure of imagegoal
+    traj_held_out = int(len(traj_new) * hold_out_percent)
+    eval_trajs = random.sample(list(range(len(traj_ind))), k=traj_held_out)
+    map_trajs = list(set(range(len(traj_ind))) - set(eval_trajs))
 
-    sim = create_sim(ENV)
+    traj_new_map = [traj_new[i] for i in map_trajs]
+    traj_ind_map = [traj_ind[i] for i in map_trajs]
+    traj_new_eval = [traj_new[i] for i in eval_trajs]
+    traj_ind_eval = [traj_ind[i] for i in eval_trajs]
+
+    assert len(traj_new_map) == len(traj_ind_map)
+    assert len(traj_new_eval) == len(traj_ind_eval)
+    np.save("traj_new_eval.npy", traj_new_eval)
+    np.save("traj_ind_eval.npy", traj_ind_eval)
+    np.save("eval_trajs.npy", eval_trajs)
     G = create_topological_map(
-        traj_new,
-        traj_ind,
+        traj_new_map,
+        traj_ind_map,
         model,
         device,
-        similarity=2,
+        episodes=map_trajs,
+        similarity=10,
         sim=sim,
-        d=get_dict(ENV),
+        d=d,
         scene=ENV,
     )
 
+    print(ENV)
+    nx.write_gpickle(G, "../../data/map/map_" + str(ENV) + ".gpickle")
+    return G, traj_new_eval, traj_ind_eval
 
-#    nx.write_gpickle(G, "../../data/map/map_" + str(ENV) + ".gpickle")
+
+def find_wormholes(G, world, similarity=4):
+    # Want to go over trajectories, get their image and find the reachability
+    traj_new = np.load("traj_new.npy", allow_pickle=True)
+    traj_ind_global = np.load("traj_ind.npy", allow_pickle=True)
+    trajectories = np.load("traj_new_eval.npy", allow_pickle=True)[0:2]
+    traj_ind = np.load("traj_ind_eval.npy", allow_pickle=True)[0:2]
+    device = torch.device("cuda:0")
+    model = Siamese().to(device)
+    model.load_state_dict(torch.load("./model/saved_model.pth"))
+    model.eval()
+    test_envs = np.load("./model/test_env.npy")
+    d = get_dict(world)
+    sim = create_sim(world)
+    img_dir = "../../data/results/map/edges/"
+    shutil.rmtree(img_dir)
+    pathlib.Path(img_dir).mkdir(parents=True, exist_ok=False)
+    counter = 0
+    episodes = np.load("eval_trajs.npy", allow_pickle=True)
+    for trajectory_count, (trajectory_count_episode, trajectory) in tqdm(
+        enumerate(zip(episodes, trajectories))
+    ):
+        for frame_count, frame in enumerate(trajectory):
+            print(trajectory_count)
+            image1 = frame.unsqueeze(0).float().to(device)
+            # we want to keep track of what the actual frame is from in the trajectory
+            true_label = get_true_label(trajectory_count, frame_count, traj_ind)
+            current_node = (trajectory_count_episode, true_label)
+            for node in list(G.nodes):
+                node_traj_ind = traj_ind_global[node[0]]
+                node_ind = node_traj_ind.index(node[1])
+                # Get original node image
+                node_image = traj_new[node[0]][node_ind]
+                image2 = node_image.unsqueeze(0).float().to(device)
+                results = np.argmax(model(image1, image2).cpu().detach().numpy())
+                if results in range(5, 5 + similarity):
+                    print("Accepted")
+                    edge = (current_node, node)
+                    true_length = actual_edge_len(edge, d, sim)
+                    visualize_edge(
+                        current_node,
+                        node,
+                        world,
+                        img_dir
+                        + "edge_"
+                        + str(counter).zfill(4)
+                        + "_pred_"
+                        + str(results)
+                        + "_true_"
+                        + str(true_length)
+                        + ".png",
+                    )
+                    counter += 1
+                else:
+                    print("Passed")
+
+
+def visualize_graph(env_name, G):
+    cfg = create_cfg(env_name)
+    env = habitat.Env(config=cfg)
 
 
 if __name__ == "__main__":
-    main()
+    import random
+
+    random.seed(0)
+    # G, traj_new_eval, traj_ind_eval = build_graph(0.50)
+    G = nx.read_gpickle("../../data/map/map_Goodwine.gpickle")
+    test_envs = np.load("./model/test_env.npy")
+    ENV = test_envs[0]
+    # visualize_graph(ENV, G)
+    wormholes = find_wormholes(G, ENV)

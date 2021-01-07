@@ -2,7 +2,7 @@
 import matplotlib.pyplot as plt
 import seaborn as sns
 import matplotlib
-from data.results.sparsifier.best_model.model import Siamese
+from data.results.sparsifier.latest_model.model import Siamese
 from tqdm import tqdm
 from data_getter import GibsonDataset
 from torch.utils import data
@@ -36,7 +36,7 @@ test_dataloader = data.DataLoader(
     num_workers=16,
 )
 
-confusion = np.zeros((11, 11))
+confusion = np.zeros((21, 21))
 for i, batch in enumerate(tqdm(test_dataloader)):
     x, y = batch
     im1, im2 = x

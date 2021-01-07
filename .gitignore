@@ -6,6 +6,8 @@
 data
 *.pth
 *.npy
+src/slam/orb_slam2
+src/slam/ORB_SLAM3
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

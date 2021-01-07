@@ -28,4 +28,4 @@ TASK:
 DATASET:
   TYPE: PointNav-v1
   SPLIT: train_large
-  DATA_PATH: ../data/datasets/pointnav/gibson/v2/{split}/{split}.json.gz
+  DATA_PATH: ../../data/datasets/pointnav/gibson/v2/train_large/train_large.json.gz

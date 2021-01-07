@@ -9,7 +9,7 @@ import torch
 import torch.optim as optim
 from torch import nn
 from torch.utils import data
-from tqdm import tqdm
+from rich.progress import track
 
 from data_getter import GibsonDataset
 from model import Siamese
@@ -17,7 +17,8 @@ from model import Siamese
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 
-def train(model, device, epochs=50):
+def train(model, device, epochs=200):
+    print("DONT FORGET TO UNCOMMENT SAVE MODEL")
     current_time = time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime())
     results_dir = "../../data/results/sparsifier/" + current_time + "/"
     os.mkdir(results_dir)
@@ -26,7 +27,7 @@ def train(model, device, epochs=50):
     optimizer = optim.Adam(model.parameters(), lr=0.001)
     BATCH_SIZE = 64
     seed = 0
-    train_dataset = GibsonDataset("train", seed, samples=30000)
+    train_dataset = GibsonDataset("train", seed, samples=30000, max_distance=5, ignore_0=True)
     train_dataset.save_env_data(results_dir)
     train_dataloader = data.DataLoader(
         train_dataset,
@@ -34,7 +35,7 @@ def train(model, device, epochs=50):
         shuffle=True,
         num_workers=16,
     )
-    test_dataset = GibsonDataset("test", seed, samples=3500)
+    test_dataset = GibsonDataset("test", seed, samples=3500, max_distance=5, ignore_0=True)
     test_dataloader = data.DataLoader(
         test_dataset,
         batch_size=BATCH_SIZE,
@@ -54,7 +55,7 @@ def train(model, device, epochs=50):
     for epoch in range(epochs):
         print("epoch ", epoch)
         model.train()
-        for i, batch in enumerate(tqdm(train_dataloader)):
+        for i, batch in enumerate(track(train_dataloader, description="[cyan] Training!")):
             x, y = batch
             im1, im2 = x
             y = y.to(device)
@@ -79,7 +80,7 @@ def train(model, device, epochs=50):
         accuracy = []
         # Do validation
         model.eval()
-        for i, batch in enumerate(tqdm(test_dataloader)):
+        for i, batch in enumerate(track(test_dataloader, description="[red] Testing!")):
             x, y = batch
             im1, im2 = x
             y = y.to(device)

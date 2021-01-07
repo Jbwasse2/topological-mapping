@@ -30,8 +30,6 @@ def actual_edge_len(edge, scene, d, sim):
     position2 = pose2["position"]
     rotation2 = pose2["rotation"]
     # Get actual distance from simulator, use same settings as the one used in data collection
-    if position1 == position2:
-        return 0
     shortest_path_success_distance = 0.2
     shortest_path_max_steps = 500
     shortest_path = get_action_shortest_path(
@@ -51,6 +49,7 @@ def main():
     sim = create_sim(scene)
     d = get_dict(scene)
     G = nx.read_gpickle("../../data/map/map_Goodwine.gpickle")
+    pu.db
     lengths = {}
     # For now only search over edges that go between different trajectories
     # The following will search over all edges
