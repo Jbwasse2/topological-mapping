@@ -88,6 +88,7 @@ def example_forward(model, hidden_state, scene, device):
     ob = scene.reset()
     prev_action = torch.zeros(1, 1).to(device)
     not_done_masks = torch.zeros(1, 1).to(device)
+    not_done_masks += 1
     ob["pointgoal_with_gps_compass"] = torch.rand(1, 2).to(device)
     ob["depth"] = torch.from_numpy(ob["depth"]).unsqueeze(0).to(device)
     model.act(ob, hidden_state, prev_action, not_done_masks, deterministic=False)
@@ -125,6 +126,7 @@ def try_to_reach(
     agent_state.rotation = rot
     sim.agents[0].set_state(agent_state)
     # Start experiments!
+    pu.db
     for current_node, local_goal in zip(path, path[1:]):
         success = try_to_reach_local(
             current_node, local_goal, d, model, hidden_state, sim, device, video
@@ -158,9 +160,10 @@ def get_node_image(node, scene_name):
 def try_to_reach_local(
     start_node, local_goal_node, d, model, hidden_state, sim, device, video
 ):
-    MAX_NUMBER_OF_STEPS = 50
+    MAX_NUMBER_OF_STEPS = 150
     prev_action = torch.zeros(1, 1).to(device)
     not_done_masks = torch.zeros(1, 1).to(device)
+    not_done_masks += 1
     ob = sim.get_observations_at(sim.get_agent_state())
     actions = []
     if video is not None:
@@ -176,12 +179,12 @@ def try_to_reach_local(
         displacement = torch.from_numpy(
             get_displacement_local_goal(sim, local_goal_node, d)
         ).type(torch.float32)
-        print(displacement)
         ob["pointgoal_with_gps_compass"] = displacement.unsqueeze(0).to(device)
         ob["depth"] = torch.from_numpy(ob["depth"]).unsqueeze(0).to(device)
-        _, action, _, hidden_state = model.act(
-            ob, hidden_state, prev_action, not_done_masks, deterministic=False
-        )
+        with torch.no_grad():
+            _, action, _, hidden_state = model.act(
+                ob, hidden_state, prev_action, not_done_masks, deterministic=True
+            )
         actions.append(action[0].item())
         prev_action = action
         if action[0].item() == 0 or displacement[0] < 0.2:  # This is stop action
@@ -249,9 +252,6 @@ def run_experiment(G, d, model, hidden_state, scene, device, experiments=100):
     return_codes = [0 for i in range(3)]
     for _ in tqdm(range(experiments)):
         node1, node2 = get_two_nodes(G)
-        # Hard code for now...
-        # node1 = (8, 10)
-        # node2 = (4, 60)
         results = try_to_reach(
             G, node1, node2, d, model, deepcopy(hidden_state), scene, device
         )
@@ -268,6 +268,8 @@ def get_two_nodes(G):
 
 def main():
     random.seed(0)
+    np.random.seed(0)
+    torch.manual_seed(0)
     config = get_config("configs/baselines/ddppo_pointnav.yaml", [])
     device = (
         torch.device("cuda", config.TORCH_GPU_ID)
