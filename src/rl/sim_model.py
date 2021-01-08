@@ -117,6 +117,7 @@ def try_to_reach(
     except nx.exception.NetworkXNoPath as e:
         return 2
     print("NEW PATH")
+    pu.db
     current_node = path[0]
     local_goal = path[1]
     # Move robot to starting position/heading
@@ -126,7 +127,6 @@ def try_to_reach(
     agent_state.rotation = rot
     sim.agents[0].set_state(agent_state)
     # Start experiments!
-    pu.db
     for current_node, local_goal in zip(path, path[1:]):
         success = try_to_reach_local(
             current_node, local_goal, d, model, hidden_state, sim, device, video
@@ -160,7 +160,7 @@ def get_node_image(node, scene_name):
 def try_to_reach_local(
     start_node, local_goal_node, d, model, hidden_state, sim, device, video
 ):
-    MAX_NUMBER_OF_STEPS = 150
+    MAX_NUMBER_OF_STEPS = 50
     prev_action = torch.zeros(1, 1).to(device)
     not_done_masks = torch.zeros(1, 1).to(device)
     not_done_masks += 1
@@ -183,7 +183,7 @@ def try_to_reach_local(
         ob["depth"] = torch.from_numpy(ob["depth"]).unsqueeze(0).to(device)
         with torch.no_grad():
             _, action, _, hidden_state = model.act(
-                ob, hidden_state, prev_action, not_done_masks, deterministic=True
+                ob, hidden_state, prev_action, not_done_masks, deterministic=False
             )
         actions.append(action[0].item())
         prev_action = action
@@ -230,7 +230,7 @@ def get_displacement_local_goal(sim, local_goal, d):
     rho, phi = cartesian_to_polar(-direction_vector_agent[2], direction_vector_agent[0])
 
     # Should be same as agent_world_angle
-    return np.array([rho, phi])
+    return np.array([rho, -phi])
 
 
 def visualize_observation(observation, start, goal):
@@ -267,9 +267,9 @@ def get_two_nodes(G):
 
 
 def main():
-    random.seed(0)
-    np.random.seed(0)
-    torch.manual_seed(0)
+    random.seed(1)
+    np.random.seed(1)
+    torch.manual_seed(1)
     config = get_config("configs/baselines/ddppo_pointnav.yaml", [])
     device = (
         torch.device("cuda", config.TORCH_GPU_ID)
