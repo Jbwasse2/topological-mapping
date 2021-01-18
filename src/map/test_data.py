@@ -26,16 +26,16 @@ class GibsonMapDataset(Dataset):
     def __init__(self, test_envs, transform=True):
         self.transform = transform
         self.image_data_path = (
-            "../../data/datasets/pointnav/gibson/v3/train_large/images/"
+            "../../data/datasets/pointnav/gibson/v4/train_large/images/"
         )
-        self.dict_path = "../../data/datasets/pointnav/gibson/v3/train_large/content/"
+        self.dict_path = "../../data/datasets/pointnav/gibson/v4/train_large/content/"
         self.test_env = test_envs
         self.current_env = None
 
     def set_env(self, env):
-        assert env in self.test_env
+#        assert env in self.test_env
         self.current_env = env
-        self.dataset = glob.glob(self.image_data_path + self.current_env + "/*")
+        self.dataset = glob.glob(self.image_data_path + self.current_env + "/episodeRGB*")
         self.dataset = os_sorted(self.dataset)
         self.last = self.last_image_in_episode(self.dataset)
         self.number_of_trajectories = np.sum(self.last)
@@ -52,8 +52,8 @@ class GibsonMapDataset(Dataset):
             if i + 1 == len(dataset):
                 ret.append(1)
                 continue
-            s1 = re.search(r"episode\d+", dataset[i]).group()
-            s2 = re.search(r"episode\d+", dataset[i + 1]).group()
+            s1 = re.search(r"episodeRGB\d+", dataset[i]).group()
+            s2 = re.search(r"episodeRGB\d+", dataset[i + 1]).group()
             if s1 == s2:
                 ret.append(0)
             else:

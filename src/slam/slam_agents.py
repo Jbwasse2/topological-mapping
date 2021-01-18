@@ -243,7 +243,7 @@ class ORBSLAM2Agent(RandomAgent):
             print("Warning!!!! ORBSLAM processing frame error")
             self.tracking_is_OK = False
         if not self.tracking_is_OK:
-            self.reset()
+            pu.db
             return False
         t = time.time()
         #        self.set_offset_to_goal(habitat_observation)
@@ -590,7 +590,6 @@ class ORBSLAM2MonoAgent(ORBSLAM2Agent):
             self.slam_vocab_path, self.slam_settings_path, orbslam2.Sensor.MONOCULAR
         )
         self.slam.set_use_viewer(False)
-        pu.db
         self.slam.initialize()
         self.device = device
         self.map_size_meters = config.MAP_SIZE
@@ -645,7 +644,7 @@ class ORBSLAM2MonoAgent(ORBSLAM2Agent):
             print("Warning!!!! ORBSLAM processing frame error")
             self.tracking_is_OK = False
         if not self.tracking_is_OK:
-            self.reset()
+            pu.db
             return False
         t = time.time()
         #        self.set_offset_to_goal(habitat_observation)

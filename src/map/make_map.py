@@ -105,10 +105,17 @@ def estimate_edge_len(edge, d, sim):
 
     return int(distance / POSITION_GRANULARITY) + int(angle / ANGLE_GRANULARITY)
 
+def estimate_edge_len_SLAM(edge, d, sim):
+    print("HOI")
+    #Get labels from SLAM
+    env = os.path.basename(sim.config.sim_cfg.scene.id).split('.')[0]
+    slam_labels = torch.load("../data/results/slam/" + env + "/traj.pt")
+    pu.db
+
 
 def get_dict(fname):
     f = gzip.open(
-        "../../data/datasets/pointnav/gibson/v3/train_large/content/"
+        "../../data/datasets/pointnav/gibson/v4/train_large/content/"
         + fname
         + ".json.gz"
     )
@@ -125,10 +132,7 @@ def sparsify_trajectories(model, trajs, trajs_visual, device, d, sim, sparsity=4
     traj_ind = []
     counter = 0
     for traj in tqdm(trajs):
-        if counter == 4:
-            pu.db
         counter += 1
-        pu.db
         image_indices = []
         for i in range(len(traj)):
             if i % sparsity == 0:
@@ -190,7 +194,7 @@ def visualize_traj_ind(traj_ind):
 # Takes node label (0,0) and returns corresponding image as 640x480, useful for visulaizations.
 def get_node_image(node, scene):
     image_location = (
-        "../../data/datasets/pointnav/gibson/v3/train_large/images/"
+        "../../data/datasets/pointnav/gibson/v4/train_large/images/"
         + scene
         + "/"
         + "episode"
@@ -240,7 +244,7 @@ def add_trajs_to_graph(
                 if node == tail_node:
                     continue
                 edge = (current_node, node)
-                results = estimate_edge_len(edge, d, sim)
+                results = estimate_edge_len_SLAM(edge, d, sim)
                 if results <= similarity:
                     current_node = node
                     break
@@ -273,7 +277,7 @@ def connect_graph_trajectories(
             node2 = edge[1]
             pose2 = d[node2[0]]["shortest_paths"][0][0][node2[1]]
             position2 = pose2["position"]
-            results = estimate_edge_len(edge, d, sim)
+            results = estimate_edge_len_SLAM(edge, d, sim)
             if results <= similarity:
                 # Don't add edge if nodes are on seperate floors
                 if abs(position1[1] - position2[1]) > 0.1:
@@ -304,7 +308,7 @@ def create_topological_map(
     return G
 
 
-def build_graph(hold_out_percent=0.10):
+def build_graph(hold_out_percent, env):
     VISUALIZE = False
     CREATE_TRAJECTORIES = True
     device = torch.device("cuda:0")
@@ -312,14 +316,13 @@ def build_graph(hold_out_percent=0.10):
     model.load_state_dict(torch.load("./model/saved_model.pth"))
     model.eval()
     test_envs = np.load("./model/test_env.npy")
-    ENV = test_envs[0]
-    d = get_dict(ENV)
-    sim = create_sim(ENV)
+    d = get_dict(env)
+    sim = create_sim(env)
 
     if CREATE_TRAJECTORIES == True:
         data = GibsonMapDataset(test_envs)
         # trajs is the trajectory of the 224x224 dataset, not sparsified
-        trajs = get_trajectory_env(data, ENV)
+        trajs = get_trajectory_env(data, env)
         # traj_new is sparsified trajectory with the traj_visual dataset
         # traj_ind says which indices where used
         traj_new, traj_ind = sparsify_trajectories(
@@ -357,12 +360,11 @@ def build_graph(hold_out_percent=0.10):
         similarity=4,
         sim=sim,
         d=d,
-        scene=ENV,
+        scene=env,
     )
 
-    print(ENV)
     nx.write_gpickle(
-        G, "../../data/map/map_" + str(ENV) + str(hold_out_percent) + ".gpickle"
+        G, "../../data/map/map_" + str(env) + str(hold_out_percent) + ".gpickle"
     )
     return G, traj_new_eval, traj_ind_eval
 
@@ -432,7 +434,8 @@ if __name__ == "__main__":
     import random
 
     random.seed(0)
-    G, traj_new_eval, traj_ind_eval = build_graph(0.05)
+    env = "Airport"
+    G, traj_new_eval, traj_ind_eval = build_graph(0.05, env)
 # G = nx.read_gpickle("../../data/map/map_Goodwine.gpickle")
 # test_envs = np.load("./model/test_env.npy")
 # ENV = test_envs[0]
