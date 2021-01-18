@@ -1,13 +1,20 @@
 import habitat
+import matplotlib.pyplot as plt
+from habitat.utils.visualizations.maps import get_topdown_map
+import gzip
 import numpy as np
 import torch
 from slam_agents import (
+    ORBSLAM2MonoAgent,
     ORBSLAM2Agent,
     get_config,
     cfg_baseline,
     make_good_config_for_orbslam2,
 )
 import argparse
+import os
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 
 def create_agent():
@@ -15,7 +22,7 @@ def create_agent():
     parser.add_argument(
         "--agent-type",
         default="orbslam2-rgbd",
-        choices=["blind", "orbslam2-rgbd", "orbslam2-rgb-monod"],
+        choices=["blind", "orbslam2-rgbd", "orbslam2-rgb-monod", "mono"],
     )
     parser.add_argument("--task-config", type=str, default="tasks/pointnav_rgbd.yaml")
     args = parser.parse_args()
@@ -36,6 +43,8 @@ def create_agent():
         agent = ORBSLAM2Agent(config.ORBSLAM2)
     elif args.agent_type == "orbslam2-rgb-monod":
         agent = ORBSLAM2MonodepthAgent(config.ORBSLAM2)
+    elif args.agent_type == "mono":
+        agent = ORBSLAM2MonoAgent(config.ORBSLAM2)
     else:
         raise ValueError(args.agent_type, "is unknown type of agent")
     return agent, config
@@ -46,21 +55,92 @@ def create_sim(scene, cfg):
     cfg.SIMULATOR.SCENE = "../../data/scene_datasets/gibson/" + scene + ".glb"
     cfg.freeze()
     sim = habitat.sims.make_sim("Sim-v0", config=cfg.SIMULATOR)
-    pu.db
     return sim
 
 
-def main():
+def get_dict(fname):
+    f = gzip.open(
+        "../../data/datasets/pointnav/gibson/v4/train_large/content/"
+        + fname
+        + ".json.gz"
+    )
+    content = f.read()
+    content = content.decode()
+    content = content.replace("null", "None")
+    content = eval(content)
+    return content["episodes"]
+
+
+def add_traj_to_SLAM(agent, scene_name):
+    d = get_dict(scene_name)
+    foo = []
+    NUMBER_OF_TRAJECTORIES_COLLECTED = 40
+    counter = 0
+    start = (0, 0)
+    flagBreak = False
+    for i in range(NUMBER_OF_TRAJECTORIES_COLLECTED):
+        if flagBreak:
+            break
+        print("Traj= ", i)
+        for j in range(len(d[i]["shortest_paths"][0][0])):
+            image_location = (
+                "../../data/datasets/pointnav/gibson/v4/train_large/images/"
+                + scene_name
+                + "/"
+                + "episodeRGB"
+                + str(i)
+                + "_"
+                + str(j).zfill(5)
+                + ".jpg"
+            )
+            rgb = plt.imread(image_location)
+            depth_location = (
+                "../../data/datasets/pointnav/gibson/v4/train_large/images/"
+                + scene_name
+                + "/"
+                + "episodeDepth"
+                + str(i)
+                + "_"
+                + str(j).zfill(5)
+                + ".npy"
+            )
+            depth = np.load(depth_location)
+            observation = {}
+            observation["rgb"] = rgb
+            observation["depth"] = depth
+            if agent.update_internal_state(observation) == False:
+                flagBreak = True
+                break
+            plt.imsave(
+                "./out/map2D_" + str(counter).zfill(5) + ".png",
+                agent.map2DObstacles.detach().cpu().numpy().squeeze(),
+            )
+            counter += 1
+    data_dir = "../../data/results/slam/"
+    torch.save(agent.trajectory_history, data_dir + "traj.pt")
+    torch.save(start, data_dir + "start.pt")
+    torch.save(agent.map2DObstacles, data_dir + "map2D.pt")
+    torch.save(agent.current_obstacles, data_dir + "obstacles.pt")
+
+
+def get_actual_top_down(sim, env):
+    plt.imsave(
+        "./top_down/top_down_" + str(env) + ".png",
+        get_topdown_map(sim.pathfinder, 0.01),
+    )
+
+
+def main(env="Adairsville"):
     agent, config = create_agent()
-    print(config)
-    pu.db
-    sim = create_sim("Airport", config)
+    # print(config)
+    #    sim = create_sim(env, config)
+    #    get_actual_top_down(sim, env)
+    # sim = create_sim(env, config)
     #    sim.agents = [agent]
-    habitat_observation = sim.step(2)
-    k = habitat_observation.keys()
-    pu.db
-    agent.act(habitat_observation, random_prob=0.0)
+    # habitat_observation = sim.step(2)
+    # k = habitat_observation.keys()
+    add_traj_to_SLAM(agent, env)
 
 
 if __name__ == "__main__":
-    main()
+    main("Ackermanville")

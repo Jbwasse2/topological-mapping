@@ -31,7 +31,7 @@ from tqdm import tqdm
 
 def get_dict(fname):
     f = gzip.open(
-        "../../data/datasets/pointnav/gibson/v2/train_large/content/"
+        "../../data/datasets/pointnav/gibson/v3/train_large/content/"
         + fname
         + ".json.gz"
     )
@@ -96,7 +96,7 @@ def example_forward(model, hidden_state, scene, device):
 
 # Takes a node such as (0,5) and reutrns its heading/position in the collected trajectory
 def get_node_pose(node, d):
-    pose = d[node[0]]["shortest_paths"][0][node[1]]
+    pose = d[node[0]]["shortest_paths"][0][0][node[1]]
     position = pose["position"]
     rotation = pose["rotation"]
     return position, rotation
@@ -117,7 +117,6 @@ def try_to_reach(
     except nx.exception.NetworkXNoPath as e:
         return 2
     print("NEW PATH")
-    pu.db
     current_node = path[0]
     local_goal = path[1]
     # Move robot to starting position/heading
@@ -144,7 +143,7 @@ def try_to_reach(
 
 def get_node_image(node, scene_name):
     image_location = (
-        "../../data/datasets/pointnav/gibson/v2/train_large/images/"
+        "../../data/datasets/pointnav/gibson/v3/train_large/images/"
         + scene_name
         + "/"
         + "episode"
@@ -160,7 +159,7 @@ def get_node_image(node, scene_name):
 def try_to_reach_local(
     start_node, local_goal_node, d, model, hidden_state, sim, device, video
 ):
-    MAX_NUMBER_OF_STEPS = 50
+    MAX_NUMBER_OF_STEPS = 200
     prev_action = torch.zeros(1, 1).to(device)
     not_done_masks = torch.zeros(1, 1).to(device)
     not_done_masks += 1
@@ -252,12 +251,14 @@ def run_experiment(G, d, model, hidden_state, scene, device, experiments=100):
     return_codes = [0 for i in range(3)]
     for _ in tqdm(range(experiments)):
         node1, node2 = get_two_nodes(G)
+        node1, node2 = (3, 28), (0, 48)
         results = try_to_reach(
             G, node1, node2, d, model, deepcopy(hidden_state), scene, device
         )
-        if results == 0:
+        if results == 1:
             print(node1, node2)
         return_codes[results] += 1
+        break
     return return_codes
 
 
@@ -279,7 +280,8 @@ def main():
     scene = create_sim("Goodwine")
     model, hidden_state = get_ddppo_model(config, device)
     # example_forward(model, hidden_state, scene, device)
-    G = nx.read_gpickle("./data/map/map_Goodwine.gpickle")
+    G = nx.read_gpickle("./data/map/map_Goodwine0.05.gpickle")
+
     d = get_dict("Goodwine")
     #    traj_ind = np.load("./traj_ind.npy", allow_pickle=True)
     #    traj_ind_eval = np.load("./traj_ind_eval.npy", allow_pickle=True)

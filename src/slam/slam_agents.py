@@ -230,7 +230,6 @@ class ORBSLAM2Agent(RandomAgent):
         return
 
     def update_internal_state(self, habitat_observation):
-        pu.db
         super(ORBSLAM2Agent, self).update_internal_state(habitat_observation)
         self.cur_time += self.timestep
         rgb, depth = self.rgb_d_from_observation(habitat_observation)
@@ -245,8 +244,10 @@ class ORBSLAM2Agent(RandomAgent):
             self.tracking_is_OK = False
         if not self.tracking_is_OK:
             self.reset()
+            return False
         t = time.time()
-        self.set_offset_to_goal(habitat_observation)
+        #        self.set_offset_to_goal(habitat_observation)
+
         if self.tracking_is_OK:
             trajectory_history = np.array(self.slam.get_trajectory_points())
             self.pose6D = homogenize_p(
@@ -306,7 +307,6 @@ class ORBSLAM2Agent(RandomAgent):
         )
 
     def act(self, habitat_observation, random_prob=0.1):
-        pu.db
         # Update internal state
         t = time.time()
         cc = 0
@@ -321,7 +321,7 @@ class ORBSLAM2Agent(RandomAgent):
         self.position_history.append(
             self.pose6D.detach().cpu().numpy().reshape(1, 4, 4)
         )
-        success = self.is_goal_reached()
+        # success = self.is_goal_reached()
         if success:
             action = HabitatSimActions.STOP
             self.action_history.append(action)
@@ -387,7 +387,6 @@ class ORBSLAM2Agent(RandomAgent):
         return p_next
 
     def set_offset_to_goal(self, observation):
-        pu.db
         self.offset_to_goal = (
             torch.from_numpy(observation[GOAL_SENSOR_UUID]).float().to(self.device)
         )
@@ -572,6 +571,112 @@ class ORBSLAM2MonodepthAgent(ORBSLAM2Agent):
         depth[depth > 3.0] = 0
         depth[depth < 0.1] = 0
         return rgb, np.array(depth).astype(np.float32)
+
+
+class ORBSLAM2MonoAgent(ORBSLAM2Agent):
+    def __init__(
+        self,
+        config,
+        device=torch.device("cuda:0"),  # noqa: B008
+    ):
+        super(ORBSLAM2MonoAgent, self).__init__(config)
+        self.num_actions = config.NUM_ACTIONS
+        self.dist_threshold_to_stop = config.DIST_TO_STOP
+        self.slam_vocab_path = config.SLAM_VOCAB_PATH
+        assert os.path.isfile(self.slam_vocab_path)
+        self.slam_settings_path = config.SLAM_SETTINGS_PATH
+        assert os.path.isfile(self.slam_settings_path)
+        self.slam = orbslam2.System(
+            self.slam_vocab_path, self.slam_settings_path, orbslam2.Sensor.MONOCULAR
+        )
+        self.slam.set_use_viewer(False)
+        pu.db
+        self.slam.initialize()
+        self.device = device
+        self.map_size_meters = config.MAP_SIZE
+        self.map_cell_size = config.MAP_CELL_SIZE
+        self.pos_th = config.DIST_REACHED_TH
+        self.next_wp_th = config.NEXT_WAYPOINT_TH
+        self.angle_th = config.ANGLE_TH
+        self.obstacle_th = config.MIN_PTS_IN_OBSTACLE
+        self.depth_denorm = config.DEPTH_DENORM
+        self.planned_waypoints = []
+        self.mapper = DirectDepthMapper(
+            camera_height=config.CAMERA_HEIGHT,
+            near_th=config.D_OBSTACLE_MIN,
+            far_th=config.D_OBSTACLE_MAX,
+            h_min=config.H_OBSTACLE_MIN,
+            h_max=config.H_OBSTACLE_MAX,
+            map_size=config.MAP_SIZE,
+            map_cell_size=config.MAP_CELL_SIZE,
+            device=device,
+        )
+        self.planner = DifferentiableStarPlanner(
+            max_steps=config.PLANNER_MAX_STEPS,
+            preprocess=config.PREPROCESS_MAP,
+            beta=config.BETA,
+            device=device,
+        )
+        self.slam_to_world = 1.0
+        self.timestep = 0.1
+        self.timing = False
+        self.reset()
+        return
+
+    def mono_from_observation(self, habitat_observation):
+        def rgb2gray(rgb):
+            return np.dot(rgb[..., :3], [0.2989, 0.5870, 0.1140])
+
+        rgb = habitat_observation["rgb"]
+        return rgb2gray(rgb)
+
+    def update_internal_state(self, habitat_observation):
+        #        super(ORBSLAM2MonoAgent, self).update_internal_state(habitat_observation)
+        self.cur_time += self.timestep
+        self.slam.initialize()
+        gray = self.mono_from_observation(habitat_observation)
+        t = time.time()
+        try:
+            self.slam.process_image_mono(gray, self.cur_time)
+            if self.timing:
+                print(time.time() - t, "ORB_SLAM2")
+            self.tracking_is_OK = str(self.slam.get_tracking_state()) == "OK"
+        except BaseException:
+            print("Warning!!!! ORBSLAM processing frame error")
+            self.tracking_is_OK = False
+        if not self.tracking_is_OK:
+            self.reset()
+            return False
+        t = time.time()
+        #        self.set_offset_to_goal(habitat_observation)
+
+        if self.tracking_is_OK:
+            trajectory_history = np.array(self.slam.get_trajectory_points())
+            self.pose6D = homogenize_p(
+                torch.from_numpy(trajectory_history[-1])[1:].view(3, 4).to(self.device)
+            ).view(1, 4, 4)
+            self.trajectory_history = trajectory_history
+            if len(self.position_history) > 1:
+                previous_step = get_distance(
+                    self.pose6D.view(4, 4),
+                    torch.from_numpy(self.position_history[-1])
+                    .view(4, 4)
+                    .to(self.device),
+                )
+                if self.action_history[-1] == HabitatSimActions.MOVE_FORWARD:
+                    self.unseen_obstacle = (
+                        previous_step.item() <= 0.001
+                    )  # hardcoded threshold for not moving
+        #        current_obstacles = self.mapper(
+        #            torch.from_numpy(depth).to(self.device).squeeze(), self.pose6D
+        #        ).to(self.device)
+        #        self.current_obstacles = current_obstacles
+        #        self.map2DObstacles = torch.max(
+        #            self.map2DObstacles, current_obstacles.unsqueeze(0).unsqueeze(0)
+        #        )
+        if self.timing:
+            print(time.time() - t, "Mapping")
+        return True
 
 
 def main():

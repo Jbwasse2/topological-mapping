@@ -26,9 +26,9 @@ class GibsonMapDataset(Dataset):
     def __init__(self, test_envs, transform=True):
         self.transform = transform
         self.image_data_path = (
-            "../../data/datasets/pointnav/gibson/v2/train_large/images/"
+            "../../data/datasets/pointnav/gibson/v3/train_large/images/"
         )
-        self.dict_path = "../../data/datasets/pointnav/gibson/v2/train_large/content/"
+        self.dict_path = "../../data/datasets/pointnav/gibson/v3/train_large/content/"
         self.test_env = test_envs
         self.current_env = None
 

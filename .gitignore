@@ -1,5 +1,9 @@
 #
 #
+habitat-lab
+*.pt
+src/slam/out/
+src/slam/top_down/
 *.swp
 *.swo
 *.mkv
