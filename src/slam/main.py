@@ -121,6 +121,7 @@ def add_traj_to_SLAM(agent, scene_name):
             counter += 1
     data_dir = "../data/results/slam/" + scene_name + "/"
     Path(data_dir).mkdir(parents=True, exist_ok=True)
+    pu.db
     torch.save(agent.trajectory_history, data_dir + "traj.pt")
     torch.save(start, data_dir + "start.pt")
     torch.save(agent.map2DObstacles, data_dir + "map2D.pt")

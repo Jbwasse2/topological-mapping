@@ -31,7 +31,7 @@ from tqdm import tqdm
 
 def get_dict(fname):
     f = gzip.open(
-        "../../data/datasets/pointnav/gibson/v3/train_large/content/"
+        "../../data/datasets/pointnav/gibson/v4/train_large/content/"
         + fname
         + ".json.gz"
     )
@@ -96,7 +96,7 @@ def example_forward(model, hidden_state, scene, device):
 
 # Takes a node such as (0,5) and reutrns its heading/position in the collected trajectory
 def get_node_pose(node, d):
-    pose = d[node[0]]["shortest_paths"][0][0][node[1]]
+    pose = d[node[0]][node[1]]
     position = pose["position"]
     rotation = pose["rotation"]
     return position, rotation
@@ -143,10 +143,10 @@ def try_to_reach(
 
 def get_node_image(node, scene_name):
     image_location = (
-        "../../data/datasets/pointnav/gibson/v3/train_large/images/"
+        "../../data/datasets/pointnav/gibson/v4/train_large/images/"
         + scene_name
         + "/"
-        + "episode"
+        + "episodeRGB"
         + str(node[0])
         + "_"
         + str(node[1]).zfill(5)
@@ -174,6 +174,7 @@ def try_to_reach_local(
         image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
         video.write(image)
 
+    pu.db
     for i in range(MAX_NUMBER_OF_STEPS):
         displacement = torch.from_numpy(
             get_displacement_local_goal(sim, local_goal_node, d)
@@ -219,7 +220,6 @@ def get_displacement_local_goal(sim, local_goal, d):
     # for more information
     pos_goal, rot_goal = get_node_pose(local_goal, d)
     # Quaternion is returned as list, need to change datatype
-    rot_goal = quaternion(*rot_goal)
     pos_agent = sim.get_agent_state().position
     rot_agent = sim.get_agent_state().rotation
     direction_vector = pos_goal - pos_agent
@@ -251,7 +251,7 @@ def run_experiment(G, d, model, hidden_state, scene, device, experiments=100):
     return_codes = [0 for i in range(3)]
     for _ in tqdm(range(experiments)):
         node1, node2 = get_two_nodes(G)
-        node1, node2 = (3, 28), (0, 48)
+        #        node1, node2 = (3, 28), (0, 48)
         results = try_to_reach(
             G, node1, node2, d, model, deepcopy(hidden_state), scene, device
         )
@@ -277,12 +277,12 @@ def main():
         if torch.cuda.is_available()
         else torch.device("cpu")
     )
-    scene = create_sim("Goodwine")
+    scene = create_sim("Ackermanville")
     model, hidden_state = get_ddppo_model(config, device)
     # example_forward(model, hidden_state, scene, device)
-    G = nx.read_gpickle("./data/map/map_Goodwine0.05.gpickle")
+    G = nx.read_gpickle("./data/map/map_Ackermanville0.05.gpickle")
+    d = np.load("../data/map/d_slam.npy", allow_pickle=True).item()
 
-    d = get_dict("Goodwine")
     #    traj_ind = np.load("./traj_ind.npy", allow_pickle=True)
     #    traj_ind_eval = np.load("./traj_ind_eval.npy", allow_pickle=True)
     #    traj_new = np.load("./traj_new.npy", allow_pickle=True)

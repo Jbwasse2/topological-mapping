@@ -23,6 +23,7 @@ from habitat.utils.geometry_utils import (
     quaternion_from_coeff,
     quaternion_to_list,
 )
+from habitat_baselines.slambased.reprojection import homogenize_p
 from tqdm import tqdm
 
 from model.model import Siamese
@@ -105,12 +106,45 @@ def estimate_edge_len(edge, d, sim):
 
     return int(distance / POSITION_GRANULARITY) + int(angle / ANGLE_GRANULARITY)
 
+
+# Oautput of ORB SLAM is SE3 matrix
+# Habitat expects quaternion and position
+# rotation is quaternion and position is list
+def se3_to_habitat(data, d):
+    counter = 0
+    d_ret = {}
+    for traj_count, traj in enumerate(d):
+        d_ret[traj_count] = {}
+        for frame_count, frame in enumerate(traj["shortest_paths"][0][0]):
+            se3 = homogenize_p(torch.from_numpy(data[counter])[1:].view(3, 4)).view(
+                4, 4
+            )
+            rotation_matrix = se3[0:3, 0:3]
+            rotation_quaternion = quaternion.from_rotation_matrix(rotation_matrix)
+            position = np.array(se3[0:3, 3].tolist()).astype("float32")
+            counter += 1
+            local_pose = {"position": position, "rotation": rotation_quaternion}
+            d_ret[traj_count][frame_count] = local_pose
+    return d_ret
+
+
 def estimate_edge_len_SLAM(edge, d, sim):
-    print("HOI")
-    #Get labels from SLAM
-    env = os.path.basename(sim.config.sim_cfg.scene.id).split('.')[0]
-    slam_labels = torch.load("../data/results/slam/" + env + "/traj.pt")
-    pu.db
+    POSITION_GRANULARITY = 0.25 / 5  # meters
+    ANGLE_GRANULARITY = math.radians(30 / 5)
+
+    node1 = edge[0]
+    pose1 = d[node1[0]][node1[1]]
+    position1 = pose1["position"]
+    rotation1 = pose1["rotation"]
+    # Get ending position
+    node2 = edge[1]
+    pose2 = d[node2[0]][node2[1]]
+    position2 = pose2["position"]
+    rotation2 = pose2["rotation"]
+    angle = angle_between_quaternions(rotation1, rotation2)
+    distance = np.linalg.norm(np.array(position1) - np.array(position2))
+
+    return int(distance / POSITION_GRANULARITY) + int(angle / ANGLE_GRANULARITY)
 
 
 def get_dict(fname):
@@ -271,11 +305,11 @@ def connect_graph_trajectories(
                 continue
             edge = (node_i, node_j)
             node1 = edge[0]
-            pose1 = d[node1[0]]["shortest_paths"][0][0][node1[1]]
+            pose1 = d[node1[0]][node1[1]]
             position1 = pose1["position"]
             # Get ending position
             node2 = edge[1]
-            pose2 = d[node2[0]]["shortest_paths"][0][0][node2[1]]
+            pose2 = d[node2[0]][node2[1]]
             position2 = pose2["position"]
             results = estimate_edge_len_SLAM(edge, d, sim)
             if results <= similarity:
@@ -299,11 +333,30 @@ def create_topological_map(
 ):
     # Put all trajectories into graph
     G = nx.DiGraph()
+    # Get labels from SLAM
+    env = os.path.basename(sim.config.sim_cfg.scene.id).split(".")[0]
+    slam_labels = torch.load("../data/results/slam/" + env + "/traj.pt")
+    total_trajs = 0
+    # Make sure number of labels == number of trajs
+    for i in range(len(d)):
+        total_trajs += len(d[i]["shortest_paths"][0][0])
+    assert slam_labels.shape[0] == total_trajs
+    d_slam = se3_to_habitat(slam_labels, d)
+    np.save("../data/map/d_slam.npy", d_slam)
+    pu.db
     G = add_trajs_to_graph(
-        G, trajectories, traj_ind, model, device, similarity, episodes, sim=sim, d=d
+        G,
+        trajectories,
+        traj_ind,
+        model,
+        device,
+        similarity,
+        episodes,
+        sim=sim,
+        d=d_slam,
     )
     G = connect_graph_trajectories(
-        G, trajectories, traj_ind, model, device, 10, episodes, sim=sim, d=d
+        G, trajectories, traj_ind, model, device, 10, episodes, sim=sim, d=d_slam
     )
     return G
 
@@ -434,7 +487,7 @@ if __name__ == "__main__":
     import random
 
     random.seed(0)
-    env = "Airport"
+    env = "Ackermanville"
     G, traj_new_eval, traj_ind_eval = build_graph(0.05, env)
 # G = nx.read_gpickle("../../data/map/map_Goodwine.gpickle")
 # test_envs = np.load("./model/test_env.npy")
