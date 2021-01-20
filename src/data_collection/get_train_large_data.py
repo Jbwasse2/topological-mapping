@@ -16,9 +16,7 @@ from tqdm import tqdm
 
 def get_dict(fname):
     f = gzip.open(
-        "./data/datasets/pointnav/gibson/v4/train_large/content/"
-        + fname
-        + ".json.gz"
+        "./data/datasets/pointnav/gibson/v4/train_large/content/" + fname + ".json.gz"
     )
     content = f.read()
     content = content.decode()
@@ -31,7 +29,7 @@ def create_sim(scene):
     cfg = habitat.get_config()
     cfg.defrost()
     cfg.SIMULATOR.SCENE = "./data/scene_datasets/gibson/" + scene + ".glb"
-    cfg.SIMULATOR.AGENT_0.SENSORS = ["RGB_SENSOR","DEPTH_SENSOR"]
+    cfg.SIMULATOR.AGENT_0.SENSORS = ["RGB_SENSOR", "DEPTH_SENSOR"]
     cfg.SIMULATOR.RGB_SENSOR.WIDTH = 256
     cfg.SIMULATOR.RGB_SENSOR.HEIGHT = 256
     cfg.SIMULATOR.DEPTH_SENSOR.WIDTH = 256
@@ -43,9 +41,7 @@ def create_sim(scene):
 
 def generate_image_dataset(scene):
     sim = create_sim(scene)
-    image_path = (
-        "./data/datasets/pointnav/gibson/v4/train_large/images/" + scene + "/"
-    )
+    image_path = "./data/datasets/pointnav/gibson/v4/train_large/images/" + scene + "/"
     Path(image_path).mkdir(parents=True, exist_ok=True)
     d = get_dict(scene)
     for collection in range(len(d)):
@@ -55,8 +51,8 @@ def generate_image_dataset(scene):
             position = pose["position"]
             rotation = pose["rotation"]
             results = sim.get_observations_at(position, rotation)
-            image = results['rgb']
-            depth = results['depth']
+            image = results["rgb"]
+            depth = results["depth"]
             matplotlib.image.imsave(
                 image_path
                 + "episodeRGB"
@@ -74,7 +70,7 @@ def generate_image_dataset(scene):
                 + str(counter).zfill(5)
                 + ".npy",
                 depth,
-                allow_pickle=True
+                allow_pickle=True,
             )
             counter += 1
 

@@ -96,9 +96,14 @@ def example_forward(model, hidden_state, scene, device):
 
 # Takes a node such as (0,5) and reutrns its heading/position in the collected trajectory
 def get_node_pose(node, d):
-    pose = d[node[0]][node[1]]
-    position = pose["position"]
-    rotation = pose["rotation"]
+    try:
+        pose = d[node[0]][node[1]]
+        position = pose["position"]
+        rotation = pose["rotation"]
+    except KeyError:
+        pose = d[node[0]]["shortest_paths"][0][0][node[1]]
+        position = pose["position"]
+        rotation = pose["rotation"]
     return position, rotation
 
 
@@ -121,7 +126,8 @@ def try_to_reach(
     local_goal = path[1]
     # Move robot to starting position/heading
     agent_state = sim.agents[0].get_state()
-    pos, rot = get_node_pose(current_node, d)
+    ground_truth_d = get_dict("Ackermanville")
+    pos, rot = get_node_pose(current_node, ground_truth_d)
     agent_state.position = pos
     agent_state.rotation = rot
     sim.agents[0].set_state(agent_state)
