@@ -35,7 +35,8 @@ def create_agent(scene):
     config.defrost()
     config.ORBSLAM2 = agent_config.ORBSLAM2
     config.ORBSLAM2.SLAM_VOCAB_PATH = "./data/ORBvoc.txt"
-    config.ORBSLAM2.SLAM_SETTINGS_PATH = "./data/mp3d3_small1k.yaml"
+    #    config.ORBSLAM2.SLAM_SETTINGS_PATH = "./data/mp3d3_small1k.yaml"
+    config.ORBSLAM2.SLAM_SETTINGS_PATH = "./data/mono.yaml"
     config.SIMULATOR.SCENE = "../../data/scene_datasets/gibson/" + scene + ".glb"
     make_good_config_for_orbslam2(config)
 
@@ -76,10 +77,11 @@ def get_dict(fname):
 def add_traj_to_SLAM(agent, scene_name):
     d = get_dict(scene_name)
     foo = []
-    NUMBER_OF_TRAJECTORIES_COLLECTED = 3
+    NUMBER_OF_TRAJECTORIES_COLLECTED = 20
     counter = 0
     start = (0, 0)
     flagBreak = False
+    skips = 0
     for i in range(NUMBER_OF_TRAJECTORIES_COLLECTED):
         if flagBreak:
             break
@@ -111,17 +113,17 @@ def add_traj_to_SLAM(agent, scene_name):
             observation["rgb"] = rgb
             observation["depth"] = depth
             if agent.update_internal_state(observation) == False:
-                flagBreak = True
-                pu.db
-                break
+                skips += 1
+
             plt.imsave(
                 "./out/map2D_" + str(counter).zfill(5) + ".png",
                 agent.map2DObstacles.detach().cpu().numpy().squeeze(),
             )
             counter += 1
+    print(skips)
     data_dir = "../data/results/slam/" + scene_name + "/"
-    Path(data_dir).mkdir(parents=True, exist_ok=True)
     pu.db
+    Path(data_dir).mkdir(parents=True, exist_ok=True)
     torch.save(agent.trajectory_history, data_dir + "traj.pt")
     torch.save(start, data_dir + "start.pt")
     torch.save(agent.map2DObstacles, data_dir + "map2D.pt")
@@ -143,4 +145,4 @@ def main(env):
 
 
 if __name__ == "__main__":
-    main('Ackermanville')
+    main("Bolton")

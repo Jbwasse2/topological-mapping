@@ -33,9 +33,11 @@ class GibsonMapDataset(Dataset):
         self.current_env = None
 
     def set_env(self, env):
-#        assert env in self.test_env
+        #        assert env in self.test_env
         self.current_env = env
-        self.dataset = glob.glob(self.image_data_path + self.current_env + "/episodeRGB*")
+        self.dataset = glob.glob(
+            self.image_data_path + self.current_env + "/episodeRGB*"
+        )
         self.dataset = os_sorted(self.dataset)
         self.last = self.last_image_in_episode(self.dataset)
         self.number_of_trajectories = np.sum(self.last)

@@ -4,6 +4,7 @@ import random
 import time
 from copy import deepcopy
 from typing import ClassVar, Dict, List
+import torchvision.transforms as transforms
 
 import cv2
 import habitat
@@ -27,6 +28,7 @@ from habitat_baselines.utils.common import poll_checkpoint_folder
 from habitat_baselines.utils.env_utils import construct_envs
 from quaternion import as_euler_angles, quaternion
 from tqdm import tqdm
+from data.results.localization.best_model.model import Siamese
 
 
 def get_dict(fname):
@@ -108,7 +110,16 @@ def get_node_pose(node, d):
 
 
 def try_to_reach(
-    G, start_node, end_node, d, model, hidden_state, sim, device, visualize=True
+    G,
+    start_node,
+    end_node,
+    d,
+    ddppo_model,
+    localization_model,
+    hidden_state,
+    sim,
+    device,
+    visualize=True,
 ):
     ob = sim.reset()
     # Perform high level planning over graph
@@ -120,13 +131,15 @@ def try_to_reach(
     try:
         path = nx.dijkstra_path(G, start_node, end_node)
     except nx.exception.NetworkXNoPath as e:
-        return 2
+        return 3
+    if len(path) <= 10:
+        return 3
     print("NEW PATH")
     current_node = path[0]
     local_goal = path[1]
     # Move robot to starting position/heading
     agent_state = sim.agents[0].get_state()
-    ground_truth_d = get_dict("Ackermanville")
+    ground_truth_d = get_dict("Bolton")
     pos, rot = get_node_pose(current_node, ground_truth_d)
     agent_state.position = pos
     agent_state.rotation = rot
@@ -134,7 +147,15 @@ def try_to_reach(
     # Start experiments!
     for current_node, local_goal in zip(path, path[1:]):
         success = try_to_reach_local(
-            current_node, local_goal, d, model, hidden_state, sim, device, video
+            current_node,
+            local_goal,
+            d,
+            ddppo_model,
+            localization_model,
+            hidden_state,
+            sim,
+            device,
+            video,
         )
         if success != 1:
             if visualize:
@@ -144,6 +165,14 @@ def try_to_reach(
     if visualize:
         cv2.destroyAllWindows()
         video.release()
+    # Check to see if agent made it
+    agent_pos = sim.agents[0].get_state().position
+    ground_truth_d = get_dict("Bolton")
+    (episode, frame) = end_node
+    goal_pos = ground_truth_d[episode]["shortest_paths"][0][0][frame]["position"]
+    distance = np.linalg.norm(agent_pos - goal_pos)
+    if distance >= 0.2:
+        return 2
     return 0
 
 
@@ -163,14 +192,38 @@ def get_node_image(node, scene_name):
 
 # Returns 1 on success, and 0 or -1 on failure
 def try_to_reach_local(
-    start_node, local_goal_node, d, model, hidden_state, sim, device, video
+    start_node,
+    local_goal_node,
+    d,
+    ddppo_model,
+    localization_model,
+    hidden_state,
+    sim,
+    device,
+    video,
 ):
-    MAX_NUMBER_OF_STEPS = 200
+    MAX_NUMBER_OF_STEPS = 20
     prev_action = torch.zeros(1, 1).to(device)
     not_done_masks = torch.zeros(1, 1).to(device)
     not_done_masks += 1
     ob = sim.get_observations_at(sim.get_agent_state())
     actions = []
+    # Double check this is right RGB
+    # goal_image is for video/visualization
+    # goal_image_model is for torch model for predicting distance/heading
+    scene_name = os.path.splitext(os.path.basename(sim.config.sim_cfg.scene.id))[0]
+    goal_image_model = (
+        cv2.resize(get_node_image(local_goal_node, scene_name), (224, 224)) / 255
+    )
+    transform = transforms.Compose(
+        [
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        ]
+    )
+    goal_image_model = (
+        transform(goal_image_model).to(device).unsqueeze(0).type(torch.float32)
+    )
     if video is not None:
         scene_name = os.path.splitext(os.path.basename(sim.config.sim_cfg.scene.id))[0]
 
@@ -180,15 +233,16 @@ def try_to_reach_local(
         image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
         video.write(image)
 
-    pu.db
     for i in range(MAX_NUMBER_OF_STEPS):
         displacement = torch.from_numpy(
-            get_displacement_local_goal(sim, local_goal_node, d)
+            get_displacement_local_goal(
+                sim, goal_image_model, transform, localization_model, device
+            )
         ).type(torch.float32)
         ob["pointgoal_with_gps_compass"] = displacement.unsqueeze(0).to(device)
         ob["depth"] = torch.from_numpy(ob["depth"]).unsqueeze(0).to(device)
         with torch.no_grad():
-            _, action, _, hidden_state = model.act(
+            _, action, _, hidden_state = ddppo_model.act(
                 ob, hidden_state, prev_action, not_done_masks, deterministic=False
             )
         actions.append(action[0].item())
@@ -221,21 +275,17 @@ def angle_between_vectors(v1, v2):
     return np.arccos((v1 @ v2) / (np.linalg.norm(v1) * np.linalg.norm(v2)))
 
 
-def get_displacement_local_goal(sim, local_goal, d):
-    # See https://github.com/facebookresearch/habitat-lab/blob/b7a93bc493f7fb89e5bf30b40be204ff7b5570d7/habitat/tasks/nav/nav.py
-    # for more information
-    pos_goal, rot_goal = get_node_pose(local_goal, d)
-    # Quaternion is returned as list, need to change datatype
-    pos_agent = sim.get_agent_state().position
-    rot_agent = sim.get_agent_state().rotation
-    direction_vector = pos_goal - pos_agent
-    direction_vector_agent = quaternion_rotate_vector(
-        rot_agent.inverse(), direction_vector
+def get_displacement_local_goal(
+    sim, goal_image_model, transform, localization_model, device
+):
+    start_image_model = (
+        cv2.resize(sim.get_sensor_observations()["rgb"][:, :, 0:3], (224, 224)) / 255
     )
-    rho, phi = cartesian_to_polar(-direction_vector_agent[2], direction_vector_agent[0])
-
-    # Should be same as agent_world_angle
-    return np.array([rho, -phi])
+    start_image_model = (
+        transform(start_image_model).to(device).unsqueeze(0).type(torch.float32)
+    )
+    estimate = localization_model(start_image_model, goal_image_model)
+    return estimate.cpu().detach().numpy()[0]
 
 
 def visualize_observation(observation, start, goal):
@@ -249,22 +299,32 @@ def visualize_observation(observation, start, goal):
     plt.show()
 
 
-def run_experiment(G, d, model, hidden_state, scene, device, experiments=100):
+def run_experiment(
+    G, d, ddppo_model, localization_model, hidden_state, scene, device, experiments=100
+):
     # Choose 2 random nodes in graph
     # 0 means success
     # 1 means failed at runtime
     # 2 means no path found
+    # 3 shouldn't be returned as an experiment result, its just used to say that the path in the map is trivially easy (few nodes to traverse between).
     return_codes = [0 for i in range(3)]
     for _ in tqdm(range(experiments)):
-        node1, node2 = get_two_nodes(G)
-        #        node1, node2 = (3, 28), (0, 48)
-        results = try_to_reach(
-            G, node1, node2, d, model, deepcopy(hidden_state), scene, device
-        )
-        if results == 1:
-            print(node1, node2)
+        results = None
+        while results == None or results == 3:
+            node1, node2 = get_two_nodes(G)
+            pu.db
+            results = try_to_reach(
+                G,
+                node1,
+                node2,
+                d,
+                ddppo_model,
+                localization_model,
+                deepcopy(hidden_state),
+                scene,
+                device,
+            )
         return_codes[results] += 1
-        break
     return return_codes
 
 
@@ -273,20 +333,31 @@ def get_two_nodes(G):
     return random.sample(list(G.nodes()), 2)
 
 
+def get_localization_model(device):
+    model = Siamese().to(device)
+    model.load_state_dict(
+        torch.load("./data/results/localization/best_model/saved_model.pth")
+    )
+    model.eval()
+    return model
+
+
 def main():
-    random.seed(1)
-    np.random.seed(1)
-    torch.manual_seed(1)
+    seed = 2
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
     config = get_config("configs/baselines/ddppo_pointnav.yaml", [])
     device = (
         torch.device("cuda", config.TORCH_GPU_ID)
         if torch.cuda.is_available()
         else torch.device("cpu")
     )
-    scene = create_sim("Ackermanville")
-    model, hidden_state = get_ddppo_model(config, device)
+    localization_model = get_localization_model(device)
+    scene = create_sim("Bolton")
+    ddppo_model, hidden_state = get_ddppo_model(config, device)
     # example_forward(model, hidden_state, scene, device)
-    G = nx.read_gpickle("./data/map/map_Ackermanville0.05.gpickle")
+    G = nx.read_gpickle("./data/map/map_Bolton0.05.gpickle")
     d = np.load("../data/map/d_slam.npy", allow_pickle=True).item()
 
     #    traj_ind = np.load("./traj_ind.npy", allow_pickle=True)
@@ -294,7 +365,9 @@ def main():
     #    traj_new = np.load("./traj_new.npy", allow_pickle=True)
     #    traj_new_eval = np.load("./traj_new_eval.npy", allow_pickle=True)
     #    eval_trajs = np.load("./eval_trajs.npy", allow_pickle=True)
-    results = run_experiment(G, d, model, hidden_state, scene, device)
+    results = run_experiment(
+        G, d, ddppo_model, localization_model, hidden_state, scene, device
+    )
     print(results)
 
 

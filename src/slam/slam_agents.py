@@ -212,6 +212,7 @@ class ORBSLAM2Agent(RandomAgent):
         self.waypointPose6D = None
         self.unseen_obstacle = False
         self.action_history = []
+        self.trajectory_history = []
         self.planned_waypoints = []
         self.map2DObstacles = self.init_map2d()
         n, ch, height, width = self.map2DObstacles.size()
@@ -220,6 +221,7 @@ class ORBSLAM2Agent(RandomAgent):
         self.action_history = []
         self.pose6D_history = []
         self.position_history = []
+        self.trajectory_history = []
         self.planned2Dpath = torch.zeros((0))
         self.slam.reset()
         self.cur_time = 0
@@ -238,22 +240,28 @@ class ORBSLAM2Agent(RandomAgent):
             self.slam.process_image_rgbd(rgb, depth, self.cur_time)
             if self.timing:
                 print(time.time() - t, "ORB_SLAM2")
+            print(self.slam.get_tracking_state())
             self.tracking_is_OK = str(self.slam.get_tracking_state()) == "OK"
         except BaseException:
             print("Warning!!!! ORBSLAM processing frame error")
             self.tracking_is_OK = False
         if not self.tracking_is_OK:
-            pu.db
             return False
+        #            return False
         t = time.time()
         #        self.set_offset_to_goal(habitat_observation)
-
         if self.tracking_is_OK:
-            trajectory_history = np.array(self.slam.get_trajectory_points())
+            #            trajectory_history = np.array(self.slam.get_trajectory_points())
+            self.trajectory_history.append(
+                np.array(self.slam.get_trajectory_points()[-1])
+            )
+            pu.db
             self.pose6D = homogenize_p(
-                torch.from_numpy(trajectory_history[-1])[1:].view(3, 4).to(self.device)
+                torch.from_numpy(self.trajectory_history[-1])[1:]
+                .view(3, 4)
+                .to(self.device)
             ).view(1, 4, 4)
-            self.trajectory_history = trajectory_history
+            pu.db
             if len(self.position_history) > 1:
                 previous_step = get_distance(
                     self.pose6D.view(4, 4),
@@ -265,6 +273,9 @@ class ORBSLAM2Agent(RandomAgent):
                     self.unseen_obstacle = (
                         previous_step.item() <= 0.001
                     )  # hardcoded threshold for not moving
+        else:
+            self.trajectory_history.append(None)
+
         current_obstacles = self.mapper(
             torch.from_numpy(depth).to(self.device).squeeze(), self.pose6D
         ).to(self.device)
@@ -579,7 +590,8 @@ class ORBSLAM2MonoAgent(ORBSLAM2Agent):
         config,
         device=torch.device("cuda:0"),  # noqa: B008
     ):
-        super(ORBSLAM2MonoAgent, self).__init__(config)
+        pu.db
+        #        super(ORBSLAM2MonoAgent, self).__init__(config)
         self.num_actions = config.NUM_ACTIONS
         self.dist_threshold_to_stop = config.DIST_TO_STOP
         self.slam_vocab_path = config.SLAM_VOCAB_PATH
@@ -591,6 +603,7 @@ class ORBSLAM2MonoAgent(ORBSLAM2Agent):
         )
         self.slam.set_use_viewer(False)
         self.slam.initialize()
+        pu.db
         self.device = device
         self.map_size_meters = config.MAP_SIZE
         self.map_cell_size = config.MAP_CELL_SIZE
@@ -632,13 +645,13 @@ class ORBSLAM2MonoAgent(ORBSLAM2Agent):
     def update_internal_state(self, habitat_observation):
         #        super(ORBSLAM2MonoAgent, self).update_internal_state(habitat_observation)
         self.cur_time += self.timestep
-        self.slam.initialize()
         gray = self.mono_from_observation(habitat_observation)
         t = time.time()
         try:
             self.slam.process_image_mono(gray, self.cur_time)
             if self.timing:
                 print(time.time() - t, "ORB_SLAM2")
+            print(self.slam.get_tracking_state())
             self.tracking_is_OK = str(self.slam.get_tracking_state()) == "OK"
         except BaseException:
             print("Warning!!!! ORBSLAM processing frame error")

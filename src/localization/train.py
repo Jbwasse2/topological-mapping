@@ -4,6 +4,7 @@
 #3) Data should also be similiar to before
 
 import argparse
+import matplotlib.pyplot as plt
 
 import os
 import time
@@ -23,17 +24,17 @@ from model import Siamese
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 
-def train(model, device, epochs=200):
-    print("DONT FORGET TO UNCOMMENT SAVE MODEL")
+def train(model, device, epochs=30):
     current_time = time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime())
-    results_dir = "../../data/results/sparsifier/" + current_time + "/"
+    results_dir = "./data/results/localization/" + current_time + "/"
     os.mkdir(results_dir)
     copyfile("./model.py", results_dir + "model.py")
-    criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=0.001)
+    criterion = nn.MSELoss()
+
+    optimizer = optim.Adam(model.parameters(), lr=0.0001)
     BATCH_SIZE = 64
     seed = 0
-    train_dataset = GibsonDataset("train", seed, samples=30000, max_distance=5, ignore_0=True)
+    train_dataset = GibsonDataset("train", seed, samples=40000, max_distance=30, episodes=20, ignore_0=False, debug=False)
     train_dataset.save_env_data(results_dir)
     train_dataloader = data.DataLoader(
         train_dataset,
@@ -41,7 +42,7 @@ def train(model, device, epochs=200):
         shuffle=True,
         num_workers=16,
     )
-    test_dataset = GibsonDataset("test", seed, samples=3500, max_distance=5, ignore_0=True)
+    test_dataset = GibsonDataset("test", seed, samples=4000, max_distance=30, episodes=20,  ignore_0=False, debug=False)
     test_dataloader = data.DataLoader(
         test_dataset,
         batch_size=BATCH_SIZE,
@@ -54,16 +55,13 @@ def train(model, device, epochs=200):
     val_acc = []
     losses_v = []
     losses_v_cum = []
-    accuracy = []
-    accuracy_cum = []
-    accuracy_v = []
-    accuracy_v_cum = []
     for epoch in range(epochs):
         print("epoch ", epoch)
         model.train()
         for i, batch in enumerate(track(train_dataloader, description="[cyan] Training!")):
             x, y = batch
             im1, im2 = x
+            y = y.type(torch.float32)
             y = y.to(device)
             im1 = im1.to(device).float()
             im2 = im2.to(device).float()
@@ -74,46 +72,39 @@ def train(model, device, epochs=200):
             loss = loss.cpu().detach().numpy()
             losses.append(loss)
             optimizer.step()
-            choose = np.argmax(out.cpu().detach().numpy(), axis=1)
-            gt = y.cpu().detach().numpy()
-            accuracy.append(len(np.where(gt == choose)[0]) / len(gt))
 
         losses_cum.append(np.mean(losses))
-        accuracy_cum.append(np.mean(accuracy))
         print(np.mean(losses))
-        print(np.mean(accuracy))
         losses = []
-        accuracy = []
         # Do validation
         model.eval()
-        for i, batch in enumerate(track(test_dataloader, description="[red] Testing!")):
-            x, y = batch
-            im1, im2 = x
-            y = y.to(device)
-            im1 = im1.to(device).float()
-            im2 = im2.to(device).float()
-            out = model(im1, im2)
-            loss = criterion(out, y)
-            loss.backward()
-            loss = loss.cpu().detach().numpy()
-            losses_v.append(loss)
-            choose = np.argmax(out.cpu().detach().numpy(), axis=1)
-            gt = y.cpu().detach().numpy()
-            accuracy_v.append(len(np.where(gt == choose)[0]) / len(gt))
+        with torch.no_grad():
+            for i, batch in enumerate(track(test_dataloader, description="[red] Testing!")):
+                x, y = batch
+                im1, im2 = x
+                y = y.type(torch.float32)
+                y = y.to(device)
+                im1 = im1.to(device).float()
+                im2 = im2.to(device).float()
+                out = model(im1, im2)
+                loss = criterion(out, y)
+                loss = loss.cpu().detach().numpy()
+                losses_v.append(loss)
         losses_v_cum.append(np.mean(losses_v))
-        accuracy_v_cum.append(np.mean(accuracy_v))
         print(np.mean(losses_v))
-        print(np.mean(accuracy_v))
         losses_v = []
-        accuracy_v = []
         if epoch % 5 == 0:
             torch.save(model.state_dict(), results_dir + "saved_model.pth")
     torch.save(model.state_dict(), results_dir + "saved_model.pth")
     np.save(results_dir + "losses.npy", losses_cum)
     np.save(results_dir + "losses_v.npy", losses_v_cum)
-    np.save(results_dir + "accuracy.npy", accuracy_cum)
-    np.save(results_dir + "accuracy_v.npy", accuracy_v_cum)
-    print(results_dir)
+    plt.plot(losses_v_cum, label="Test Loss")
+    plt.plot(losses_cum, label="Train Loss")
+    plt.legend()
+    plt.xlabel("Epochs")
+    plt.ylabel("Loss")
+    plt.savefig(results_dir + "loss.jpg")
+    print(current_time)
     return model
 
 

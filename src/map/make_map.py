@@ -88,7 +88,6 @@ def actual_edge_len(edge, d, sim):
 # Full calculations and sim of gt length is expensive, only care about close points, so estimate of point may be sufficient
 def estimate_edge_len(edge, d, sim):
     # Get starting position and rotation
-    pu.db
     POSITION_GRANULARITY = 0.25  # meters
     ANGLE_GRANULARITY = math.radians(10)  # 10 degrees in radians
     node1 = edge[0]
@@ -122,6 +121,8 @@ def se3_to_habitat(data, d):
             rotation_matrix = se3[0:3, 0:3]
             rotation_quaternion = quaternion.from_rotation_matrix(rotation_matrix)
             position = np.array(se3[0:3, 3].tolist()).astype("float32")
+            # Something is wrong here i think, it should be len(3) but it may be len 4
+            pu.db
             counter += 1
             local_pose = {"position": position, "rotation": rotation_quaternion}
             d_ret[traj_count][frame_count] = local_pose
@@ -298,7 +299,6 @@ def connect_graph_trajectories(
     G, trajectories, traj_ind, model, device, similarity, episodes, sim=None, d=None
 ):
     counter = 0
-    pu.db
     for node_i in tqdm(list(G.nodes)):
         for node_j in list(G.nodes):
             if node_i == node_j:
@@ -343,7 +343,6 @@ def create_topological_map(
     assert slam_labels.shape[0] == total_trajs
     d_slam = se3_to_habitat(slam_labels, d)
     np.save("../data/map/d_slam.npy", d_slam)
-    pu.db
     G = add_trajs_to_graph(
         G,
         trajectories,
@@ -410,7 +409,7 @@ def build_graph(hold_out_percent, env):
         model,
         device,
         episodes=map_trajs,
-        similarity=4,
+        similarity=10,
         sim=sim,
         d=d,
         scene=env,
@@ -487,7 +486,7 @@ if __name__ == "__main__":
     import random
 
     random.seed(0)
-    env = "Ackermanville"
+    env = "Bolton"
     G, traj_new_eval, traj_ind_eval = build_graph(0.05, env)
 # G = nx.read_gpickle("../../data/map/map_Goodwine.gpickle")
 # test_envs = np.load("./model/test_env.npy")
