@@ -82,7 +82,7 @@ def add_traj_to_SLAM(agent, scene_name):
     start = (0, 0)
     flagBreak = False
     skips = 0
-    for i in range(NUMBER_OF_TRAJECTORIES_COLLECTED):
+    for i in range(2, NUMBER_OF_TRAJECTORIES_COLLECTED):
         if flagBreak:
             break
         print("Traj= ", i)
@@ -145,4 +145,4 @@ def main(env):
 
 
 if __name__ == "__main__":
-    main("Bolton")
+    main("Ackermanville")

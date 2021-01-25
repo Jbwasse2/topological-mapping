@@ -174,7 +174,7 @@ class ORBSLAM2Agent(RandomAgent):
         self.slam = orbslam2.System(
             self.slam_vocab_path, self.slam_settings_path, orbslam2.Sensor.RGBD
         )
-        self.slam.set_use_viewer(False)
+        self.slam.set_use_viewer(True)
         self.slam.initialize()
         super(ORBSLAM2Agent, self).__init__(config)
         self.pos_th = config.DIST_REACHED_TH
