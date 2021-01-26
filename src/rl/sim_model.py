@@ -281,6 +281,8 @@ def get_displacement_local_goal(
     start_image_model = (
         cv2.resize(sim.get_sensor_observations()["rgb"][:, :, 0:3], (224, 224)) / 255
     )
+    plt.imshow(sim.get_sensor_observations()["rgb"])
+    plt.show()
     start_image_model = (
         transform(start_image_model).to(device).unsqueeze(0).type(torch.float32)
     )
@@ -325,6 +327,8 @@ def run_experiment(
                 device,
             )
         return_codes[results] += 1
+        if results == 2:
+            break
     return return_codes
 
 
@@ -357,14 +361,8 @@ def main():
     scene = create_sim("Bolton")
     ddppo_model, hidden_state = get_ddppo_model(config, device)
     # example_forward(model, hidden_state, scene, device)
-    G = nx.read_gpickle("./data/map/map_Bolton0.05.gpickle")
+    G = nx.read_gpickle("./data/map/map_Bolton0.0.gpickle")
     d = np.load("../data/map/d_slam.npy", allow_pickle=True).item()
-
-    #    traj_ind = np.load("./traj_ind.npy", allow_pickle=True)
-    #    traj_ind_eval = np.load("./traj_ind_eval.npy", allow_pickle=True)
-    #    traj_new = np.load("./traj_new.npy", allow_pickle=True)
-    #    traj_new_eval = np.load("./traj_new_eval.npy", allow_pickle=True)
-    #    eval_trajs = np.load("./eval_trajs.npy", allow_pickle=True)
     results = run_experiment(
         G, d, ddppo_model, localization_model, hidden_state, scene, device
     )

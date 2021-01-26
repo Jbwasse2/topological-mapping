@@ -35,8 +35,8 @@ def create_agent(scene):
     config.defrost()
     config.ORBSLAM2 = agent_config.ORBSLAM2
     config.ORBSLAM2.SLAM_VOCAB_PATH = "./data/ORBvoc.txt"
-    #    config.ORBSLAM2.SLAM_SETTINGS_PATH = "./data/mp3d3_small1k.yaml"
-    config.ORBSLAM2.SLAM_SETTINGS_PATH = "./data/mono.yaml"
+    config.ORBSLAM2.SLAM_SETTINGS_PATH = "./data/mp3d3_small1k.yaml"
+    # config.ORBSLAM2.SLAM_SETTINGS_PATH = "./data/mono.yaml"
     config.SIMULATOR.SCENE = "../../data/scene_datasets/gibson/" + scene + ".glb"
     make_good_config_for_orbslam2(config)
 
@@ -82,7 +82,7 @@ def add_traj_to_SLAM(agent, scene_name):
     start = (0, 0)
     flagBreak = False
     skips = 0
-    for i in range(2, NUMBER_OF_TRAJECTORIES_COLLECTED):
+    for i in range(NUMBER_OF_TRAJECTORIES_COLLECTED):
         if flagBreak:
             break
         print("Traj= ", i)
@@ -113,6 +113,7 @@ def add_traj_to_SLAM(agent, scene_name):
             observation["rgb"] = rgb
             observation["depth"] = depth
             if agent.update_internal_state(observation) == False:
+                pu.db
                 skips += 1
 
             plt.imsave(
@@ -145,4 +146,4 @@ def main(env):
 
 
 if __name__ == "__main__":
-    main("Ackermanville")
+    main("Bolton")

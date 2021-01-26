@@ -246,6 +246,8 @@ class ORBSLAM2Agent(RandomAgent):
             print("Warning!!!! ORBSLAM processing frame error")
             self.tracking_is_OK = False
         if not self.tracking_is_OK:
+            self.trajectory_history.append(None)
+            pu.db
             return False
         #            return False
         t = time.time()
@@ -273,8 +275,6 @@ class ORBSLAM2Agent(RandomAgent):
                     self.unseen_obstacle = (
                         previous_step.item() <= 0.001
                     )  # hardcoded threshold for not moving
-        else:
-            self.trajectory_history.append(None)
 
         current_obstacles = self.mapper(
             torch.from_numpy(depth).to(self.device).squeeze(), self.pose6D

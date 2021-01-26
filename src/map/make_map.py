@@ -115,14 +115,15 @@ def se3_to_habitat(data, d):
     for traj_count, traj in enumerate(d):
         d_ret[traj_count] = {}
         for frame_count, frame in enumerate(traj["shortest_paths"][0][0]):
-            se3 = homogenize_p(torch.from_numpy(data[counter])[1:].view(3, 4)).view(
-                4, 4
-            )
+            if data[counter] is None:
+                d_ret[traj_count][frame_count] = None
+                continue
+            foo = torch.from_numpy(data[counter])[1:].view(3, 4)
+            se3 = homogenize_p(foo).view(4, 4)
             rotation_matrix = se3[0:3, 0:3]
             rotation_quaternion = quaternion.from_rotation_matrix(rotation_matrix)
             position = np.array(se3[0:3, 3].tolist()).astype("float32")
             # Something is wrong here i think, it should be len(3) but it may be len 4
-            pu.db
             counter += 1
             local_pose = {"position": position, "rotation": rotation_quaternion}
             d_ret[traj_count][frame_count] = local_pose
@@ -242,7 +243,10 @@ def get_node_image(node, scene):
 
 
 def get_true_label(trajectory_count, frame_count, traj_ind):
-    return traj_ind[trajectory_count][frame_count]
+    try:
+        return traj_ind[trajectory_count][frame_count]
+    except Exception as e:
+        return None
 
 
 # Takes a pair of nodes and creates a visualzation.
@@ -272,7 +276,12 @@ def add_trajs_to_graph(
         tail_node = None
         for frame_count, frame in enumerate(trajectory):
             # we want to keep track of what the actual frame is from in the trajectory
+            pu.db
             true_label = get_true_label(trajectory_count, frame_count, traj_ind)
+            if true_label == None:
+                tail_node = None
+                current_node = None
+                continue
             current_node = (trajectory_count_episode, true_label)
             for node in list(G.nodes):
                 # Skip previous tail node from being too close to current node, otherwise you may just be sparsifying your graph extra.
@@ -320,6 +329,16 @@ def connect_graph_trajectories(
     return G
 
 
+def remove_bad_SLAM_labels(traj_ind, d_slam):
+    for episode in range(len(d_slam)):
+        for traj in range(len(d_slam[episode])):
+            if d_slam[episode][traj] == None:
+                if traj in traj_ind[episode]:
+                    traj_ind[episode].remove(traj)
+
+    return traj_ind
+
+
 def create_topological_map(
     trajectories,
     traj_ind,
@@ -335,7 +354,7 @@ def create_topological_map(
     G = nx.DiGraph()
     # Get labels from SLAM
     env = os.path.basename(sim.config.sim_cfg.scene.id).split(".")[0]
-    slam_labels = torch.load("../data/results/slam/" + env + "/traj.pt")
+    slam_labels = np.array(torch.load("../data/results/slam/" + env + "/traj.pt"))
     total_trajs = 0
     # Make sure number of labels == number of trajs
     for i in range(len(d)):
@@ -343,6 +362,8 @@ def create_topological_map(
     assert slam_labels.shape[0] == total_trajs
     d_slam = se3_to_habitat(slam_labels, d)
     np.save("../data/map/d_slam.npy", d_slam)
+    # Remove any nodes that have a None label from SLAM
+    traj_ind = remove_bad_SLAM_labels(traj_ind, d_slam)
     G = add_trajs_to_graph(
         G,
         trajectories,
@@ -388,7 +409,7 @@ def build_graph(hold_out_percent, env):
         traj_ind = np.load("traj_ind.npy", allow_pickle=True)
     if VISUALIZE:
         visualize_traj_ind(traj_ind)
-    # some trajectories will be used to build the map, some will be used to evaluate the failure of imagegoal
+    # some trajectories will be used to build the map, some will be used to evaluate the failure of imagegoal (Nevermind, I am not actually doing this), set hold_out to 0.0%.
     traj_held_out = int(len(traj_new) * hold_out_percent)
     eval_trajs = random.sample(list(range(len(traj_ind))), k=traj_held_out)
     map_trajs = list(set(range(len(traj_ind))) - set(eval_trajs))
@@ -398,18 +419,13 @@ def build_graph(hold_out_percent, env):
     traj_new_eval = [traj_new[i] for i in eval_trajs]
     traj_ind_eval = [traj_ind[i] for i in eval_trajs]
 
-    assert len(traj_new_map) == len(traj_ind_map)
-    assert len(traj_new_eval) == len(traj_ind_eval)
-    np.save("traj_new_eval.npy", traj_new_eval)
-    np.save("traj_ind_eval.npy", traj_ind_eval)
-    np.save("eval_trajs.npy", eval_trajs)
     G = create_topological_map(
         traj_new_map,
         traj_ind_map,
         model,
         device,
         episodes=map_trajs,
-        similarity=10,
+        similarity=4,
         sim=sim,
         d=d,
         scene=env,
@@ -487,7 +503,7 @@ if __name__ == "__main__":
 
     random.seed(0)
     env = "Bolton"
-    G, traj_new_eval, traj_ind_eval = build_graph(0.05, env)
+    G, traj_new_eval, traj_ind_eval = build_graph(0.00, env)
 # G = nx.read_gpickle("../../data/map/map_Goodwine.gpickle")
 # test_envs = np.load("./model/test_env.npy")
 # ENV = test_envs[0]

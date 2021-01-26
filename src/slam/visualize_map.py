@@ -12,21 +12,26 @@ def visualize_true(d):
     for i in tqdm(range(NUMBER_OF_TRAJECTORIES_COLLECTED)):
         for j in range(len(d[i]["shortest_paths"][0][0])):
             position = d[i]["shortest_paths"][0][0][j]["position"]
-            #            if np.abs(position[1] - 0.07) <= 0.3:
             plt.plot(position[0], position[2], marker="o", color="r", ls="")
     plt.show()
 
 
 def visualize_slam(slam_labels):
     device = torch.device("cuda:0")  # noqa: B008
-    pu.db
-    for counter, label in enumerate(slam_labels):
-        se3 = homogenize_p(torch.from_numpy(label)[1:].view(3, 4).to(device)).view(
-            1, 4, 4
-        )
-        position = np.array(se3[0][0:3, 3].tolist()).astype("float32")
-        plt.plot(position[0], position[1], marker="o", color="r", ls="")
+    for counter, label in tqdm(enumerate(slam_labels)):
+        try:
+            se3 = homogenize_p(torch.from_numpy(label)[1:].view(3, 4).to(device)).view(
+                1, 4, 4
+            )
+            position = np.array(se3[0][0:3, 3].tolist()).astype("float32")
+            plt.plot(position[2], position[0], marker="o", color="b", ls="")
+        except Exception as e:
+            pass
     plt.show()
+
+
+def project_slam_on_map(slam_labels, obstacles):
+    pass
 
 
 if __name__ == "__main__":
@@ -34,5 +39,7 @@ if __name__ == "__main__":
     ground_truth_d = get_dict(scene_name)
     data_dir = "../data/results/slam/" + scene_name + "/"
     slam_labels = torch.load(data_dir + "traj.pt")
-    #    visualize_true(ground_truth_d)
-    visualize_slam(slam_labels)
+    obstacles = torch.load(data_dir + "obstacles.pt")
+    project_slam_on_map(slam_labels, obstacles)
+    # visualize_true(ground_truth_d)
+    # visualize_slam(slam_labels)

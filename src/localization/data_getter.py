@@ -261,20 +261,21 @@ class GibsonDataset(Dataset):
     # Images are offset by self.max_distance, because this should also detect going backwards which the robot can not do.
     def __getitem__(self, idx):
         env, episode, l1, l2 = self.dataset[idx]
-        image1 = self.get_image(env, episode, l1)
-        image2 = self.get_image(env, episode, l2)
-        transform = transforms.Compose(
-            [
-                transforms.ToTensor(),
-                transforms.Normalize(
-                    mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-                ),
-            ]
-        )
-        image1 = transform(image1)
-        image2 = transform(image2)
+        #    image1 = self.get_image(env, episode, l1)
+        #    image2 = self.get_image(env, episode, l2)
+        #    transform = transforms.Compose(
+        #        [
+        #            transforms.ToTensor(),
+        #            transforms.Normalize(
+        #                mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+        #            ),
+        #        ]
+        #    )
+        #    image1 = transform(image1)
+        #    image2 = transform(image2)
 
-        x = (image1, image2)
+        #    x = (image1, image2)
+        x = None
         d = self.labels[env]
         if l1 == l2:
             y = np.array([0.0, 0.0])
@@ -318,11 +319,11 @@ def get_node_pose(node, d):
 if __name__ == "__main__":
     dataset = GibsonDataset(
         "train",
-        samples=10,
+        samples=2000,
         seed=0,
         max_distance=30,
         ignore_0=False,
-        debug=True,
+        debug=False,
         episodes=20,
     )
     max_angle = 0
