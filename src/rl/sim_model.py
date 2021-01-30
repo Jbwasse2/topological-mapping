@@ -4,15 +4,19 @@ import random
 import time
 from copy import deepcopy
 from typing import ClassVar, Dict, List
-import torchvision.transforms as transforms
 
 import cv2
-import habitat
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 import pudb
 import torch
+import torchvision.transforms as transforms
+from quaternion import as_euler_angles, quaternion
+from tqdm import tqdm
+
+import habitat
+from data.results.localization.forward_best_model.model import Siamese
 from habitat import Config, logger
 from habitat.tasks.utils import cartesian_to_polar
 from habitat.utils.geometry_utils import (
@@ -26,9 +30,6 @@ from habitat_baselines.config.default import get_config
 from habitat_baselines.rl.ppo.ppo_trainer import PPOTrainer
 from habitat_baselines.utils.common import poll_checkpoint_folder
 from habitat_baselines.utils.env_utils import construct_envs
-from quaternion import as_euler_angles, quaternion
-from tqdm import tqdm
-from data.results.localization.best_model.model import Siamese
 
 
 def get_dict(fname):
@@ -125,7 +126,7 @@ def try_to_reach(
     # Perform high level planning over graph
     if visualize:
         video_name = "local.mkv"
-        video = cv2.VideoWriter(video_name, 0, 3, (256, 256 * 3))
+        video = cv2.VideoWriter(video_name, 0, 3, (256 * 2, 256 * 1))
     else:
         video = None
     try:
@@ -133,7 +134,7 @@ def try_to_reach(
     except nx.exception.NetworkXNoPath as e:
         return 3
     if len(path) <= 10:
-        return 3
+        return 4
     print("NEW PATH")
     current_node = path[0]
     local_goal = path[1]
@@ -202,7 +203,7 @@ def try_to_reach_local(
     device,
     video,
 ):
-    MAX_NUMBER_OF_STEPS = 20
+    MAX_NUMBER_OF_STEPS = 100
     prev_action = torch.zeros(1, 1).to(device)
     not_done_masks = torch.zeros(1, 1).to(device)
     not_done_masks += 1
@@ -227,11 +228,8 @@ def try_to_reach_local(
     if video is not None:
         scene_name = os.path.splitext(os.path.basename(sim.config.sim_cfg.scene.id))[0]
 
-        start_image = cv2.resize(get_node_image(start_node, scene_name), (256, 256))
+        #        start_image = cv2.resize(get_node_image(start_node, scene_name), (256, 256))
         goal_image = cv2.resize(get_node_image(local_goal_node, scene_name), (256, 256))
-        image = np.vstack([ob["rgb"], start_image, goal_image])
-        image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-        video.write(image)
 
     for i in range(MAX_NUMBER_OF_STEPS):
         displacement = torch.from_numpy(
@@ -239,6 +237,19 @@ def try_to_reach_local(
                 sim, goal_image_model, transform, localization_model, device
             )
         ).type(torch.float32)
+        if video is not None:
+            image = np.hstack([ob["rgb"], goal_image])
+            image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+            cv2.putText(
+                image,
+                text=str(displacement).replace("tensor(", "").replace(")", ""),
+                fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+                org=(10, 10),
+                fontScale=0.5,
+                color=(255, 255, 255),
+                thickness=2,
+            )
+            video.write(image)
         ob["pointgoal_with_gps_compass"] = displacement.unsqueeze(0).to(device)
         ob["depth"] = torch.from_numpy(ob["depth"]).unsqueeze(0).to(device)
         with torch.no_grad():
@@ -254,19 +265,6 @@ def try_to_reach_local(
         ##            pu.db
         ##            print("STOP")
         ##            return -1
-        if video is not None:
-            image = np.vstack([ob["rgb"], start_image, goal_image])
-            image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-            cv2.putText(
-                image,
-                text=str(displacement).replace("tensor(", "").replace(")", ""),
-                fontFace=cv2.FONT_HERSHEY_SIMPLEX,
-                org=(10, 260),
-                fontScale=0.5,
-                color=(255, 255, 255),
-                thickness=2,
-            )
-            video.write(image)
         ob = sim.step(action[0].item())
     return 0
 
@@ -281,8 +279,6 @@ def get_displacement_local_goal(
     start_image_model = (
         cv2.resize(sim.get_sensor_observations()["rgb"][:, :, 0:3], (224, 224)) / 255
     )
-    plt.imshow(sim.get_sensor_observations()["rgb"])
-    plt.show()
     start_image_model = (
         transform(start_image_model).to(device).unsqueeze(0).type(torch.float32)
     )
@@ -307,14 +303,14 @@ def run_experiment(
     # Choose 2 random nodes in graph
     # 0 means success
     # 1 means failed at runtime
-    # 2 means no path found
-    # 3 shouldn't be returned as an experiment result, its just used to say that the path in the map is trivially easy (few nodes to traverse between).
-    return_codes = [0 for i in range(3)]
+    # 2 means the system thought it finished the path, but was actually far away
+    # 3 means topological map failed to find a path
+    # 4 shouldn't be returned as an experiment result, its just used to say that the path in the map is trivially easy (few nodes to traverse between).
+    return_codes = [0 for i in range(4)]
     for _ in tqdm(range(experiments)):
         results = None
-        while results == None or results == 3:
+        while results == None or results == 4:
             node1, node2 = get_two_nodes(G)
-            pu.db
             results = try_to_reach(
                 G,
                 node1,
@@ -327,8 +323,20 @@ def run_experiment(
                 device,
             )
         return_codes[results] += 1
-        if results == 2:
-            break
+        if results == 1 or results == 2:
+            pu.db
+            results = try_to_reach(
+                G,
+                node1,
+                node2,
+                d,
+                ddppo_model,
+                localization_model,
+                deepcopy(hidden_state),
+                scene,
+                device,
+            )
+            # break
     return return_codes
 
 

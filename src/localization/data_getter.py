@@ -142,7 +142,7 @@ class GibsonDataset(Dataset):
         # Make sure all keys have same amount of data and are in the correct range
         ret = {}
         for data in self.dataset:
-            key = data[3] - data[2]
+            key = np.abs(data[3] - data[2])
             if key >= self.max_distance:
                 key = self.max_distance
             if key <= -self.max_distance:
@@ -203,12 +203,17 @@ class GibsonDataset(Dataset):
                     # Get all pairs of i,j that satisfy distance
                     path_length = len(self.labels[env][episode]["shortest_paths"][0][0])
                     possible_ij = []
+                    # Get images in the forward direction
                     for i, j in zip(range(path_length), range(distance, path_length)):
                         possible_ij.append((i, j))
+                    # Get images in the backwards direction
+                    for i, j in zip(range(path_length), range(distance, path_length)):
+                        possible_ij.append((j, i))
+                    # Get images in the reverse direction
                     # If sample is found, break
                     if len(possible_ij) != 0:
                         i, j = random.choice(possible_ij)
-                        key = j - i
+                        key = np.abs(j - i)
                         if key not in ret:
                             ret[key] = []
                         # Ignore if distance between nodes is 0, this causes problems...
@@ -261,21 +266,20 @@ class GibsonDataset(Dataset):
     # Images are offset by self.max_distance, because this should also detect going backwards which the robot can not do.
     def __getitem__(self, idx):
         env, episode, l1, l2 = self.dataset[idx]
-        #    image1 = self.get_image(env, episode, l1)
-        #    image2 = self.get_image(env, episode, l2)
-        #    transform = transforms.Compose(
-        #        [
-        #            transforms.ToTensor(),
-        #            transforms.Normalize(
-        #                mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-        #            ),
-        #        ]
-        #    )
-        #    image1 = transform(image1)
-        #    image2 = transform(image2)
+        image1 = self.get_image(env, episode, l1)
+        image2 = self.get_image(env, episode, l2)
+        transform = transforms.Compose(
+            [
+                transforms.ToTensor(),
+                transforms.Normalize(
+                    mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+                ),
+            ]
+        )
+        image1 = transform(image1)
+        image2 = transform(image2)
 
-        #    x = (image1, image2)
-        x = None
+        x = (image1, image2)
         d = self.labels[env]
         if l1 == l2:
             y = np.array([0.0, 0.0])
@@ -319,25 +323,29 @@ def get_node_pose(node, d):
 if __name__ == "__main__":
     dataset = GibsonDataset(
         "train",
-        samples=2000,
+        samples=200,
         seed=0,
         max_distance=30,
         ignore_0=False,
-        debug=False,
+        debug=True,
         episodes=20,
     )
     max_angle = 0
     max_displacement = 0
     displacements = []
     angles = []
+    ys = []
     for batch in tqdm(dataset):
         (
             x,
             y,
         ) = batch
-        #    dataset.visualize_sample(x, y, episode, l1, l2)
-        #        im1, im2 = x
-        y = y
+        #        dataset.visualize_sample(x, y, episode, l1, l2)
+        im1, im2 = x
+        im = np.hstack([im1, im2])
+        plt.text(50, 25, str(y))
+        plt.imshow(im)
+        plt.show()
         max_angle = max(y[1], max_angle)
         max_displacement = max(y[0], max_displacement)
         displacements.append(y[0])
@@ -347,6 +355,9 @@ if __name__ == "__main__":
     plt.show()
     plt.clf()
     plt.hist(angles, bins=1000)
+    plt.show()
+    plt.clf()
+    plt.hist(ys, bins=1000)
     plt.show()
     np.save("./disp.npy", displacements)
     np.save("./angles.npy", angles)

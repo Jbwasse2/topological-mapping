@@ -1,6 +1,5 @@
 import habitat
 from pathlib import Path
-import argparse
 import matplotlib.pyplot as plt
 from habitat.utils.visualizations.maps import get_topdown_map
 import gzip

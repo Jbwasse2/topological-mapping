@@ -1,4 +1,6 @@
 import glob
+import quaternion
+from tqdm import tqdm
 import gzip
 import random
 from pathlib import Path
@@ -16,11 +18,14 @@ from torchvision import transforms as transforms
 from torchvision import utils
 from torchvision.transforms import ToTensor
 from rich.progress import track
+import matplotlib
+
+matplotlib.use("Agg")
 
 
 def get_dict(fname):
     f = gzip.open(
-        "../../data/datasets/pointnav/gibson/v2/train_large/content/"
+        "../../data/datasets/pointnav/gibson/v4/train_large/content/"
         + fname
         + ".json.gz"
     )
@@ -39,6 +44,7 @@ class GibsonDataset(Dataset):
         split_type,
         seed,
         visualize=False,
+        episodes=20,
         max_distance=10,
         samples=10000,
         ignore_0=False,
@@ -50,11 +56,12 @@ class GibsonDataset(Dataset):
         self.split_type = split_type
         self.max_distance = max_distance
         # This is changed in the train_large_data.py file
-        self.episodes = 100
+        self.episodes = episodes
+        self.samples = samples
         self.image_data_path = (
-            "../../data/datasets/pointnav/gibson/v2/train_large/images/"
+            "../../data/datasets/pointnav/gibson/v4/train_large/images/"
         )
-        self.dict_path = "../../data/datasets/pointnav/gibson/v2/train_large/content/"
+        self.dict_path = "../../data/datasets/pointnav/gibson/v4/train_large/content/"
         self.env_names = self.get_env_names()
         random.shuffle(self.env_names)
         split = 0.85
@@ -64,14 +71,27 @@ class GibsonDataset(Dataset):
             d = get_dict(self.train_env[0])
             self.visualize_dict(d[0])
         if split_type == "train":
+            self.labels = self.get_labels_dicts(self.train_env)
             self.dataset = self.get_dataset(self.train_env)
         elif split_type == "test":
+            self.labels = self.get_labels_dicts(self.test_env)
             self.dataset = self.get_dataset(self.test_env)
         self.dataset = self.balance_dataset(samples)
         if self.ignore_0:
             self.dataset.pop(0, None)
         self.dataset = self.flatten_dataset()
-        self.verify_dataset()
+
+    #        self.verify_dataset()
+
+    def get_labels_dicts(self, envs):
+        if self.debug:
+            envs = envs[0:3]
+        ret = {}
+        self.distances = []
+        self.angles = []
+        for env in tqdm(envs):
+            ret[env] = get_dict(env)
+        return ret
 
     def save_env_data(self, path):
         np.save(path + "train_env.npy", self.train_env)
@@ -85,7 +105,7 @@ class GibsonDataset(Dataset):
                 self.image_data_path
                 + env
                 + "/"
-                + "episode"
+                + "episodeRGB"
                 + str(episode)
                 + "_"
                 + str(l1).zfill(5)
@@ -95,7 +115,7 @@ class GibsonDataset(Dataset):
                 self.image_data_path
                 + env
                 + "/"
-                + "episode"
+                + "episodeRGB"
                 + str(episode)
                 + "_"
                 + str(l2).zfill(5)
@@ -106,7 +126,7 @@ class GibsonDataset(Dataset):
         # Make sure all keys have same amount of data and are in the correct range
         ret = {}
         for data in self.dataset:
-            key = data[2] - data[3]
+            key = np.abs(data[2] - data[3])
             if key >= self.max_distance:
                 key = self.max_distance
             if key <= -self.max_distance:
@@ -114,13 +134,13 @@ class GibsonDataset(Dataset):
             if key not in ret:
                 ret[key] = 0
             ret[key] += 1
-        number_of_0s = ret[list(ret.keys())[0]]
-        range_of_keys = set(range(-self.max_distance, self.max_distance + 1))
+        number_of_1s = ret[list(ret.keys())[1]]
+        range_of_keys = set(range(self.max_distance + 1))
         if self.ignore_0:
             range_of_keys.remove(0)
         for key, value in ret.items():
-            assert key in range(-self.max_distance, self.max_distance + 1)
-            assert value == number_of_0s
+            assert key in range(self.max_distance + 1)
+            assert value == number_of_1s
             range_of_keys.remove(key)
         assert range_of_keys == set()
 
@@ -133,51 +153,79 @@ class GibsonDataset(Dataset):
         return ret
 
     def balance_dataset(self, max_number_of_examples=2000):
+        # We want the prob dataset to be balanced
+        bad_labels = list(range(-self.max_distance, 0)) + list(
+            range(int(self.max_distance / 2), self.max_distance + 1)
+        )
+        if self.ignore_0:
+            good_labels = list(range(1, int(self.max_distance / 2)))
+        else:
+            good_labels = list(range(0, int(self.max_distance / 2)))
+        number_bad_labels = len(bad_labels)
+        number_good_labels = len(good_labels)
+        assert number_bad_labels + number_good_labels == self.max_distance * 2 + 1
+        weight_bad = number_good_labels / number_bad_labels
+        weight_good = 1.0
         min_size = np.inf
-        for i in range(-self.max_distance + 1, self.max_distance):
+        if self.ignore_0:
+            dist_range = range(-sefl.max_distance, self.max_distance + 1)
+        else:
+            dist_range = range(-self.max_distance, self.max_distance + 1)
+        for i in dist_range:
             min_size = min(min_size, len(self.dataset[i]))
         min_size = min(min_size, max_number_of_examples)
         far_away_keys = range(self.max_distance, max(self.dataset.keys()))
         ret = {}
         far_away_dataset = []
-        # Fill up with keys that are far away in forward direction
-        for i in range(int(min_size)):
-            idx = np.random.choice(far_away_keys)
-            key = self.max_distance
-            if key not in ret:
-                ret[key] = []
-            ret[key].append(random.choice(self.dataset[idx]))
-        # fill up with keys that are faw away in backwards direction
-        far_away_keys = range(min(self.dataset), -self.max_distance + 1)
-        for i in range(int(min_size)):
-            idx = np.random.choice(far_away_keys)
-            key = -self.max_distance
-            if key not in ret:
-                ret[key] = []
-            ret[key].append(random.choice(self.dataset[idx]))
-        for i in range(-self.max_distance + 1, self.max_distance):
-            ret[i] = random.sample(self.dataset[i], min_size)
+        for i in dist_range:
+            weight = weight_bad if i in bad_labels else weight_good
+            ret[i] = random.sample(self.dataset[i], int(min_size * weight))
         return ret
 
     # Don't forget map/trajectory is directed.
     def get_dataset(self, envs):
         ret = {}
+        retries = 100
         if self.debug:
             envs = envs[0:3]
-        for env in track(envs, description="[green] Collecting Large Dataset"):
-            # Get step difference between all points to each other
-            for episode in range(self.episodes):
-                paths = glob.glob(
-                    self.image_data_path + env + "/" + "episode" + str(episode) + "_*"
-                )
-                for i in range(len(paths)):
-                    # Put this if we dont have negative predictions class
-                    # for j in range(len(paths)):
-                    for j in range(len(paths)):
+        for distance in tqdm(range(-self.max_distance, self.max_distance + 1)):
+            for sample in range(self.samples):
+                # Keep trying to find sample that satisfies requirements...
+                for _ in range(retries):
+                    # Choose a random env
+                    env = random.choice(envs)
+                    # Choose random episode in env
+                    episode = random.choice(range(len(self.labels[env])))
+                    # Get all pairs of i,j that satisfy distance
+                    path_length = len(self.labels[env][episode]["shortest_paths"][0][0])
+                    possible_ij = []
+                    # Get images in the forward direction
+                    if distance < 0:
+                        for i, j in zip(
+                            range(-distance, path_length), range(path_length)
+                        ):
+                            possible_ij.append((i, j))
+                    else:
+                        for i, j in zip(
+                            range(path_length), range(distance, path_length)
+                        ):
+                            possible_ij.append((i, j))
+                    # If sample is found, break
+                    if len(possible_ij) != 0:
+                        i, j = random.choice(possible_ij)
                         key = j - i
                         if key not in ret:
                             ret[key] = []
-                        ret[key].append((env, episode, i, j))
+                        # Ignore if distance between nodes is 0, this causes problems...
+                        pos1 = self.labels[env][episode]["shortest_paths"][0][0][i][
+                            "position"
+                        ]
+                        pos2 = self.labels[env][episode]["shortest_paths"][0][0][j][
+                            "position"
+                        ]
+                        if (pos1 != pos2 and i != j) or i == j:
+                            ret[key].append((env, episode, i, j))
+                            break
         return ret
 
     def get_env_names(self):
@@ -206,7 +254,7 @@ class GibsonDataset(Dataset):
             self.image_data_path
             + env
             + "/"
-            + "episode"
+            + "episodeRGB"
             + str(episode)
             + "_"
             + str(location).zfill(5)
@@ -232,32 +280,41 @@ class GibsonDataset(Dataset):
         image2 = transform(image2)
 
         x = (image1, image2)
-        # key = l2 - l1
-        # if key <= 4:
-        #    y = 1
-        # else:
-        #    y = 0
-        #    y = min(l2 - l1, self.max_distance)
         y = l2 - l1
-        if y >= self.max_distance:
-            y = self.max_distance
-        if y <= -self.max_distance:
-            y = -self.max_distance
-        y = y + self.max_distance
+        if y >= int(self.max_distance / 2) or y < 0:
+            y = 0
+        else:
+            y = 1
 
         return (x, y)
 
 
 if __name__ == "__main__":
     dataset = GibsonDataset(
-        "train", samples=10, seed=0, max_distance=5, ignore_0=True, debug=True
+        "train",
+        samples=10,
+        seed=0,
+        max_distance=30,
+        ignore_0=False,
+        debug=True,
+        episodes=20,
     )
-    key = {}
-    for batch in dataset:
-        x, y = batch
+    max_angle = 0
+    max_displacement = 0
+    displacements = []
+    angles = []
+    ys = []
+    for batch in tqdm(dataset):
+        (
+            x,
+            y,
+        ) = batch
+        #        dataset.visualize_sample(x, y, episode, l1, l2)
         im1, im2 = x
-        y = y
-        if y not in key:
-            key[y] = 0
-        key[y] += 1
-    pu.db
+        ys.append(y)
+        # im = np.hstack([im1, im2])
+        # plt.text(50, 25, str(y))
+        # plt.imshow(im)
+        # plt.show()
+    plt.hist(ys, bins=10)
+    plt.savefig("histogram_y.jpg")
