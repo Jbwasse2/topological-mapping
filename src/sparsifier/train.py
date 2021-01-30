@@ -1,4 +1,6 @@
 import argparse
+from torch.autograd import Variable
+from tqdm import tqdm
 import os
 import time
 from shutil import copyfile
@@ -17,8 +19,12 @@ from model import Siamese
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 
-def train(model, device, epochs=200):
-    print("DONT FORGET TO UNCOMMENT SAVE MODEL")
+def soft_classification_loss(guess, truth):
+    guess_class = guess.argmax(1)
+    return torch.abs(guess_class - truth).sum().float()
+
+
+def train(model, device, epochs=30):
     current_time = time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime())
     results_dir = "../../data/results/sparsifier/" + current_time + "/"
     os.mkdir(results_dir)
@@ -27,7 +33,15 @@ def train(model, device, epochs=200):
     optimizer = optim.Adam(model.parameters(), lr=0.001)
     BATCH_SIZE = 64
     seed = 0
-    train_dataset = GibsonDataset("train", seed, samples=30000, max_distance=5, ignore_0=True)
+    train_dataset = GibsonDataset(
+        "train",
+        seed,
+        samples=20000,
+        max_distance=30,
+        episodes=20,
+        ignore_0=False,
+        debug=False,
+    )
     train_dataset.save_env_data(results_dir)
     train_dataloader = data.DataLoader(
         train_dataset,
@@ -35,7 +49,15 @@ def train(model, device, epochs=200):
         shuffle=True,
         num_workers=16,
     )
-    test_dataset = GibsonDataset("test", seed, samples=3500, max_distance=5, ignore_0=True)
+    test_dataset = GibsonDataset(
+        "test",
+        seed,
+        samples=2000,
+        max_distance=30,
+        episodes=20,
+        ignore_0=False,
+        debug=False,
+    )
     test_dataloader = data.DataLoader(
         test_dataset,
         batch_size=BATCH_SIZE,
@@ -55,13 +77,13 @@ def train(model, device, epochs=200):
     for epoch in range(epochs):
         print("epoch ", epoch)
         model.train()
-        for i, batch in enumerate(track(train_dataloader, description="[cyan] Training!")):
+        for i, batch in enumerate(tqdm(train_dataloader)):
             x, y = batch
             im1, im2 = x
             y = y.to(device)
             im1 = im1.to(device).float()
             im2 = im2.to(device).float()
-            out = model(im1, im2)
+            out = model(im1, im2).float()
             optimizer.zero_grad()
             loss = criterion(out, y)
             loss.backward()
@@ -80,15 +102,15 @@ def train(model, device, epochs=200):
         accuracy = []
         # Do validation
         model.eval()
-        for i, batch in enumerate(track(test_dataloader, description="[red] Testing!")):
+        for i, batch in enumerate(tqdm(test_dataloader)):
             x, y = batch
             im1, im2 = x
             y = y.to(device)
             im1 = im1.to(device).float()
             im2 = im2.to(device).float()
-            out = model(im1, im2)
+            out = model(im1, im2).float()
+            #            out_class = Variable(out.argmax(1).float(), requires_grad=True)
             loss = criterion(out, y)
-            loss.backward()
             loss = loss.cpu().detach().numpy()
             losses_v.append(loss)
             choose = np.argmax(out.cpu().detach().numpy(), axis=1)
@@ -102,6 +124,10 @@ def train(model, device, epochs=200):
         accuracy_v = []
         if epoch % 5 == 0:
             torch.save(model.state_dict(), results_dir + "saved_model.pth")
+            np.save(results_dir + "losses.npy", losses_cum)
+            np.save(results_dir + "losses_v.npy", losses_v_cum)
+            np.save(results_dir + "accuracy.npy", accuracy_cum)
+            np.save(results_dir + "accuracy_v.npy", accuracy_v_cum)
     torch.save(model.state_dict(), results_dir + "saved_model.pth")
     np.save(results_dir + "losses.npy", losses_cum)
     np.save(results_dir + "losses_v.npy", losses_v_cum)

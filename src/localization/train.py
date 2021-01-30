@@ -1,7 +1,7 @@
-#Basically need to do the following
-#1) Get trajectories and labels (Done)
-#2) Take model from before, but use regression
-#3) Data should also be similiar to before
+# Basically need to do the following
+# 1) Get trajectories and labels (Done)
+# 2) Take model from before, but use regression
+# 3) Data should also be similiar to before
 
 import argparse
 import matplotlib.pyplot as plt
@@ -34,7 +34,15 @@ def train(model, device, epochs=30):
     optimizer = optim.Adam(model.parameters(), lr=0.0001)
     BATCH_SIZE = 64
     seed = 0
-    train_dataset = GibsonDataset("train", seed, samples=40000, max_distance=30, episodes=20, ignore_0=False, debug=False)
+    train_dataset = GibsonDataset(
+        "train",
+        seed,
+        samples=40000,
+        max_distance=30,
+        episodes=20,
+        ignore_0=False,
+        debug=False,
+    )
     train_dataset.save_env_data(results_dir)
     train_dataloader = data.DataLoader(
         train_dataset,
@@ -42,7 +50,15 @@ def train(model, device, epochs=30):
         shuffle=True,
         num_workers=16,
     )
-    test_dataset = GibsonDataset("test", seed, samples=4000, max_distance=30, episodes=20,  ignore_0=False, debug=False)
+    test_dataset = GibsonDataset(
+        "test",
+        seed,
+        samples=4000,
+        max_distance=30,
+        episodes=20,
+        ignore_0=False,
+        debug=False,
+    )
     test_dataloader = data.DataLoader(
         test_dataset,
         batch_size=BATCH_SIZE,
@@ -58,7 +74,9 @@ def train(model, device, epochs=30):
     for epoch in range(epochs):
         print("epoch ", epoch)
         model.train()
-        for i, batch in enumerate(track(train_dataloader, description="[cyan] Training!")):
+        for i, batch in enumerate(
+            track(train_dataloader, description="[cyan] Training!")
+        ):
             x, y = batch
             im1, im2 = x
             y = y.type(torch.float32)
@@ -79,7 +97,9 @@ def train(model, device, epochs=30):
         # Do validation
         model.eval()
         with torch.no_grad():
-            for i, batch in enumerate(track(test_dataloader, description="[red] Testing!")):
+            for i, batch in enumerate(
+                track(test_dataloader, description="[red] Testing!")
+            ):
                 x, y = batch
                 im1, im2 = x
                 y = y.type(torch.float32)

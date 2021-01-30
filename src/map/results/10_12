@@ -1,0 +1,64 @@
+2021-01-27 05:10:58,642 initializing sim Sim-v0
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+I0127 05:10:58.647387 45878 AssetAttributesManager.cpp:122] Asset attributes (capsule3DSolid : capsule3DSolid_hemiRings_4_cylRings_1_segments_12_halfLen_0.75_useTexCoords_false_useTangents_false) created and registered.
+I0127 05:10:58.647445 45878 AssetAttributesManager.cpp:122] Asset attributes (capsule3DWireframe : capsule3DWireframe_hemiRings_8_cylRings_1_segments_16_halfLen_1) created and registered.
+I0127 05:10:58.647487 45878 AssetAttributesManager.cpp:122] Asset attributes (coneSolid : coneSolid_segments_12_halfLen_1.25_rings_1_useTexCoords_false_useTangents_false_capEnd_true) created and registered.
+I0127 05:10:58.647513 45878 AssetAttributesManager.cpp:122] Asset attributes (coneWireframe : coneWireframe_segments_32_halfLen_1.25) created and registered.
+I0127 05:10:58.647526 45878 AssetAttributesManager.cpp:122] Asset attributes (cubeSolid : cubeSolid) created and registered.
+I0127 05:10:58.647536 45878 AssetAttributesManager.cpp:122] Asset attributes (cubeWireframe : cubeWireframe) created and registered.
+I0127 05:10:58.647572 45878 AssetAttributesManager.cpp:122] Asset attributes (cylinderSolid : cylinderSolid_rings_1_segments_12_halfLen_1_useTexCoords_false_useTangents_false_capEnds_true) created and registered.
+I0127 05:10:58.647603 45878 AssetAttributesManager.cpp:122] Asset attributes (cylinderWireframe : cylinderWireframe_rings_1_segments_32_halfLen_1) created and registered.
+I0127 05:10:58.647617 45878 AssetAttributesManager.cpp:122] Asset attributes (icosphereSolid : icosphereSolid_subdivs_1) created and registered.
+I0127 05:10:58.647631 45878 AssetAttributesManager.cpp:122] Asset attributes (icosphereWireframe : icosphereWireframe_subdivs_1) created and registered.
+I0127 05:10:58.647652 45878 AssetAttributesManager.cpp:122] Asset attributes (uvSphereSolid : uvSphereSolid_rings_8_segments_16_useTexCoords_false_useTangents_false) created and registered.
+I0127 05:10:58.647673 45878 AssetAttributesManager.cpp:122] Asset attributes (uvSphereWireframe : uvSphereWireframe_rings_16_segments_32) created and registered.
+I0127 05:10:58.647680 45878 AssetAttributesManager.cpp:108] AssetAttributesManager::buildCtorFuncPtrMaps : Built default primitive asset templates : 12
+I0127 05:10:58.648384 45878 PhysicsAttributesManager.cpp:39] File (./data/default.phys_scene_config.json) not found so new, default physics manager attributes created and registered.
+I0127 05:10:58.648480 45878 StageAttributesManager.cpp:79] File (../../data/scene_datasets/gibson/Bolton.glb) Based stage attributes created and registered.
+I0127 05:10:58.648494 45878 Simulator.cpp:145] Loading navmesh from ../../data/scene_datasets/gibson/Bolton.navmesh
+I0127 05:10:58.648543 45878 Simulator.cpp:147] Loaded.
+I0127 05:10:58.648556 45878 SceneGraph.h:93] Created DrawableGroup: 
+Renderer: GeForce RTX 2080/PCIe/SSE2 by NVIDIA Corporation
+OpenGL version: 4.6.0 NVIDIA 450.102.04
+Using optional features:
+    GL_ARB_ES2_compatibility
+    GL_ARB_direct_state_access
+    GL_ARB_get_texture_sub_image
+    GL_ARB_invalidate_subdata
+    GL_ARB_multi_bind
+    GL_ARB_robustness
+    GL_ARB_separate_shader_objects
+    GL_ARB_texture_filter_anisotropic
+    GL_ARB_texture_storage
+    GL_ARB_texture_storage_multisample
+    GL_ARB_vertex_array_object
+    GL_KHR_debug
+Using driver workarounds:
+    no-forward-compatible-core-context
+    nv-egl-incorrect-gl11-function-pointers
+    no-layout-qualifiers-on-old-glsl
+    nv-zero-context-profile-mask
+    nv-implementation-color-read-format-dsa-broken
+    nv-cubemap-inconsistent-compressed-image-size
+    nv-cubemap-broken-full-compressed-image-query
+    nv-compressed-block-size-in-bits
+I0127 05:10:58.681954 45878 ResourceManager.cpp:934] Importing Basis files as BC7
+I0127 05:11:01.093046 45878 ResourceManager.cpp:302] ResourceManager::loadStage : Not loading semantic mesh
+W0127 05:11:01.093082 45878 Simulator.cpp:235] :
+---
+ The active scene does not contain semantic annotations. 
+---
+I0127 05:11:01.093373 45878 simulator.py:181] Loaded navmesh ../../data/scene_datasets/gibson/Bolton.navmesh
+  0%|          | 0/20 [00:00<?, ?it/s]  5%|▌         | 1/20 [00:00<00:05,  3.30it/s] 10%|█         | 2/20 [00:00<00:06,  2.91it/s] 15%|█▌        | 3/20 [00:01<00:05,  2.86it/s] 20%|██        | 4/20 [00:01<00:05,  2.85it/s] 25%|██▌       | 5/20 [00:02<00:07,  2.03it/s] 30%|███       | 6/20 [00:02<00:06,  2.29it/s] 35%|███▌      | 7/20 [00:02<00:05,  2.30it/s] 40%|████      | 8/20 [00:03<00:05,  2.27it/s] 45%|████▌     | 9/20 [00:03<00:04,  2.31it/s] 50%|█████     | 10/20 [00:04<00:04,  2.29it/s] 55%|█████▌    | 11/20 [00:04<00:03,  2.53it/s] 60%|██████    | 12/20 [00:05<00:03,  2.25it/s] 65%|██████▌   | 13/20 [00:05<00:03,  2.33it/s] 70%|███████   | 14/20 [00:05<00:02,  2.29it/s] 75%|███████▌  | 15/20 [00:06<00:02,  2.23it/s] 80%|████████  | 16/20 [00:06<00:01,  2.59it/s] 85%|████████▌ | 17/20 [00:07<00:01,  2.25it/s] 90%|█████████ | 18/20 [00:07<00:00,  2.00it/s] 95%|█████████▌| 19/20 [00:08<00:00,  1.99it/s]100%|██████████| 20/20 [00:08<00:00,  1.98it/s]100%|██████████| 20/20 [00:08<00:00,  2.26it/s]
+  0%|          | 0/20 [00:00<?, ?it/s]100%|██████████| 20/20 [00:00<00:00, 68478.43it/s]
+0it [00:00, ?it/s]20it [00:00, 199254.35it/s]
+0it [00:00, ?it/s]5it [00:00, 25.95it/s]8it [00:00, 14.75it/s]10it [00:00, 11.08it/s]12it [00:01,  9.15it/s]13it [00:01,  8.19it/s]14it [00:01,  6.89it/s]15it [00:01,  6.84it/s]16it [00:01,  6.90it/s]17it [00:01,  6.23it/s]18it [00:02,  5.45it/s]19it [00:02,  5.97it/s]20it [00:02,  4.98it/s]20it [00:02,  7.53it/s]
+  0%|          | 0/363 [00:00<?, ?it/s]  3%|▎         | 10/363 [00:00<00:03, 97.11it/s]  6%|▌         | 20/363 [00:00<00:03, 97.60it/s]  8%|▊         | 30/363 [00:00<00:03, 97.24it/s] 11%|█         | 40/363 [00:00<00:03, 96.46it/s] 14%|█▍        | 50/363 [00:00<00:03, 96.89it/s] 17%|█▋        | 60/363 [00:00<00:03, 97.20it/s] 19%|█▉        | 70/363 [00:00<00:03, 97.49it/s] 22%|██▏       | 80/363 [00:00<00:02, 97.07it/s] 25%|██▍       | 90/363 [00:00<00:02, 97.31it/s] 28%|██▊       | 100/363 [00:01<00:02, 97.43it/s] 30%|███       | 110/363 [00:01<00:02, 97.52it/s] 33%|███▎      | 120/363 [00:01<00:02, 96.87it/s] 36%|███▌      | 130/363 [00:01<00:02, 97.12it/s] 39%|███▊      | 140/363 [00:01<00:02, 97.05it/s] 41%|████▏     | 150/363 [00:01<00:02, 97.38it/s] 44%|████▍     | 160/363 [00:01<00:02, 96.97it/s] 47%|████▋     | 170/363 [00:01<00:01, 97.31it/s] 50%|████▉     | 180/363 [00:01<00:01, 97.38it/s] 52%|█████▏    | 190/363 [00:01<00:01, 97.57it/s] 55%|█████▌    | 200/363 [00:02<00:01, 97.06it/s] 58%|█████▊    | 210/363 [00:02<00:01, 97.28it/s] 61%|██████    | 220/363 [00:02<00:01, 97.19it/s] 63%|██████▎   | 230/363 [00:02<00:01, 97.35it/s] 66%|██████▌   | 240/363 [00:02<00:01, 97.08it/s] 69%|██████▉   | 250/363 [00:02<00:01, 97.31it/s] 72%|███████▏  | 260/363 [00:02<00:01, 97.54it/s] 74%|███████▍  | 270/363 [00:02<00:00, 97.79it/s] 77%|███████▋  | 280/363 [00:02<00:00, 97.50it/s] 80%|███████▉  | 290/363 [00:02<00:00, 97.78it/s] 83%|████████▎ | 300/363 [00:03<00:00, 97.86it/s] 85%|████████▌ | 310/363 [00:03<00:00, 98.01it/s] 88%|████████▊ | 320/363 [00:03<00:00, 98.00it/s] 91%|█████████ | 330/363 [00:03<00:00, 98.16it/s] 94%|█████████▎| 340/363 [00:03<00:00, 98.03it/s] 96%|█████████▋| 350/363 [00:03<00:00, 97.98it/s] 99%|█████████▉| 360/363 [00:03<00:00, 97.68it/s]100%|██████████| 363/363 [00:03<00:00, 97.43it/s]
+I0127 05:11:27.210839 45878 PhysicsManager.cpp:33] Deconstructing PhysicsManager
+I0127 05:11:27.210875 45878 SemanticScene.h:41] Deconstructing SemanticScene
+I0127 05:11:27.210877 45878 SceneManager.h:25] Deconstructing SceneManager
+I0127 05:11:27.210880 45878 SceneGraph.h:26] Deconstructing SceneGraph
+I0127 05:11:27.210964 45878 Sensor.h:81] Deconstructing Sensor
+I0127 05:11:27.246031 45878 Renderer.cpp:34] Deconstructing Renderer
+I0127 05:11:27.246069 45878 WindowlessContext.h:17] Deconstructing WindowlessContext
+I0127 05:11:27.248402 45878 Simulator.cpp:46] Deconstructing Simulator

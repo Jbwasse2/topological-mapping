@@ -1,0 +1,1929 @@
+2021-01-27 02:16:13,831 initializing sim Sim-v0
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+I0127 02:16:13.836789 26614 AssetAttributesManager.cpp:122] Asset attributes (capsule3DSolid : capsule3DSolid_hemiRings_4_cylRings_1_segments_12_halfLen_0.75_useTexCoords_false_useTangents_false) created and registered.
+I0127 02:16:13.836846 26614 AssetAttributesManager.cpp:122] Asset attributes (capsule3DWireframe : capsule3DWireframe_hemiRings_8_cylRings_1_segments_16_halfLen_1) created and registered.
+I0127 02:16:13.836884 26614 AssetAttributesManager.cpp:122] Asset attributes (coneSolid : coneSolid_segments_12_halfLen_1.25_rings_1_useTexCoords_false_useTangents_false_capEnd_true) created and registered.
+I0127 02:16:13.836905 26614 AssetAttributesManager.cpp:122] Asset attributes (coneWireframe : coneWireframe_segments_32_halfLen_1.25) created and registered.
+I0127 02:16:13.836918 26614 AssetAttributesManager.cpp:122] Asset attributes (cubeSolid : cubeSolid) created and registered.
+I0127 02:16:13.836927 26614 AssetAttributesManager.cpp:122] Asset attributes (cubeWireframe : cubeWireframe) created and registered.
+I0127 02:16:13.836959 26614 AssetAttributesManager.cpp:122] Asset attributes (cylinderSolid : cylinderSolid_rings_1_segments_12_halfLen_1_useTexCoords_false_useTangents_false_capEnds_true) created and registered.
+I0127 02:16:13.836985 26614 AssetAttributesManager.cpp:122] Asset attributes (cylinderWireframe : cylinderWireframe_rings_1_segments_32_halfLen_1) created and registered.
+I0127 02:16:13.836998 26614 AssetAttributesManager.cpp:122] Asset attributes (icosphereSolid : icosphereSolid_subdivs_1) created and registered.
+I0127 02:16:13.837009 26614 AssetAttributesManager.cpp:122] Asset attributes (icosphereWireframe : icosphereWireframe_subdivs_1) created and registered.
+I0127 02:16:13.837028 26614 AssetAttributesManager.cpp:122] Asset attributes (uvSphereSolid : uvSphereSolid_rings_8_segments_16_useTexCoords_false_useTangents_false) created and registered.
+I0127 02:16:13.837045 26614 AssetAttributesManager.cpp:122] Asset attributes (uvSphereWireframe : uvSphereWireframe_rings_16_segments_32) created and registered.
+I0127 02:16:13.837051 26614 AssetAttributesManager.cpp:108] AssetAttributesManager::buildCtorFuncPtrMaps : Built default primitive asset templates : 12
+I0127 02:16:13.837677 26614 PhysicsAttributesManager.cpp:39] File (./data/default.phys_scene_config.json) not found so new, default physics manager attributes created and registered.
+I0127 02:16:13.837757 26614 StageAttributesManager.cpp:79] File (../../data/scene_datasets/gibson/Bolton.glb) Based stage attributes created and registered.
+I0127 02:16:13.837769 26614 Simulator.cpp:145] Loading navmesh from ../../data/scene_datasets/gibson/Bolton.navmesh
+I0127 02:16:13.837824 26614 Simulator.cpp:147] Loaded.
+I0127 02:16:13.837842 26614 SceneGraph.h:93] Created DrawableGroup: 
+Renderer: GeForce RTX 2080/PCIe/SSE2 by NVIDIA Corporation
+OpenGL version: 4.6.0 NVIDIA 450.102.04
+Using optional features:
+    GL_ARB_ES2_compatibility
+    GL_ARB_direct_state_access
+    GL_ARB_get_texture_sub_image
+    GL_ARB_invalidate_subdata
+    GL_ARB_multi_bind
+    GL_ARB_robustness
+    GL_ARB_separate_shader_objects
+    GL_ARB_texture_filter_anisotropic
+    GL_ARB_texture_storage
+    GL_ARB_texture_storage_multisample
+    GL_ARB_vertex_array_object
+    GL_KHR_debug
+Using driver workarounds:
+    no-forward-compatible-core-context
+    nv-egl-incorrect-gl11-function-pointers
+    no-layout-qualifiers-on-old-glsl
+    nv-zero-context-profile-mask
+    nv-implementation-color-read-format-dsa-broken
+    nv-cubemap-inconsistent-compressed-image-size
+    nv-cubemap-broken-full-compressed-image-query
+    nv-compressed-block-size-in-bits
+I0127 02:16:13.874513 26614 ResourceManager.cpp:934] Importing Basis files as BC7
+I0127 02:16:16.825832 26614 ResourceManager.cpp:302] ResourceManager::loadStage : Not loading semantic mesh
+W0127 02:16:16.825883 26614 Simulator.cpp:235] :
+---
+ The active scene does not contain semantic annotations. 
+---
+I0127 02:16:16.827068 26614 simulator.py:181] Loaded navmesh ../../data/scene_datasets/gibson/Bolton.navmesh
+2021-01-27 02:16:16,962 config: BASE_TASK_CONFIG_PATH: configs/tasks/pointnav_gibson.yaml
+CHECKPOINT_FOLDER: data/new_checkpoints
+CHECKPOINT_INTERVAL: 250
+CMD_TRAILING_OPTS: []
+ENV_NAME: NavRLEnv
+EVAL:
+  SPLIT: val
+  USE_CKPT_CONFIG: False
+EVAL_CKPT_PATH_DIR: data/new_checkpoints
+FORCE_BLIND_POLICY: False
+LOG_FILE: train.log
+LOG_INTERVAL: 10
+NUM_PROCESSES: 1
+NUM_UPDATES: 10000
+ORBSLAM2:
+  ANGLE_TH: 0.2617993877991494
+  BETA: 100
+  CAMERA_HEIGHT: 1.25
+  DEPTH_DENORM: 10.0
+  DIST_REACHED_TH: 0.15
+  DIST_TO_STOP: 0.05
+  D_OBSTACLE_MAX: 4.0
+  D_OBSTACLE_MIN: 0.1
+  H_OBSTACLE_MAX: 1.25
+  H_OBSTACLE_MIN: 0.375
+  MAP_CELL_SIZE: 0.1
+  MAP_SIZE: 40
+  MIN_PTS_IN_OBSTACLE: 320.0
+  NEXT_WAYPOINT_TH: 0.5
+  NUM_ACTIONS: 3
+  PLANNER_MAX_STEPS: 500
+  PREPROCESS_MAP: True
+  SLAM_SETTINGS_PATH: habitat_baselines/slambased/data/mp3d3_small1k.yaml
+  SLAM_VOCAB_PATH: habitat_baselines/slambased/data/ORBvoc.txt
+RL:
+  DDPPO:
+    backbone: resnet50
+    distrib_backend: GLOO
+    num_recurrent_layers: 2
+    pretrained: True
+    pretrained_encoder: True
+    pretrained_weights: data/models/ddppo-models/gibson-2plus-resnet50.pth
+    reset_critic: False
+    rnn_type: LSTM
+    sync_frac: 0.6
+    train_encoder: False
+  POLICY:
+    OBS_TRANSFORMS:
+      CENTER_CROPPER:
+        HEIGHT: 256
+        WIDTH: 256
+      CUBE2EQ:
+        CUBE_LENGTH: 256
+        HEIGHT: 256
+        SENSOR_UUIDS: []
+        WIDTH: 512
+      ENABLED_TRANSFORMS: ()
+      RESIZE_SHORTEST_EDGE:
+        SIZE: 256
+    name: PointNavResNetPolicy
+  PPO:
+    clip_param: 0.2
+    entropy_coef: 0.01
+    eps: 1e-05
+    gamma: 0.99
+    hidden_size: 512
+    lr: 0.00025
+    max_grad_norm: 0.2
+    num_mini_batch: 2
+    num_steps: 128
+    ppo_epoch: 2
+    reward_window_size: 50
+    tau: 0.95
+    use_gae: True
+    use_linear_clip_decay: False
+    use_linear_lr_decay: False
+    use_normalized_advantage: False
+    value_loss_coef: 0.5
+  REWARD_MEASURE: distance_to_goal
+  SLACK_REWARD: -0.01
+  SUCCESS_MEASURE: spl
+  SUCCESS_REWARD: 2.5
+SENSORS: ['DEPTH_SENSOR']
+SIMULATOR_GPU_ID: 0
+TASK_CONFIG:
+  DATASET:
+    CONTENT_SCENES: ['*']
+    DATA_PATH: ../../data/datasets/pointnav/gibson/v2/train_large/train_large.json.gz
+    SCENES_DIR: data/scene_datasets
+    SPLIT: train_large
+    TYPE: PointNav-v1
+  ENVIRONMENT:
+    ITERATOR_OPTIONS:
+      CYCLE: True
+      GROUP_BY_SCENE: True
+      MAX_SCENE_REPEAT_EPISODES: -1
+      MAX_SCENE_REPEAT_STEPS: 10000
+      NUM_EPISODE_SAMPLE: -1
+      SHUFFLE: True
+      STEP_REPETITION_RANGE: 0.2
+    MAX_EPISODE_SECONDS: 10000000
+    MAX_EPISODE_STEPS: 500
+  PYROBOT:
+    BASE_CONTROLLER: proportional
+    BASE_PLANNER: none
+    BUMP_SENSOR:
+      TYPE: PyRobotBumpSensor
+    DEPTH_SENSOR:
+      CENTER_CROP: False
+      HEIGHT: 480
+      MAX_DEPTH: 5.0
+      MIN_DEPTH: 0.0
+      NORMALIZE_DEPTH: True
+      TYPE: PyRobotDepthSensor
+      WIDTH: 640
+    LOCOBOT:
+      ACTIONS: ['BASE_ACTIONS', 'CAMERA_ACTIONS']
+      BASE_ACTIONS: ['go_to_relative', 'go_to_absolute']
+      CAMERA_ACTIONS: ['set_pan', 'set_tilt', 'set_pan_tilt']
+    RGB_SENSOR:
+      CENTER_CROP: False
+      HEIGHT: 480
+      TYPE: PyRobotRGBSensor
+      WIDTH: 640
+    ROBOT: locobot
+    ROBOTS: ['locobot']
+    SENSORS: ['RGB_SENSOR', 'DEPTH_SENSOR', 'BUMP_SENSOR']
+  SEED: 100
+  SIMULATOR:
+    ACTION_SPACE_CONFIG: v0
+    AGENTS: ['AGENT_0']
+    AGENT_0:
+      ANGULAR_ACCELERATION: 12.56
+      ANGULAR_FRICTION: 1.0
+      COEFFICIENT_OF_RESTITUTION: 0.0
+      HEIGHT: 1.5
+      IS_SET_START_STATE: False
+      LINEAR_ACCELERATION: 20.0
+      LINEAR_FRICTION: 0.5
+      MASS: 32.0
+      RADIUS: 0.1
+      SENSORS: ['RGB_SENSOR']
+      START_POSITION: [0, 0, 0]
+      START_ROTATION: [0, 0, 0, 1]
+    DEFAULT_AGENT_ID: 0
+    DEPTH_SENSOR:
+      HEIGHT: 256
+      HFOV: 90
+      MAX_DEPTH: 10.0
+      MIN_DEPTH: 0.0
+      NORMALIZE_DEPTH: True
+      ORIENTATION: [0.0, 0.0, 0.0]
+      POSITION: [0, 1.25, 0]
+      TYPE: HabitatSimDepthSensor
+      WIDTH: 256
+    FORWARD_STEP_SIZE: 0.25
+    HABITAT_SIM_V0:
+      ALLOW_SLIDING: True
+      ENABLE_PHYSICS: False
+      GPU_DEVICE_ID: 0
+      GPU_GPU: False
+      PHYSICS_CONFIG_FILE: ./data/default.phys_scene_config.json
+    RGB_SENSOR:
+      HEIGHT: 256
+      HFOV: 90
+      ORIENTATION: [0.0, 0.0, 0.0]
+      POSITION: [0, 1.25, 0]
+      TYPE: HabitatSimRGBSensor
+      WIDTH: 256
+    SCENE: data/scene_datasets/habitat-test-scenes/van-gogh-room.glb
+    SEED: 100
+    SEMANTIC_SENSOR:
+      HEIGHT: 480
+      HFOV: 90
+      ORIENTATION: [0.0, 0.0, 0.0]
+      POSITION: [0, 1.25, 0]
+      TYPE: HabitatSimSemanticSensor
+      WIDTH: 640
+    TILT_ANGLE: 15
+    TURN_ANGLE: 10
+    TYPE: Sim-v0
+  TASK:
+    ACTIONS:
+      ANSWER:
+        TYPE: AnswerAction
+      LOOK_DOWN:
+        TYPE: LookDownAction
+      LOOK_UP:
+        TYPE: LookUpAction
+      MOVE_FORWARD:
+        TYPE: MoveForwardAction
+      STOP:
+        TYPE: StopAction
+      TELEPORT:
+        TYPE: TeleportAction
+      TURN_LEFT:
+        TYPE: TurnLeftAction
+      TURN_RIGHT:
+        TYPE: TurnRightAction
+    ANSWER_ACCURACY:
+      TYPE: AnswerAccuracy
+    COLLISIONS:
+      TYPE: Collisions
+    COMPASS_SENSOR:
+      TYPE: CompassSensor
+    CORRECT_ANSWER:
+      TYPE: CorrectAnswer
+    DISTANCE_TO_GOAL:
+      DISTANCE_TO: POINT
+      TYPE: DistanceToGoal
+    EPISODE_INFO:
+      TYPE: EpisodeInfo
+    GOAL_SENSOR_UUID: pointgoal_with_gps_compass
+    GPS_SENSOR:
+      DIMENSIONALITY: 2
+      TYPE: GPSSensor
+    HEADING_SENSOR:
+      TYPE: HeadingSensor
+    IMAGEGOAL_SENSOR:
+      TYPE: ImageGoalSensor
+    INSTRUCTION_SENSOR:
+      TYPE: InstructionSensor
+    INSTRUCTION_SENSOR_UUID: instruction
+    MEASUREMENTS: ['DISTANCE_TO_GOAL', 'SUCCESS', 'SPL']
+    OBJECTGOAL_SENSOR:
+      GOAL_SPEC: TASK_CATEGORY_ID
+      GOAL_SPEC_MAX_VAL: 50
+      TYPE: ObjectGoalSensor
+    POINTGOAL_SENSOR:
+      DIMENSIONALITY: 2
+      GOAL_FORMAT: POLAR
+      TYPE: PointGoalSensor
+    POINTGOAL_WITH_GPS_COMPASS_SENSOR:
+      DIMENSIONALITY: 2
+      GOAL_FORMAT: POLAR
+      TYPE: PointGoalWithGPSCompassSensor
+    POSSIBLE_ACTIONS: ['STOP', 'MOVE_FORWARD', 'TURN_LEFT', 'TURN_RIGHT']
+    PROXIMITY_SENSOR:
+      MAX_DETECTION_RADIUS: 2.0
+      TYPE: ProximitySensor
+    QUESTION_SENSOR:
+      TYPE: QuestionSensor
+    SENSORS: ['POINTGOAL_WITH_GPS_COMPASS_SENSOR']
+    SOFT_SPL:
+      TYPE: SoftSPL
+    SPL:
+      TYPE: SPL
+    SUCCESS:
+      SUCCESS_DISTANCE: 0.2
+      TYPE: Success
+    SUCCESS_DISTANCE: 0.2
+    TOP_DOWN_MAP:
+      DRAW_BORDER: True
+      DRAW_GOAL_AABBS: True
+      DRAW_GOAL_POSITIONS: True
+      DRAW_SHORTEST_PATH: True
+      DRAW_SOURCE: True
+      DRAW_VIEW_POINTS: True
+      FOG_OF_WAR:
+        DRAW: True
+        FOV: 90
+        VISIBILITY_DIST: 5.0
+      MAP_PADDING: 3
+      MAP_RESOLUTION: 1024
+      MAX_EPISODE_STEPS: 1000
+      TYPE: TopDownMap
+    TYPE: Nav-v0
+TENSORBOARD_DIR: tb
+TEST_EPISODE_COUNT: -1
+TORCH_GPU_ID: 0
+TRAINER_NAME: ddppo
+VIDEO_DIR: video_dir
+VIDEO_OPTION: []
+2021-01-27 02:16:16,963 Initializing dataset PointNav-v1
+2021-01-27 02:16:18,653 Initializing dataset PointNav-v1
+2021-01-27 02:16:32,519 initializing sim Sim-v0
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+I0127 02:16:32.523672 26699 AssetAttributesManager.cpp:122] Asset attributes (capsule3DSolid : capsule3DSolid_hemiRings_4_cylRings_1_segments_12_halfLen_0.75_useTexCoords_false_useTangents_false) created and registered.
+I0127 02:16:32.523721 26699 AssetAttributesManager.cpp:122] Asset attributes (capsule3DWireframe : capsule3DWireframe_hemiRings_8_cylRings_1_segments_16_halfLen_1) created and registered.
+I0127 02:16:32.523758 26699 AssetAttributesManager.cpp:122] Asset attributes (coneSolid : coneSolid_segments_12_halfLen_1.25_rings_1_useTexCoords_false_useTangents_false_capEnd_true) created and registered.
+I0127 02:16:32.523782 26699 AssetAttributesManager.cpp:122] Asset attributes (coneWireframe : coneWireframe_segments_32_halfLen_1.25) created and registered.
+I0127 02:16:32.523794 26699 AssetAttributesManager.cpp:122] Asset attributes (cubeSolid : cubeSolid) created and registered.
+I0127 02:16:32.523803 26699 AssetAttributesManager.cpp:122] Asset attributes (cubeWireframe : cubeWireframe) created and registered.
+I0127 02:16:32.523846 26699 AssetAttributesManager.cpp:122] Asset attributes (cylinderSolid : cylinderSolid_rings_1_segments_12_halfLen_1_useTexCoords_false_useTangents_false_capEnds_true) created and registered.
+I0127 02:16:32.523874 26699 AssetAttributesManager.cpp:122] Asset attributes (cylinderWireframe : cylinderWireframe_rings_1_segments_32_halfLen_1) created and registered.
+I0127 02:16:32.523888 26699 AssetAttributesManager.cpp:122] Asset attributes (icosphereSolid : icosphereSolid_subdivs_1) created and registered.
+I0127 02:16:32.523900 26699 AssetAttributesManager.cpp:122] Asset attributes (icosphereWireframe : icosphereWireframe_subdivs_1) created and registered.
+I0127 02:16:32.523921 26699 AssetAttributesManager.cpp:122] Asset attributes (uvSphereSolid : uvSphereSolid_rings_8_segments_16_useTexCoords_false_useTangents_false) created and registered.
+I0127 02:16:32.523938 26699 AssetAttributesManager.cpp:122] Asset attributes (uvSphereWireframe : uvSphereWireframe_rings_16_segments_32) created and registered.
+I0127 02:16:32.523945 26699 AssetAttributesManager.cpp:108] AssetAttributesManager::buildCtorFuncPtrMaps : Built default primitive asset templates : 12
+I0127 02:16:32.524595 26699 PhysicsAttributesManager.cpp:39] File (./data/default.phys_scene_config.json) not found so new, default physics manager attributes created and registered.
+I0127 02:16:32.524673 26699 StageAttributesManager.cpp:79] File (data/scene_datasets/gibson/Springhill.glb) Based stage attributes created and registered.
+I0127 02:16:32.524685 26699 Simulator.cpp:145] Loading navmesh from data/scene_datasets/gibson/Springhill.navmesh
+I0127 02:16:32.524781 26699 Simulator.cpp:147] Loaded.
+I0127 02:16:32.524796 26699 SceneGraph.h:93] Created DrawableGroup: 
+Renderer: GeForce RTX 2080/PCIe/SSE2 by NVIDIA Corporation
+OpenGL version: 4.6.0 NVIDIA 450.102.04
+Using optional features:
+    GL_ARB_ES2_compatibility
+    GL_ARB_direct_state_access
+    GL_ARB_get_texture_sub_image
+    GL_ARB_invalidate_subdata
+    GL_ARB_multi_bind
+    GL_ARB_robustness
+    GL_ARB_separate_shader_objects
+    GL_ARB_texture_filter_anisotropic
+    GL_ARB_texture_storage
+    GL_ARB_texture_storage_multisample
+    GL_ARB_vertex_array_object
+    GL_KHR_debug
+Using driver workarounds:
+    no-forward-compatible-core-context
+    nv-egl-incorrect-gl11-function-pointers
+    no-layout-qualifiers-on-old-glsl
+    nv-zero-context-profile-mask
+    nv-implementation-color-read-format-dsa-broken
+    nv-cubemap-inconsistent-compressed-image-size
+    nv-cubemap-broken-full-compressed-image-query
+    nv-compressed-block-size-in-bits
+I0127 02:16:32.608701 26699 ResourceManager.cpp:934] Importing Basis files as BC7
+I0127 02:16:32.676810 26699 ResourceManager.cpp:302] ResourceManager::loadStage : Not loading semantic mesh
+W0127 02:16:32.676846 26699 Simulator.cpp:235] :
+---
+ The active scene does not contain semantic annotations. 
+---
+I0127 02:16:32.677191 26699 simulator.py:181] Loaded navmesh data/scene_datasets/gibson/Springhill.navmesh
+2021-01-27 02:16:32,680 Initializing task Nav-v0
+I0127 02:16:33.127596 26699 PhysicsManager.cpp:33] Deconstructing PhysicsManager
+I0127 02:16:33.127645 26699 SemanticScene.h:41] Deconstructing SemanticScene
+I0127 02:16:33.127652 26699 SceneManager.h:25] Deconstructing SceneManager
+I0127 02:16:33.127657 26699 SceneGraph.h:26] Deconstructing SceneGraph
+I0127 02:16:33.127725 26699 Sensor.h:81] Deconstructing Sensor
+I0127 02:16:33.130925 26699 Renderer.cpp:34] Deconstructing Renderer
+I0127 02:16:33.130949 26699 WindowlessContext.h:17] Deconstructing WindowlessContext
+I0127 02:16:33.881086 26699 Simulator.cpp:46] Deconstructing Simulator
+  0%|          | 0/100 [00:00<?, ?it/s]  1%|          | 1/100 [00:02<04:48,  2.92s/it]  3%|▎         | 3/100 [00:03<01:36,  1.01it/s]  4%|▍         | 4/100 [00:04<01:35,  1.01it/s]  5%|▌         | 5/100 [00:05<01:48,  1.14s/it]  7%|▋         | 7/100 [00:06<01:12,  1.28it/s]  8%|▊         | 8/100 [00:07<01:08,  1.35it/s]  9%|▉         | 9/100 [00:08<01:08,  1.33it/s] 10%|█         | 10/100 [00:08<01:05,  1.38it/s] 11%|█         | 11/100 [00:10<01:21,  1.09it/s] 12%|█▏        | 12/100 [00:12<01:47,  1.22s/it] 13%|█▎        | 13/100 [00:13<01:35,  1.10s/it] 14%|█▍        | 14/100 [00:14<01:35,  1.11s/it] 15%|█▌        | 15/100 [00:14<01:24,  1.00it/s] 16%|█▌        | 16/100 [00:15<01:21,  1.03it/s] 17%|█▋        | 17/100 [00:17<01:45,  1.27s/it] 18%|█▊        | 18/100 [00:18<01:28,  1.08s/it] 19%|█▉        | 19/100 [00:18<01:15,  1.08it/s] 20%|██        | 20/100 [00:19<01:11,  1.11it/s] 21%|██        | 21/100 [00:20<01:13,  1.07it/s] 22%|██▏       | 22/100 [00:21<01:04,  1.21it/s] 24%|██▍       | 24/100 [00:22<00:55,  1.36it/s] 25%|██▌       | 25/100 [00:24<01:22,  1.09s/it] 26%|██▌       | 26/100 [00:25<01:15,  1.02s/it] 27%|██▋       | 27/100 [00:26<01:06,  1.11it/s] 28%|██▊       | 28/100 [00:27<01:13,  1.02s/it] 29%|██▉       | 29/100 [00:28<01:04,  1.11it/s] 30%|███       | 30/100 [00:28<01:00,  1.15it/s] 31%|███       | 31/100 [00:30<01:20,  1.16s/it] 32%|███▏      | 32/100 [00:31<01:11,  1.05s/it] 33%|███▎      | 33/100 [00:32<01:14,  1.12s/it] 34%|███▍      | 34/100 [00:33<01:14,  1.12s/it] 35%|███▌      | 35/100 [00:34<01:04,  1.01it/s] 36%|███▌      | 36/100 [00:35<01:00,  1.06it/s] 37%|███▋      | 37/100 [00:37<01:16,  1.21s/it] 38%|███▊      | 38/100 [00:38<01:20,  1.31s/it] 39%|███▉      | 39/100 [00:39<01:07,  1.10s/it] 40%|████      | 40/100 [00:40<00:58,  1.03it/s] 41%|████      | 41/100 [00:42<01:25,  1.45s/it] 42%|████▏     | 42/100 [00:44<01:27,  1.52s/it] 43%|████▎     | 43/100 [00:45<01:12,  1.28s/it] 44%|████▍     | 44/100 [00:46<01:12,  1.29s/it] 45%|████▌     | 45/100 [00:47<01:03,  1.16s/it] 46%|████▌     | 46/100 [00:48<01:05,  1.22s/it] 47%|████▋     | 47/100 [00:50<01:19,  1.49s/it] 48%|████▊     | 48/100 [00:52<01:24,  1.63s/it] 49%|████▉     | 49/100 [00:53<01:13,  1.43s/it] 50%|█████     | 50/100 [00:54<01:01,  1.22s/it] 51%|█████     | 51/100 [00:55<01:04,  1.32s/it] 52%|█████▏    | 52/100 [00:57<01:01,  1.27s/it] 53%|█████▎    | 53/100 [00:57<00:50,  1.08s/it] 54%|█████▍    | 54/100 [00:58<00:49,  1.08s/it] 55%|█████▌    | 55/100 [01:00<00:53,  1.19s/it] 56%|█████▌    | 56/100 [01:01<00:46,  1.07s/it] 57%|█████▋    | 57/100 [01:02<00:54,  1.26s/it] 58%|█████▊    | 58/100 [01:04<00:59,  1.42s/it] 59%|█████▉    | 59/100 [01:05<00:52,  1.28s/it] 60%|██████    | 60/100 [01:06<00:50,  1.26s/it] 61%|██████    | 61/100 [01:07<00:48,  1.25s/it] 62%|██████▏   | 62/100 [01:09<00:45,  1.20s/it] 63%|██████▎   | 63/100 [01:09<00:38,  1.03s/it] 65%|██████▌   | 65/100 [01:11<00:33,  1.04it/s] 67%|██████▋   | 67/100 [01:12<00:23,  1.39it/s] 68%|██████▊   | 68/100 [01:12<00:22,  1.41it/s] 69%|██████▉   | 69/100 [01:13<00:22,  1.40it/s] 70%|███████   | 70/100 [01:16<00:40,  1.34s/it] 74%|███████▍  | 74/100 [01:17<00:17,  1.49it/s] 75%|███████▌  | 75/100 [01:18<00:19,  1.30it/s] 76%|███████▌  | 76/100 [01:20<00:22,  1.08it/s] 77%|███████▋  | 77/100 [01:21<00:20,  1.13it/s] 78%|███████▊  | 78/100 [01:21<00:18,  1.19it/s] 79%|███████▉  | 79/100 [01:24<00:26,  1.28s/it] 80%|████████  | 80/100 [01:26<00:29,  1.46s/it] 83%|████████▎ | 83/100 [01:27<00:13,  1.25it/s] 85%|████████▌ | 85/100 [01:27<00:10,  1.45it/s] 86%|████████▌ | 86/100 [01:29<00:13,  1.05it/s] 88%|████████▊ | 88/100 [01:31<00:11,  1.09it/s] 89%|████████▉ | 89/100 [01:33<00:11,  1.05s/it] 90%|█████████ | 90/100 [01:34<00:10,  1.03s/it] 92%|█████████▏| 92/100 [01:34<00:05,  1.36it/s] 93%|█████████▎| 93/100 [01:36<00:07,  1.01s/it] 96%|█████████▌| 96/100 [01:37<00:02,  1.46it/s] 97%|█████████▋| 97/100 [01:38<00:02,  1.45it/s] 98%|█████████▊| 98/100 [01:39<00:01,  1.40it/s] 99%|█████████▉| 99/100 [01:40<00:00,  1.13it/s]100%|██████████| 100/100 [01:42<00:00,  1.09s/it]100%|██████████| 100/100 [01:42<00:00,  1.02s/it]
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+NEW PATH
+NEW PATH
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+NEW PATH
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+NEW PATH
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+STOP
+[0, 55, 30, 15]
+I0127 02:18:16.443771 26614 PhysicsManager.cpp:33] Deconstructing PhysicsManager
+I0127 02:18:16.443822 26614 SemanticScene.h:41] Deconstructing SemanticScene
+I0127 02:18:16.443825 26614 SceneManager.h:25] Deconstructing SceneManager
+I0127 02:18:16.443828 26614 SceneGraph.h:26] Deconstructing SceneGraph
+I0127 02:18:16.444309 26614 Sensor.h:81] Deconstructing Sensor
+I0127 02:18:16.444542 26614 Sensor.h:81] Deconstructing Sensor
+I0127 02:18:16.489748 26614 Renderer.cpp:34] Deconstructing Renderer
+I0127 02:18:16.489786 26614 WindowlessContext.h:17] Deconstructing WindowlessContext
+I0127 02:18:16.492015 26614 Simulator.cpp:46] Deconstructing Simulator

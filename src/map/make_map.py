@@ -25,8 +25,11 @@ from habitat.utils.geometry_utils import (
 )
 from habitat_baselines.slambased.reprojection import homogenize_p
 from tqdm import tqdm
+from habitat.utils.geometry_utils import quaternion_rotate_vector
+from habitat.tasks.utils import cartesian_to_polar
+from habitat.utils.geometry_utils import angle_between_quaternions
 
-from model.model import Siamese
+# from model.model import Siamese
 from test_data import GibsonMapDataset
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
@@ -117,6 +120,7 @@ def se3_to_habitat(data, d):
         for frame_count, frame in enumerate(traj["shortest_paths"][0][0]):
             if data[counter] is None:
                 d_ret[traj_count][frame_count] = None
+                counter += 1
                 continue
             foo = torch.from_numpy(data[counter])[1:].view(3, 4)
             se3 = homogenize_p(foo).view(4, 4)
@@ -132,7 +136,7 @@ def se3_to_habitat(data, d):
 
 def estimate_edge_len_SLAM(edge, d, sim):
     POSITION_GRANULARITY = 0.25 / 5  # meters
-    ANGLE_GRANULARITY = math.radians(30 / 5)
+    ANGLE_GRANULARITY = math.radians(10 / 5)
 
     node1 = edge[0]
     pose1 = d[node1[0]][node1[1]]
@@ -164,7 +168,7 @@ def get_dict(fname):
 
 # Takes images of trajectory and sparsifies them
 # Assumes we have perfect knowledge of distance, but this doesn't matter for localization problem.
-def sparsify_trajectories(model, trajs, trajs_visual, device, d, sim, sparsity=4):
+def sparsify_trajectories(model, trajs, trajs_visual, device, d, sim, sparsity):
     traj_ind = []
     counter = 0
     for traj in tqdm(trajs):
@@ -233,7 +237,7 @@ def get_node_image(node, scene):
         "../../data/datasets/pointnav/gibson/v4/train_large/images/"
         + scene
         + "/"
-        + "episode"
+        + "episodeRGB"
         + str(node[0])
         + "_"
         + str(node[1]).zfill(5)
@@ -276,7 +280,6 @@ def add_trajs_to_graph(
         tail_node = None
         for frame_count, frame in enumerate(trajectory):
             # we want to keep track of what the actual frame is from in the trajectory
-            pu.db
             true_label = get_true_label(trajectory_count, frame_count, traj_ind)
             if true_label == None:
                 tail_node = None
@@ -310,7 +313,7 @@ def connect_graph_trajectories(
     counter = 0
     for node_i in tqdm(list(G.nodes)):
         for node_j in list(G.nodes):
-            if node_i == node_j:
+            if node_i[0] == node_j[0]:
                 continue
             edge = (node_i, node_j)
             node1 = edge[0]
@@ -321,12 +324,37 @@ def connect_graph_trajectories(
             pose2 = d[node2[0]][node2[1]]
             position2 = pose2["position"]
             results = estimate_edge_len_SLAM(edge, d, sim)
-            if results <= similarity:
+            # Make sure local goal position is in front of local start position
+            rho, phi = get_displacement_label(node1, node2, d)
+            if results <= similarity and np.abs(phi) < 1.57:  # approx 90 degrees
                 # Don't add edge if nodes are on seperate floors
                 if abs(position1[1] - position2[1]) > 0.1:
                     continue
                 G.add_edge(node_i, node_j)
     return G
+
+
+def get_node_pose(node, d):
+    pose = d[node[0]][node[1]]
+    position = pose["position"]
+    rotation = pose["rotation"]
+    return position, rotation
+
+
+def get_displacement_label(local_start, local_goal, d):
+    # See https://github.com/facebookresearch/habitat-lab/blob/b7a93bc493f7fb89e5bf30b40be204ff7b5570d7/habitat/tasks/nav/nav.py
+    # for more information
+    pos_start, rot_start = get_node_pose(local_start, d)
+    pos_goal, rot_goal = get_node_pose(local_goal, d)
+    # Quaternion is returned as list, need to change datatype
+    direction_vector = pos_goal - pos_start
+    direction_vector_start = quaternion_rotate_vector(
+        rot_start.inverse(), direction_vector
+    )
+    rho, phi = cartesian_to_polar(-direction_vector_start[2], direction_vector_start[0])
+
+    # Should be same as agent_world_angle
+    return np.array([rho, -phi])
 
 
 def remove_bad_SLAM_labels(traj_ind, d_slam):
@@ -339,13 +367,25 @@ def remove_bad_SLAM_labels(traj_ind, d_slam):
     return traj_ind
 
 
+def d_to_new_format(d):
+    ret = {}
+    for traj_count, traj in enumerate(d):
+        ret[traj_count] = {}
+        for frame_count, frame in enumerate(traj["shortest_paths"][0][0]):
+            position = np.array(frame["position"])
+            rotation_quaternion = quaternion.quaternion(*frame["rotation"])
+            local_pose = {"position": position, "rotation": rotation_quaternion}
+            ret[traj_count][frame_count] = local_pose
+    return ret
+
+
 def create_topological_map(
     trajectories,
     traj_ind,
     model,
     device,
     episodes,
-    similarity=2,
+    similarity,
     sim=None,
     d=None,
     scene=None,
@@ -361,6 +401,7 @@ def create_topological_map(
         total_trajs += len(d[i]["shortest_paths"][0][0])
     assert slam_labels.shape[0] == total_trajs
     d_slam = se3_to_habitat(slam_labels, d)
+    d = d_to_new_format(d)
     np.save("../data/map/d_slam.npy", d_slam)
     # Remove any nodes that have a None label from SLAM
     traj_ind = remove_bad_SLAM_labels(traj_ind, d_slam)
@@ -385,9 +426,10 @@ def build_graph(hold_out_percent, env):
     VISUALIZE = False
     CREATE_TRAJECTORIES = True
     device = torch.device("cuda:0")
-    model = Siamese().to(device)
-    model.load_state_dict(torch.load("./model/saved_model.pth"))
-    model.eval()
+    #    model = Siamese().to(device)
+    #    model.load_state_dict(torch.load("./model/saved_model.pth"))
+    #    model.eval()
+    model = None
     test_envs = np.load("./model/test_env.npy")
     d = get_dict(env)
     sim = create_sim(env)
@@ -399,7 +441,13 @@ def build_graph(hold_out_percent, env):
         # traj_new is sparsified trajectory with the traj_visual dataset
         # traj_ind says which indices where used
         traj_new, traj_ind = sparsify_trajectories(
-            model, trajs, trajs, device, d, sim, sparsity=4
+            model,
+            trajs,
+            trajs,
+            device,
+            d,
+            sim,
+            sparsity=4,
         )
         np.save("traj_new.npy", traj_new)
         np.save("traj_ind.npy", traj_ind)
@@ -437,16 +485,16 @@ def build_graph(hold_out_percent, env):
     return G, traj_new_eval, traj_ind_eval
 
 
-def find_wormholes(G, world, similarity=4):
+def find_wormholes(G, world, similarity):
     # Want to go over trajectories, get their image and find the reachability
     traj_new = np.load("traj_new.npy", allow_pickle=True)
     traj_ind_global = np.load("traj_ind.npy", allow_pickle=True)
     trajectories = np.load("traj_new_eval.npy", allow_pickle=True)[0:2]
     traj_ind = np.load("traj_ind_eval.npy", allow_pickle=True)[0:2]
     device = torch.device("cuda:0")
-    model = Siamese().to(device)
-    model.load_state_dict(torch.load("./model/saved_model.pth"))
-    model.eval()
+    #    model = Siamese().to(device)
+    #    model.load_state_dict(torch.load("./model/saved_model.pth"))
+    #    model.eval()
     test_envs = np.load("./model/test_env.npy")
     d = get_dict(world)
     sim = create_sim(world)
