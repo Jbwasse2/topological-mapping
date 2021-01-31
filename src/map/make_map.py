@@ -1,4 +1,5 @@
 import gzip
+from torchvision import transforms as transforms
 import itertools
 import math
 import os
@@ -168,7 +169,7 @@ def get_dict(fname):
 
 # Takes images of trajectory and sparsifies them
 # Assumes we have perfect knowledge of distance, but this doesn't matter for localization problem.
-def sparsify_trajectories(model, trajs, trajs_visual, device, d, sim, sparsity):
+def sparsify_trajectories(trajs, device, sim, sparsity):
     traj_ind = []
     counter = 0
     for traj in tqdm(trajs):
@@ -179,17 +180,19 @@ def sparsify_trajectories(model, trajs, trajs_visual, device, d, sim, sparsity):
                 image_indices.append(i)
         traj_ind.append(image_indices)
     ret = []
-    for traj, indices in tqdm(zip(trajs_visual, traj_ind)):
+    for traj, indices in tqdm(zip(trajs, traj_ind)):
         ret.append([traj[i] for i in indices])
     return ret, traj_ind
 
 
 # Gets all of the trajectories in the environment
-def get_trajectory_env(data, env):
+def get_trajectory_env(data, env, number_of_trajectories=None):
     data.set_env(env)
+    if number_of_trajectories == None:
+        number_of_trajectories = data.number_of_trajectories
     counter = 0
     trajs = []
-    for i in tqdm(range(data.number_of_trajectories)):
+    for i in tqdm(range(number_of_trajectories)):
         done = False
         traj = []
         while not done:
@@ -232,7 +235,7 @@ def visualize_traj_ind(traj_ind):
 
 
 # Takes node label (0,0) and returns corresponding image as 640x480, useful for visulaizations.
-def get_node_image(node, scene):
+def get_node_image(node, scene, transform=False):
     image_location = (
         "../../data/datasets/pointnav/gibson/v4/train_large/images/"
         + scene
@@ -243,7 +246,18 @@ def get_node_image(node, scene):
         + str(node[1]).zfill(5)
         + ".jpg"
     )
-    return plt.imread(image_location)
+    trnsform = transforms.Compose(
+        [
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        ]
+    )
+    image = plt.imread(image_location)
+    image = cv2.resize(image, (224, 224)) / 255
+    if transform:
+        return trnsform(image)
+    else:
+        return image
 
 
 def get_true_label(trajectory_count, frame_count, traj_ind):
@@ -288,8 +302,8 @@ def add_trajs_to_graph(
             current_node = (trajectory_count_episode, true_label)
             for node in list(G.nodes):
                 # Skip previous tail node from being too close to current node, otherwise you may just be sparsifying your graph extra.
-                if node == tail_node:
-                    continue
+                # if node == tail_node:
+                #    continue
                 edge = (current_node, node)
                 results = estimate_edge_len_SLAM(edge, d, sim)
                 if results <= similarity:
@@ -417,7 +431,15 @@ def create_topological_map(
         d=d_slam,
     )
     G = connect_graph_trajectories(
-        G, trajectories, traj_ind, model, device, 10, episodes, sim=sim, d=d_slam
+        G,
+        trajectories,
+        traj_ind,
+        model,
+        device,
+        similarity,
+        episodes,
+        sim=sim,
+        d=d_slam,
     )
     return G
 
@@ -429,7 +451,6 @@ def build_graph(hold_out_percent, env):
     #    model = Siamese().to(device)
     #    model.load_state_dict(torch.load("./model/saved_model.pth"))
     #    model.eval()
-    model = None
     test_envs = np.load("./model/test_env.npy")
     d = get_dict(env)
     sim = create_sim(env)
@@ -441,13 +462,10 @@ def build_graph(hold_out_percent, env):
         # traj_new is sparsified trajectory with the traj_visual dataset
         # traj_ind says which indices where used
         traj_new, traj_ind = sparsify_trajectories(
-            model,
-            trajs,
             trajs,
             device,
-            d,
             sim,
-            sparsity=4,
+            sparsity=1,
         )
         np.save("traj_new.npy", traj_new)
         np.save("traj_ind.npy", traj_ind)
@@ -461,6 +479,7 @@ def build_graph(hold_out_percent, env):
     traj_held_out = int(len(traj_new) * hold_out_percent)
     eval_trajs = random.sample(list(range(len(traj_ind))), k=traj_held_out)
     map_trajs = list(set(range(len(traj_ind))) - set(eval_trajs))
+    pu.db
 
     traj_new_map = [traj_new[i] for i in map_trajs]
     traj_ind_map = [traj_ind[i] for i in map_trajs]
@@ -473,7 +492,7 @@ def build_graph(hold_out_percent, env):
         model,
         device,
         episodes=map_trajs,
-        similarity=4,
+        similarity=1,
         sim=sim,
         d=d,
         scene=env,

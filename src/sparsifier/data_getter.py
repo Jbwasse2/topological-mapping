@@ -153,24 +153,11 @@ class GibsonDataset(Dataset):
         return ret
 
     def balance_dataset(self, max_number_of_examples=2000):
-        # We want the prob dataset to be balanced
-        bad_labels = list(range(-self.max_distance, 0)) + list(
-            range(int(self.max_distance / 2), self.max_distance + 1)
-        )
-        if self.ignore_0:
-            good_labels = list(range(1, int(self.max_distance / 2)))
-        else:
-            good_labels = list(range(0, int(self.max_distance / 2)))
-        number_bad_labels = len(bad_labels)
-        number_good_labels = len(good_labels)
-        assert number_bad_labels + number_good_labels == self.max_distance * 2 + 1
-        weight_bad = number_good_labels / number_bad_labels
-        weight_good = 1.0
         min_size = np.inf
         if self.ignore_0:
-            dist_range = range(-sefl.max_distance, self.max_distance + 1)
+            dist_range = range(1, self.max_distance + 1)
         else:
-            dist_range = range(-self.max_distance, self.max_distance + 1)
+            dist_range = range(self.max_distance + 1)
         for i in dist_range:
             min_size = min(min_size, len(self.dataset[i]))
         min_size = min(min_size, max_number_of_examples)
@@ -178,7 +165,7 @@ class GibsonDataset(Dataset):
         ret = {}
         far_away_dataset = []
         for i in dist_range:
-            weight = weight_bad if i in bad_labels else weight_good
+            weight = 1.0
             ret[i] = random.sample(self.dataset[i], int(min_size * weight))
         return ret
 
@@ -188,7 +175,7 @@ class GibsonDataset(Dataset):
         retries = 100
         if self.debug:
             envs = envs[0:3]
-        for distance in tqdm(range(-self.max_distance, self.max_distance + 1)):
+        for distance in tqdm(range(self.max_distance + 1)):
             for sample in range(self.samples):
                 # Keep trying to find sample that satisfies requirements...
                 for _ in range(retries):
