@@ -208,7 +208,7 @@ def find_wormholes(G, d, wormhole_distance=1.5):
 
 
 if __name__ == "__main__":
-    env = "Harkeyville"
+    env = 'Deatsville'
     G = main(env)
     d = get_dict(env)
     print(len(list(G.nodes())))
