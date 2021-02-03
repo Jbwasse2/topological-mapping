@@ -4,6 +4,7 @@
 # 3) Data should also be similiar to before
 
 import argparse
+from tqdm import tqdm
 import matplotlib.pyplot as plt
 
 import os
@@ -31,19 +32,19 @@ def train(model, device, epochs=30):
     copyfile("./model.py", results_dir + "model.py")
     criterion = nn.MSELoss()
 
-    optimizer = optim.Adam(model.parameters(), lr=0.0001)
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
     BATCH_SIZE = 64
     seed = 0
     train_dataset = GibsonDataset(
         "train",
         seed,
-        samples=40000,
+        samples=100,
         max_distance=30,
         episodes=20,
         ignore_0=False,
         debug=False,
     )
-    train_dataset.save_env_data(results_dir)
+    #    train_dataset.save_env_data(results_dir)
     train_dataloader = data.DataLoader(
         train_dataset,
         batch_size=BATCH_SIZE,
@@ -53,7 +54,7 @@ def train(model, device, epochs=30):
     test_dataset = GibsonDataset(
         "test",
         seed,
-        samples=4000,
+        samples=10,
         max_distance=30,
         episodes=20,
         ignore_0=False,
@@ -74,16 +75,16 @@ def train(model, device, epochs=30):
     for epoch in range(epochs):
         print("epoch ", epoch)
         model.train()
-        for i, batch in enumerate(
-            track(train_dataloader, description="[cyan] Training!")
-        ):
+        for i, batch in enumerate(tqdm(train_dataloader)):
             x, y = batch
-            im1, im2 = x
+            im1, im2, depth1, depth2 = x
             y = y.type(torch.float32)
             y = y.to(device)
             im1 = im1.to(device).float()
             im2 = im2.to(device).float()
-            out = model(im1, im2)
+            depth1 = depth1.to(device).float()
+            depth2 = depth2.to(device).float()
+            out = model(im1, im2, depth1, depth2)
             optimizer.zero_grad()
             loss = criterion(out, y)
             loss.backward()
@@ -101,12 +102,14 @@ def train(model, device, epochs=30):
                 track(test_dataloader, description="[red] Testing!")
             ):
                 x, y = batch
-                im1, im2 = x
+                im1, im2, depth1, depth2 = x
                 y = y.type(torch.float32)
                 y = y.to(device)
                 im1 = im1.to(device).float()
                 im2 = im2.to(device).float()
-                out = model(im1, im2)
+                depth1 = depth1.to(device).float()
+                depth2 = depth2.to(device).float()
+                out = model(im1, im2, depth1, depth2)
                 loss = criterion(out, y)
                 loss = loss.cpu().detach().numpy()
                 losses_v.append(loss)

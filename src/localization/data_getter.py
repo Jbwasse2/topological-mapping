@@ -78,7 +78,8 @@ class GibsonDataset(Dataset):
         if self.ignore_0:
             self.dataset.pop(0, None)
         self.dataset = self.flatten_dataset()
-        self.verify_dataset()
+
+    #        self.verify_dataset()
 
     def get_labels_dicts(self, envs):
         if self.debug:
@@ -261,13 +262,30 @@ class GibsonDataset(Dataset):
             + ".jpg"
         )
         image = cv2.resize(image, (224, 224)) / 255
-        return image
+        depth = np.load(
+            self.image_data_path
+            + env
+            + "/"
+            + "episodeDepth"
+            + str(episode)
+            + "_"
+            + str(location).zfill(5)
+            + ".npy"
+        )
+        return image, depth
 
     # Images are offset by self.max_distance, because this should also detect going backwards which the robot can not do.
     def __getitem__(self, idx):
         env, episode, l1, l2 = self.dataset[idx]
-        image1 = self.get_image(env, episode, l1)
-        image2 = self.get_image(env, episode, l2)
+        if not self.debug:
+            image1, depth1 = self.get_image(env, episode, l1)
+            image2, depth2 = self.get_image(env, episode, l2)
+
+        else:
+            image1 = np.random.rand(224, 224, 3)
+            image2 = np.random.rand(224, 224, 3)
+            depth1 = np.random.rand(256, 256, 1)
+            depth2 = np.random.rand(256, 256, 1)
         transform = transforms.Compose(
             [
                 transforms.ToTensor(),
@@ -276,10 +294,16 @@ class GibsonDataset(Dataset):
                 ),
             ]
         )
+        transform_depth = transforms.Compose(
+            [
+                transforms.ToTensor(),
+            ]
+        )
         image1 = transform(image1)
         image2 = transform(image2)
-
-        x = (image1, image2)
+        depth1 = transform_depth(depth1)
+        depth2 = transform_depth(depth2)
+        x = (image1, image2, depth1, depth2)
         d = self.labels[env]
         if l1 == l2:
             y = np.array([0.0, 0.0])

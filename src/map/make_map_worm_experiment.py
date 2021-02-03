@@ -197,8 +197,8 @@ def find_wormholes(G, d, wormhole_distance=1.5):
     wormholes = []
     for edge in list(G.edges()):
         node1, node2 = edge[0], edge[1]
-        position1 = d[node1[0]]["shortest_paths"][0][0][node1[0]]["position"]
-        position2 = d[node2[0]]["shortest_paths"][0][0][node2[0]]["position"]
+        position1 = d[node1[0]]["shortest_paths"][0][0][node1[1]]["position"]
+        position2 = d[node2[0]]["shortest_paths"][0][0][node2[1]]["position"]
         if (
             np.linalg.norm(np.array(position1) - np.array(position2))
             > wormhole_distance
@@ -208,9 +208,11 @@ def find_wormholes(G, d, wormhole_distance=1.5):
 
 
 if __name__ == "__main__":
-    env = 'Deatsville'
-    G = main(env)
+    env = 'Nemacolin'
+    # G = main(env)
     d = get_dict(env)
+    path = "../data/map/mapWorm_" + env + ".gpickle"
+    G = nx.read_gpickle(path)
     print(len(list(G.nodes())))
     print(len(list(G.edges())))
-    print(len(find_wormholes(G, d)))
+    print(len(find_wormholes(G, d, 0.80)))

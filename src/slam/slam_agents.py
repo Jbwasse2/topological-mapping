@@ -174,7 +174,7 @@ class ORBSLAM2Agent(RandomAgent):
         self.slam = orbslam2.System(
             self.slam_vocab_path, self.slam_settings_path, orbslam2.Sensor.RGBD
         )
-        self.slam.set_use_viewer(True)
+        self.slam.set_use_viewer(False)
         self.slam.initialize()
         super(ORBSLAM2Agent, self).__init__(config)
         self.pos_th = config.DIST_REACHED_TH
@@ -247,7 +247,6 @@ class ORBSLAM2Agent(RandomAgent):
             self.tracking_is_OK = False
         if not self.tracking_is_OK:
             self.trajectory_history.append(None)
-            pu.db
             return False
         #            return False
         t = time.time()
@@ -257,13 +256,11 @@ class ORBSLAM2Agent(RandomAgent):
             self.trajectory_history.append(
                 np.array(self.slam.get_trajectory_points()[-1])
             )
-            pu.db
             self.pose6D = homogenize_p(
                 torch.from_numpy(self.trajectory_history[-1])[1:]
                 .view(3, 4)
                 .to(self.device)
             ).view(1, 4, 4)
-            pu.db
             if len(self.position_history) > 1:
                 previous_step = get_distance(
                     self.pose6D.view(4, 4),

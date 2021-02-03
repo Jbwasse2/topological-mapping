@@ -295,7 +295,9 @@ def visualize_edge(node1, node2, scene, out_file_name):
 # Takes a list of trajectories and adds them to the graph
 # This does not make connecitons between the trajectories, just adds them.
 # Does not add node in trajectory if node is too similar to another node in graph
-def add_trajs_to_graph(G, trajectories, traj_ind, device, similarity, episodes, d, sim):
+def add_trajs_to_graph(
+    G, trajectories, traj_ind, model, device, similarity, episodes, d, sim
+):
     for trajectory_count, (trajectory_count_episode, trajectory) in tqdm(
         enumerate(zip(episodes, trajectories))
     ):
@@ -303,17 +305,15 @@ def add_trajs_to_graph(G, trajectories, traj_ind, device, similarity, episodes, 
         for frame_count, frame in enumerate(trajectory):
             # we want to keep track of what the actual frame is from in the trajectory
             true_label = get_true_label(trajectory_count, frame_count, traj_ind)
-            # Sometime SLAM labeling fails, if this happens we don't want tail node to be tail node anymore as it might not be "close" to current node anymore. Go to next frame in trajecctory.
             if true_label == None:
                 tail_node = None
                 current_node = None
                 continue
             current_node = (trajectory_count_episode, true_label)
-            # Try to find node already in map that is similar to the current node. if it doesn't exist add current node to map otherwise set similiar node to current node and connect to tail node.
             for node in list(G.nodes):
                 # Skip previous tail node from being too close to current node, otherwise you may just be sparsifying your graph extra.
-                if node == tail_node:
-                    continue
+                # if node == tail_node:
+                #    continue
                 edge = (current_node, node)
                 results = estimate_edge_len_SLAM(edge, d)
                 if results <= similarity:
@@ -332,7 +332,7 @@ def add_trajs_to_graph(G, trajectories, traj_ind, device, similarity, episodes, 
 # Note: add_traj_to_graph needs to be called first.
 # Takes the trajectories and connects them together by using the sparsifier
 def connect_graph_trajectories(
-    G, trajectories, traj_ind, device, similarity, episodes, sim=None, d=None
+    G, trajectories, traj_ind, model, device, similarity, episodes, sim=None, d=None
 ):
     counter = 0
     for node_i in tqdm(list(G.nodes)):
@@ -406,6 +406,7 @@ def d_to_new_format(d):
 def create_topological_map(
     trajectories,
     traj_ind,
+    model,
     device,
     episodes,
     similarity,
@@ -416,12 +417,12 @@ def create_topological_map(
     # Put all trajectories into graph
     G = nx.DiGraph()
     # Get labels from SLAM
-    slam_labels = np.array(torch.load("../data/results/slam/" + scene + "/traj.pt"))
+    env = "Nemacolin"
+    slam_labels = np.array(torch.load("../data/results/slam/" + env + "/traj.pt"))
     total_trajs = 0
     # Make sure number of labels == number of trajs
     for i in range(len(d)):
         total_trajs += len(d[i]["shortest_paths"][0][0])
-    pu.db
     assert slam_labels.shape[0] == total_trajs
     d_slam = se3_to_habitat(slam_labels, d)
     d = d_to_new_format(d)
@@ -432,6 +433,7 @@ def create_topological_map(
         G,
         trajectories,
         traj_ind,
+        model,
         device,
         similarity,
         episodes,
@@ -442,6 +444,7 @@ def create_topological_map(
         G,
         trajectories,
         traj_ind,
+        model,
         device,
         similarity,
         episodes,
@@ -455,6 +458,9 @@ def build_graph(hold_out_percent, env):
     VISUALIZE = False
     CREATE_TRAJECTORIES = True
     device = torch.device("cuda:0")
+    #    model = Siamese().to(device)
+    #    model.load_state_dict(torch.load("./model/saved_model.pth"))
+    #    model.eval()
     test_envs = np.load("./model/test_env.npy")
     d = get_dict(env)
     sim = create_sim(env)
@@ -479,13 +485,23 @@ def build_graph(hold_out_percent, env):
         traj_ind = np.load("traj_ind.npy", allow_pickle=True)
     if VISUALIZE:
         visualize_traj_ind(traj_ind)
-    episodes = list(range(len(traj_new)))
+    # some trajectories will be used to build the map, some will be used to evaluate the failure of imagegoal (Nevermind, I am not actually doing this), set hold_out to 0.0%.
+    traj_held_out = int(len(traj_new) * hold_out_percent)
+    eval_trajs = random.sample(list(range(len(traj_ind))), k=traj_held_out)
+    map_trajs = list(set(range(len(traj_ind))) - set(eval_trajs))
+    pu.db
+
+    traj_new_map = [traj_new[i] for i in map_trajs]
+    traj_ind_map = [traj_ind[i] for i in map_trajs]
+    traj_new_eval = [traj_new[i] for i in eval_trajs]
+    traj_ind_eval = [traj_ind[i] for i in eval_trajs]
 
     G = create_topological_map(
-        traj_new,
-        traj_ind,
+        traj_new_map,
+        traj_ind_map,
+        model,
         device,
-        episodes=episodes,
+        episodes=map_trajs,
         similarity=15,
         sim=sim,
         d=d,
@@ -495,7 +511,7 @@ def build_graph(hold_out_percent, env):
     nx.write_gpickle(
         G, "../../data/map/map_" + str(env) + str(hold_out_percent) + ".gpickle"
     )
-    return G
+    return G, traj_new_eval, traj_ind_eval
 
 
 # Deprecated, keeping for now... (02-01-2020)

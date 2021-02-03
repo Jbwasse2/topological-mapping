@@ -79,11 +79,8 @@ def add_traj_to_SLAM(agent, scene_name):
     NUMBER_OF_TRAJECTORIES_COLLECTED = 20
     counter = 0
     start = (0, 0)
-    flagBreak = False
     skips = 0
     for i in range(NUMBER_OF_TRAJECTORIES_COLLECTED):
-        if flagBreak:
-            break
         print("Traj= ", i)
         for j in range(len(d[i]["shortest_paths"][0][0])):
             image_location = (
@@ -112,17 +109,15 @@ def add_traj_to_SLAM(agent, scene_name):
             observation["rgb"] = rgb
             observation["depth"] = depth
             if agent.update_internal_state(observation) == False:
-                pu.db
                 skips += 1
 
-            plt.imsave(
-                "./out/map2D_" + str(counter).zfill(5) + ".png",
-                agent.map2DObstacles.detach().cpu().numpy().squeeze(),
-            )
+            #            plt.imsave(
+            #                "./out/map2D_" + str(counter).zfill(5) + ".png",
+            #                agent.map2DObstacles.detach().cpu().numpy().squeeze(),
+            #            )
             counter += 1
     print(skips)
     data_dir = "../data/results/slam/" + scene_name + "/"
-    pu.db
     Path(data_dir).mkdir(parents=True, exist_ok=True)
     torch.save(agent.trajectory_history, data_dir + "traj.pt")
     torch.save(start, data_dir + "start.pt")
@@ -145,4 +140,5 @@ def main(env):
 
 
 if __name__ == "__main__":
-    main("Bolton")
+    scene = 'Bolton'
+    main(scene)

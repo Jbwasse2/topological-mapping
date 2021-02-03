@@ -323,20 +323,20 @@ def run_experiment(
                 device,
             )
         return_codes[results] += 1
-        if results == 1 or results == 2:
-            pu.db
-            results = try_to_reach(
-                G,
-                node1,
-                node2,
-                d,
-                ddppo_model,
-                localization_model,
-                deepcopy(hidden_state),
-                scene,
-                device,
-            )
-            # break
+    #        if results == 1 or results == 2:
+    #            pu.db
+    #            results = try_to_reach(
+    #                G,
+    #                node1,
+    #                node2,
+    #                d,
+    #                ddppo_model,
+    #                localization_model,
+    #                deepcopy(hidden_state),
+    #                scene,
+    #                device,
+    #            )
+    #            break
     return return_codes
 
 

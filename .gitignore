@@ -1,5 +1,6 @@
 #
 #
+src/map/results/
 habitat-lab
 *.pt
 src/slam/out/
