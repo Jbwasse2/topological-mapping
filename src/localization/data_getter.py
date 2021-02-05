@@ -208,8 +208,8 @@ class GibsonDataset(Dataset):
                     # Get images in the forward direction
                     for i, j in zip(range(path_length), range(distance, path_length)):
                         possible_ij.append((i, j))
-#                    for i, j in zip(range(path_length), range(distance, path_length)):
-#                        possible_ij.append((j, i))
+                    #                    for i, j in zip(range(path_length), range(distance, path_length)):
+                    #                        possible_ij.append((j, i))
                     # If sample is found, break
                     if len(possible_ij) != 0:
                         i, j = random.choice(possible_ij)

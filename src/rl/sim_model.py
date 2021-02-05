@@ -174,6 +174,18 @@ def try_to_reach(
         return 2
     return 0
 
+def get_node_depth(node, scene_name):
+    image_location = (
+        "../../data/datasets/pointnav/gibson/v4/train_large/images/"
+        + scene_name
+        + "/"
+        + "episodeDepth"
+        + str(node[0])
+        + "_"
+        + str(node[1]).zfill(5)
+        + ".jpg"
+    )
+    return plt.imread(image_location)
 
 def get_node_image(node, scene_name):
     image_location = (
@@ -223,6 +235,13 @@ def try_to_reach_local(
     goal_image_model = (
         transform(goal_image_model).to(device).unsqueeze(0).type(torch.float32)
     )
+    goal_depth_model = get_node_depth(local_goal_node, scene_name) / 255
+    transform_depth = transforms.Compose(
+        [
+            transforms.ToTensor(),
+        ]
+    )
+    goal_depth_model = transform_depth(goal_depth_model).to(device).unsqueeze(0).type(torch.float32)
     if video is not None:
         scene_name = os.path.splitext(os.path.basename(sim.config.sim_cfg.scene.id))[0]
 
@@ -232,7 +251,7 @@ def try_to_reach_local(
     for i in range(MAX_NUMBER_OF_STEPS):
         displacement = torch.from_numpy(
             get_displacement_local_goal(
-                sim, goal_image_model, transform, localization_model, device
+                ob, goal_image_model, goal_depth_model, transform, transform_depth, localization_model, device
             )
         ).type(torch.float32)
         if video is not None:
@@ -259,30 +278,26 @@ def try_to_reach_local(
         if action[0].item() == 0 or displacement[0] < 0.1:  # This is stop action
             print("STOP")
             return 1
-        ##        elif action[0].item() == 0 and displacement[0] >= 0.2:
-        ##            pu.db
-        ##            print("STOP")
-        ##            return -1
         ob = sim.step(action[0].item())
     return 0
 
 
-def angle_between_vectors(v1, v2):
-    return np.arccos((v1 @ v2) / (np.linalg.norm(v1) * np.linalg.norm(v2)))
-
-
 def get_displacement_local_goal(
-    sim, goal_image_model, transform, localization_model, device
+    ob, goal_image_model, goal_depth_model, transform, transform_depth, localization_model, device
 ):
     start_image_model = (
-        cv2.resize(sim.get_sensor_observations()["rgb"][:, :, 0:3], (224, 224)) / 255
+        cv2.resize(ob["rgb"][:, :, 0:3], (224, 224)) / 255
     )
-#    depth = sim.get_sensor_observations()["depth"]
-#    TODO add conversion formula?
     start_image_model = (
         transform(start_image_model).to(device).unsqueeze(0).type(torch.float32)
     )
-    estimate = localization_model(start_image_model, goal_image_model)
+#    depth = sim.get_sensor_observations()["depth"]
+#    TODO add conversion formula?
+    
+    frac = np.max(ob['depth'])
+    start_depth_model = (ob['depth'] * (frac * 255) / np.max(ob['depth'])).astype("uint8")
+    start_depth_model = transform_depth(start_depth_model).to(device).unsqueeze(0).type(torch.float32)
+    estimate = localization_model(start_image_model, goal_image_model, start_depth_model, goal_depth_model)
     return estimate.cpu().detach().numpy()[0]
 
 
@@ -323,6 +338,7 @@ def run_experiment(
                 device,
             )
         return_codes[results] += 1
+        break
         if results == 2:
             pu.db
             results = try_to_reach(
