@@ -19,11 +19,9 @@ import habitat
 from data.results.localization.forward_best_model.model import Siamese
 from habitat import Config, logger
 from habitat.tasks.utils import cartesian_to_polar
-from habitat.utils.geometry_utils import (
-    agent_state_target2ref,
-    angle_between_quaternions,
-    quaternion_rotate_vector,
-)
+from habitat.utils.geometry_utils import (agent_state_target2ref,
+                                          angle_between_quaternions,
+                                          quaternion_rotate_vector)
 from habitat_baselines.common.environments import get_env_class
 from habitat_baselines.common.tensorboard_utils import TensorboardWriter
 from habitat_baselines.config.default import get_config
@@ -258,7 +256,7 @@ def try_to_reach_local(
             )
         actions.append(action[0].item())
         prev_action = action
-        if action[0].item() == 0 or displacement[0] < 0.2:  # This is stop action
+        if action[0].item() == 0 or displacement[0] < 0.1:  # This is stop action
             print("STOP")
             return 1
         ##        elif action[0].item() == 0 and displacement[0] >= 0.2:
@@ -279,6 +277,8 @@ def get_displacement_local_goal(
     start_image_model = (
         cv2.resize(sim.get_sensor_observations()["rgb"][:, :, 0:3], (224, 224)) / 255
     )
+#    depth = sim.get_sensor_observations()["depth"]
+#    TODO add conversion formula?
     start_image_model = (
         transform(start_image_model).to(device).unsqueeze(0).type(torch.float32)
     )
@@ -323,20 +323,20 @@ def run_experiment(
                 device,
             )
         return_codes[results] += 1
-    #        if results == 1 or results == 2:
-    #            pu.db
-    #            results = try_to_reach(
-    #                G,
-    #                node1,
-    #                node2,
-    #                d,
-    #                ddppo_model,
-    #                localization_model,
-    #                deepcopy(hidden_state),
-    #                scene,
-    #                device,
-    #            )
-    #            break
+        if results == 2:
+            pu.db
+            results = try_to_reach(
+                G,
+                node1,
+                node2,
+                d,
+                ddppo_model,
+                localization_model,
+                deepcopy(hidden_state),
+                scene,
+                device,
+            )
+            break
     return return_codes
 
 
@@ -348,14 +348,14 @@ def get_two_nodes(G):
 def get_localization_model(device):
     model = Siamese().to(device)
     model.load_state_dict(
-        torch.load("./data/results/localization/best_model/saved_model.pth")
+        torch.load("./data/results/localization/forward_best_model/saved_model.pth")
     )
     model.eval()
     return model
 
 
 def main():
-    seed = 2
+    seed = 4
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)

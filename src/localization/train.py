@@ -25,26 +25,26 @@ from model import Siamese
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 
-def train(model, device, epochs=30):
+def train(model, device, epochs=50):
     current_time = time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime())
     results_dir = "./data/results/localization/" + current_time + "/"
     os.mkdir(results_dir)
     copyfile("./model.py", results_dir + "model.py")
     criterion = nn.MSELoss()
 
-    optimizer = optim.Adam(model.parameters(), lr=0.001)
+    optimizer = optim.Adam(model.parameters(), lr=0.0005)
     BATCH_SIZE = 64
     seed = 0
     train_dataset = GibsonDataset(
         "train",
         seed,
-        samples=100,
-        max_distance=30,
+        samples=4000,
+        max_distance=80,
         episodes=20,
         ignore_0=False,
         debug=False,
     )
-    #    train_dataset.save_env_data(results_dir)
+    train_dataset.save_env_data(results_dir)
     train_dataloader = data.DataLoader(
         train_dataset,
         batch_size=BATCH_SIZE,
@@ -54,8 +54,8 @@ def train(model, device, epochs=30):
     test_dataset = GibsonDataset(
         "test",
         seed,
-        samples=10,
-        max_distance=30,
+        samples=400,
+        max_distance=80,
         episodes=20,
         ignore_0=False,
         debug=False,

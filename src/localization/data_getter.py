@@ -1,4 +1,5 @@
 import glob
+import time
 import quaternion
 import gzip
 import random
@@ -207,10 +208,8 @@ class GibsonDataset(Dataset):
                     # Get images in the forward direction
                     for i, j in zip(range(path_length), range(distance, path_length)):
                         possible_ij.append((i, j))
-                    # Get images in the backwards direction
-                    for i, j in zip(range(path_length), range(distance, path_length)):
-                        possible_ij.append((j, i))
-                    # Get images in the reverse direction
+#                    for i, j in zip(range(path_length), range(distance, path_length)):
+#                        possible_ij.append((j, i))
                     # If sample is found, break
                     if len(possible_ij) != 0:
                         i, j = random.choice(possible_ij)
@@ -251,6 +250,7 @@ class GibsonDataset(Dataset):
         return len(self.dataset)
 
     def get_image(self, env, episode, location):
+        start_time = time.time()
         image = plt.imread(
             self.image_data_path
             + env
@@ -262,15 +262,18 @@ class GibsonDataset(Dataset):
             + ".jpg"
         )
         image = cv2.resize(image, (224, 224)) / 255
-        depth = np.load(
-            self.image_data_path
-            + env
-            + "/"
-            + "episodeDepth"
-            + str(episode)
-            + "_"
-            + str(location).zfill(5)
-            + ".npy"
+        depth = (
+            plt.imread(
+                self.image_data_path
+                + env
+                + "/"
+                + "episodeDepth"
+                + str(episode)
+                + "_"
+                + str(location).zfill(5)
+                + ".jpg"
+            )
+            / 255
         )
         return image, depth
 
@@ -282,10 +285,12 @@ class GibsonDataset(Dataset):
             image2, depth2 = self.get_image(env, episode, l2)
 
         else:
-            image1 = np.random.rand(224, 224, 3)
-            image2 = np.random.rand(224, 224, 3)
-            depth1 = np.random.rand(256, 256, 1)
-            depth2 = np.random.rand(256, 256, 1)
+            image1, depth1 = self.get_image(env, episode, l1)
+            image2, depth2 = self.get_image(env, episode, l2)
+        #            image1 = np.random.rand(224, 224, 3)
+        #            image2 = np.random.rand(224, 224, 3)
+        #            depth1 = np.random.rand(256, 256, 1)
+        #            depth2 = np.random.rand(256, 256, 1)
         transform = transforms.Compose(
             [
                 transforms.ToTensor(),
@@ -351,7 +356,7 @@ if __name__ == "__main__":
         seed=0,
         max_distance=30,
         ignore_0=False,
-        debug=True,
+        debug=False,
         episodes=20,
     )
     max_angle = 0
@@ -365,11 +370,7 @@ if __name__ == "__main__":
             y,
         ) = batch
         #        dataset.visualize_sample(x, y, episode, l1, l2)
-        im1, im2 = x
-        im = np.hstack([im1, im2])
-        plt.text(50, 25, str(y))
-        plt.imshow(im)
-        plt.show()
+        im1, im2, d1, d2 = x
         max_angle = max(y[1], max_angle)
         max_displacement = max(y[0], max_displacement)
         displacements.append(y[0])
