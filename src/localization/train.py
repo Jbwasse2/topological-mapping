@@ -4,23 +4,22 @@
 # 3) Data should also be similiar to before
 
 import argparse
-from tqdm import tqdm
-import matplotlib.pyplot as plt
-
 import os
 import time
 from shutil import copyfile
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pudb
 import torch
 import torch.optim as optim
 from torch import nn
 from torch.utils import data
-from rich.progress import track
+from tqdm import tqdm
 
 from data_getter import GibsonDataset
-from model import Siamese
+from model import Siamese, SiameseRGB
+from rich.progress import track
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
@@ -32,14 +31,16 @@ def train(model, device, epochs=50):
     copyfile("./model.py", results_dir + "model.py")
     criterion = nn.MSELoss()
 
-    optimizer = optim.Adam(model.parameters(), lr=0.0005)
+    optimizer = optim.Adam(model.parameters(), lr=0.00001)
     BATCH_SIZE = 64
     seed = 0
     train_dataset = GibsonDataset(
         "train",
         seed,
-        samples=4000,
-        max_distance=80,
+        samples=400,
+        max_distance=1.5,
+        angle_boxes=12,
+        distance_boxes=15,
         episodes=20,
         ignore_0=False,
         debug=False,
@@ -55,7 +56,9 @@ def train(model, device, epochs=50):
         "test",
         seed,
         samples=400,
-        max_distance=80,
+        max_distance=1.5,
+        angle_boxes=12,
+        distance_boxes=15,
         episodes=20,
         ignore_0=False,
         debug=False,
@@ -77,14 +80,16 @@ def train(model, device, epochs=50):
         model.train()
         for i, batch in enumerate(tqdm(train_dataloader)):
             x, y = batch
-            im1, im2, depth1, depth2 = x
+#            im1, im2, depth1, depth2 = x
+            im1, im2= x
             y = y.type(torch.float32)
             y = y.to(device)
             im1 = im1.to(device).float()
             im2 = im2.to(device).float()
-            depth1 = depth1.to(device).float()
-            depth2 = depth2.to(device).float()
-            out = model(im1, im2, depth1, depth2)
+#            depth1 = depth1.to(device).float()
+#            depth2 = depth2.to(device).float()
+#            out = model(im1, im2, depth1, depth2)
+            out = model(im1, im2)
             optimizer.zero_grad()
             loss = criterion(out, y)
             loss.backward()
@@ -99,17 +104,19 @@ def train(model, device, epochs=50):
         model.eval()
         with torch.no_grad():
             for i, batch in enumerate(
-                track(test_dataloader, description="[red] Testing!")
+                tqdm(test_dataloader)
             ):
                 x, y = batch
-                im1, im2, depth1, depth2 = x
+#                im1, im2, depth1, depth2 = x
+                im1, im2= x
                 y = y.type(torch.float32)
                 y = y.to(device)
                 im1 = im1.to(device).float()
                 im2 = im2.to(device).float()
-                depth1 = depth1.to(device).float()
-                depth2 = depth2.to(device).float()
-                out = model(im1, im2, depth1, depth2)
+#                depth1 = depth1.to(device).float()
+#                depth2 = depth2.to(device).float()
+#                out = model(im1, im2, depth1, depth2)
+                out = model(im1, im2)
                 loss = criterion(out, y)
                 loss = loss.cpu().detach().numpy()
                 losses_v.append(loss)
@@ -118,6 +125,8 @@ def train(model, device, epochs=50):
         losses_v = []
         if epoch % 5 == 0:
             torch.save(model.state_dict(), results_dir + "saved_model.pth")
+            np.save(results_dir + "losses.npy", losses_cum)
+            np.save(results_dir + "losses_v.npy", losses_v_cum)
     torch.save(model.state_dict(), results_dir + "saved_model.pth")
     np.save(results_dir + "losses.npy", losses_cum)
     np.save(results_dir + "losses_v.npy", losses_v_cum)
@@ -136,7 +145,7 @@ if __name__ == "__main__":
     parser.add_argument("-n", "--network_location", help="No", required=False)
     args = parser.parse_args()
     device = torch.device("cuda:0")
-    model = Siamese().to(device)
+    model = SiameseRGB().to(device)
     if args.network_location:
         model.load_state_dict(torch.load(args.network_location))
     model = train(model, device)
