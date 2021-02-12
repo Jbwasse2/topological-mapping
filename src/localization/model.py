@@ -176,7 +176,7 @@ class SiameseRGB(nn.Module):
         self.conv3 = nn.Conv2d(in_channels=256, out_channels=64, kernel_size=3)
         self.dropout1 = nn.Dropout(0.5)
         self.dropout2 = nn.Dropout(0.5)
-        self.fc1 = nn.Linear(64 * 3 * 3, 256)
+        self.fc1 = nn.Linear(64 * 3 * 3, 128)
         self.fc1_5 = nn.Linear(256, 128)
         self.fc2 = nn.Linear(128, 1)
 
@@ -200,9 +200,6 @@ class SiameseRGB(nn.Module):
         x = F.relu(x)
         x = x.view(x.size(0), -1)
         x = self.fc1(x)
-        x = F.relu(x)
-        x = self.dropout1(x)
-        x = self.fc1_5(x)
         x = F.relu(x)
         x = self.dropout2(x)
         x = self.fc2(x)

@@ -22,6 +22,7 @@ from tqdm import tqdm
 
 from habitat.tasks.utils import cartesian_to_polar
 from habitat.utils.geometry_utils import (angle_between_quaternions,
+                                          quaternion_from_coeff,
                                           quaternion_rotate_vector)
 from rich.progress import track
 
@@ -224,10 +225,10 @@ class GibsonDataset(Dataset):
                     and norm_distance < self.max_distance + 0.01
                 ):
                     i, j = self.dist_angle_to_indicies(distance, angle)
-#                    if self.debug:
-#                        self.over_head_visualization(sample_1, sample_2, d, angle, env)
-                    if sample_1 == (16,339) and sample_2 == (11,359):
+                    if self.debug:
                         self.over_head_visualization(sample_1, sample_2, d, angle, env)
+#                    if sample_1 == (16,339) and sample_2 == (11,359):
+#                        self.over_head_visualization(sample_1, sample_2, d, angle, env)
                     ret[i][j].append((env, sample_1, sample_2, distance, angle))
                     sample_counter += 1
         return ret
@@ -276,7 +277,7 @@ class GibsonDataset(Dataset):
         plt.xlim(-1.6, 1.6)
         plt.ylim(-1.6, 1.6)
         # plt.title(str(x) + " " + str(y))
-        plt.title(str(angle))
+        plt.title("Angle = " + str(angle) + " Dist = " + str(distance))
         # Get arrows of heading
         arrow_1_dx = 1.5 * np.cos(pitch_1)
         arrow_1_dy = 1.5 * np.sin(pitch_1)
@@ -437,8 +438,24 @@ class GibsonDataset(Dataset):
         pos_goal, rot_goal = get_node_pose(local_goal, d)
         return angle_between_quaternions(rot_start, rot_goal)
 
-
 def get_displacement_label(local_start, local_goal, d):
+    # See https://github.com/facebookresearch/habitat-lab/blob/b7a93bc493f7fb89e5bf30b40be204ff7b5570d7/habitat/tasks/nav/nav.py
+    # for more information
+    pos_start, rot_start = get_node_pose(local_start, d)
+    pos_goal, rot_goal = get_node_pose(local_goal, d)
+    # Quaternion is returned as list, need to change datatype
+    direction_vector = pos_goal - pos_start
+    direction_vector_start = quaternion_rotate_vector(
+        rot_start.inverse(), direction_vector
+    )
+    rho, phi = cartesian_to_polar(-direction_vector_start[2], direction_vector_start[0])
+
+    # Should be same as agent_world_angle
+    norm_distance = np.linalg.norm(direction_vector)
+    return np.array([norm_distance, rho, -phi])
+
+
+def get_displacement_label_me(local_start, local_goal, d):
     # See https://github.com/facebookresearch/habitat-lab/blob/b7a93bc493f7fb89e5bf30b40be204ff7b5570d7/habitat/tasks/nav/nav.py
     # for more information
     pos_start, rot_start = get_node_pose(local_start, d)
@@ -476,14 +493,12 @@ def get_node_pose(node, d):
     pose = d[node[0]]["shortest_paths"][0][0][node[1]]
     position = pose["position"]
     rotation = pose["rotation"]
-    return np.array(position), quaternion.quaternion(*rotation)
+    return np.array(position),quaternion_from_coeff(rotation)
 
 
 def quaternion_to_yaw(q):
-    q_n = quaternion.quaternion(*[q.z, q.y, q.x, q.w])
-    #    x, y, z = quaternion.as_euler_angles(q_n)
     d1 = np.array([0, 0, -1])
-    d2 = quaternion.as_rotation_matrix(q_n) @ d1
+    d2 = quaternion.as_rotation_matrix(q) @ d1
     v1 = np.array([-d1[2], d1[0]])
     v2 = np.array([-d2[2], d2[0]])
     # https://stackoverflow.com/questions/2827393/angles-between-two-n-dimensional-vectors-in-python

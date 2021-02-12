@@ -37,7 +37,7 @@ def train(model, device, epochs=50):
     train_dataset = GibsonDataset(
         "train",
         seed,
-        samples=400,
+        samples=10000,
         max_distance=1.5,
         angle_boxes=12,
         distance_boxes=15,
@@ -55,7 +55,7 @@ def train(model, device, epochs=50):
     test_dataset = GibsonDataset(
         "test",
         seed,
-        samples=400,
+        samples=10000,
         max_distance=1.5,
         angle_boxes=12,
         distance_boxes=15,
