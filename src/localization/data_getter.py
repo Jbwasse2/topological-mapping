@@ -1,5 +1,6 @@
 import glob
 import gzip
+import math
 import random
 import time
 from pathlib import Path
@@ -20,10 +21,8 @@ from torchvision.transforms import ToTensor
 from tqdm import tqdm
 
 from habitat.tasks.utils import cartesian_to_polar
-from habitat.utils.geometry_utils import (
-    angle_between_quaternions,
-    quaternion_rotate_vector,
-)
+from habitat.utils.geometry_utils import (angle_between_quaternions,
+                                          quaternion_rotate_vector)
 from rich.progress import track
 
 
@@ -221,12 +220,14 @@ class GibsonDataset(Dataset):
 
                 if (
                     distance < self.max_distance
-                    and np.abs(self.get_heading_diff(sample_1, sample_2, env)) < 0.95
+                    and np.abs(self.get_heading_diff(sample_1, sample_2, env)) < 0.55
                     and norm_distance < self.max_distance + 0.01
                 ):
                     i, j = self.dist_angle_to_indicies(distance, angle)
-                    if self.debug:
-                        self.over_head_visualization(sample_1, sample_2, d, angle)
+#                    if self.debug:
+#                        self.over_head_visualization(sample_1, sample_2, d, angle, env)
+                    if sample_1 == (16,339) and sample_2 == (11,359):
+                        self.over_head_visualization(sample_1, sample_2, d, angle, env)
                     ret[i][j].append((env, sample_1, sample_2, distance, angle))
                     sample_counter += 1
         return ret
@@ -234,6 +235,7 @@ class GibsonDataset(Dataset):
     def get_cart_goal(self, local_start, local_goal, d):
         # See https://github.com/facebookresearch/habitat-lab/blob/b7a93bc493f7fb89e5bf30b40be204ff7b5570d7/habitat/tasks/nav/nav.py
         # for more information
+        pu.db
         pos_start, rot_start = get_node_pose(local_start, d)
         pos_goal, rot_goal = get_node_pose(local_goal, d)
         # Quaternion is returned as list, need to change datatype
@@ -241,24 +243,28 @@ class GibsonDataset(Dataset):
         norm_distance = np.linalg.norm(direction_vector)
         return np.array([norm_distance, -direction_vector[2], direction_vector[0]])
 
-    def over_head_visualization(self, sample_1, sample_2, d, angle):
-        pos_start = np.array([0, 0, 0])
-        #        rot_start = [0.0, 0.0, 0.0, 1.0]
-        rot_start = [0.0, -0.1912, 0, -0.9815]
-        pos_goal = np.array([-0.08893, 0, -0.64133])
+    def over_head_visualization(self, sample_1, sample_2, d, angle, env):
+        print("**********************************************")
+        print(env)
+        print(sample_1, sample_2)
+        pos_start = np.array([2, 0, -1])
+        rot_start = [0.0, 0.924, 0.0, 0.383]
+        #        rot_start = [0.0, -0.83, 0, 0.56]
+        pos_goal = np.array([1, 0.0, -1])
         rot_goal = [0.0, 0.7070, 0.0, 0.7070]
         d[-1]["shortest_paths"][0][0][-1] = {
             "position": pos_start,
             "rotation": rot_start,
         }
         d[-2]["shortest_paths"][0][0][-2] = {"position": pos_goal, "rotation": rot_goal}
-        # sample_1 = (-1, -1)
-        # sample_2 = (-2, -2)
+        #sample_1 = (-1, -1)
+        #sample_2 = (-2, -2)
+        # sample_1 = (11, 408)
+        # sample_2 = (3, 281)
         pu.db
         norm_distance, distance, angle = get_displacement_label(sample_1, sample_2, d)
         pos_1, rot_1 = get_node_pose(sample_1, d)
         pos_2, rot_2 = get_node_pose(sample_2, d)
-        pu.db
         pitch_1 = quaternion_to_yaw(rot_1)
         pitch_2 = quaternion_to_yaw(rot_2)
         # Translate so pos_1 is at center
@@ -308,6 +314,7 @@ class GibsonDataset(Dataset):
         # Draw arrow that goes towards goal from start
         plt.arrow(-pos_1[2], pos_1[0], -pos_2[2], pos_2[0], color="blue")
         plt.show()
+        print("**********************************************")
 
     def dist_angle_to_indicies(self, dist, angle):
         angle = angle + np.pi
@@ -438,6 +445,10 @@ def get_displacement_label(local_start, local_goal, d):
     pos_goal, rot_goal = get_node_pose(local_goal, d)
     # Quaternion is returned as list, need to change datatype
     direction_vector = pos_goal - pos_start
+    norm_distance = np.linalg.norm(direction_vector)
+    direction_vector[1] = 0.0
+    pitch = quaternion_to_yaw(rot_start)
+    rot_start = quaternion.quaternion(*[0.0, 0.0, 0.0, 1.0])
     #    direction_vector_start = quaternion_rotate_vector(
     #        rot_start.inverse(), direction_vector
     #    )
@@ -447,13 +458,18 @@ def get_displacement_label(local_start, local_goal, d):
     )
     foo = invert_me.inverse()
     bar = quaternion.quaternion(*[foo.x, foo.y, foo.z, foo.w])
-    direction_vector_start = quaternion.as_rotation_matrix(foo) @ direction_vector
-    direction_vector_start = quaternion_rotate_vector(bar, direction_vector)
+    direction_vector_start = quaternion.as_rotation_matrix(invert_me) @ direction_vector
+    direction_vector_start_2 = quaternion.as_rotation_matrix(foo) @ direction_vector
+    # direction_vector_start = quaternion_rotate_vector(bar, direction_vector)
+    # print(direction_vector_start)
     rho, phi = cartesian_to_polar(-direction_vector_start[2], direction_vector_start[0])
-
+    phi -= pitch
     # Should be same as agent_world_angle
-    norm_distance = np.linalg.norm(direction_vector)
-    return np.array([norm_distance, rho, -phi])
+    if phi < -np.pi:
+        phi = (2 * np.pi) + phi
+    elif phi > np.pi:
+        phi = (2 * np.pi) - phi
+    return np.array([norm_distance, rho, phi])
 
 
 def get_node_pose(node, d):
@@ -465,10 +481,49 @@ def get_node_pose(node, d):
 
 def quaternion_to_yaw(q):
     q_n = quaternion.quaternion(*[q.z, q.y, q.x, q.w])
-    return quaternion.as_euler_angles(q_n)[1]
+    #    x, y, z = quaternion.as_euler_angles(q_n)
+    d1 = np.array([0, 0, -1])
+    d2 = quaternion.as_rotation_matrix(q_n) @ d1
+    v1 = np.array([-d1[2], d1[0]])
+    v2 = np.array([-d2[2], d2[0]])
+    # https://stackoverflow.com/questions/2827393/angles-between-two-n-dimensional-vectors-in-python
+    ang = np.arctan2(v2[0] * v1[1] - v1[0] * v2[1], v2[0] * v1[0] + v2[1] * v1[1])
+    return ang
+
+
+#    return np.arccos(
+#        np.clip(np.dot(direction_vector, direction_vector_rotated), -1.0, 1.0)
+#    )
+
+
+def approx_equal(x, y, d=0.000001):
+    if np.abs(x - y) < d:
+        return 1
+    else:
+        return 0
+
+
+def test_quat_stuff():
+    q = quaternion.quaternion(*[0.0, 0.0, 0.0, 1.0])
+    assert approx_equal(quaternion_to_yaw(q), 0.0)
+    q = quaternion.quaternion(*[0.0, 0.0, 0.0, -1.0])
+    assert approx_equal(quaternion_to_yaw(q), 0.0)
+    q = quaternion.quaternion(*[0.0, 1.0, 0.0, 0.0])
+    assert approx_equal(quaternion_to_yaw(q), math.radians(180)) or approx_equal(
+        quaternion_to_yaw(q), math.radians(-180)
+    )
+    q = quaternion.quaternion(*[0.0, 0.707, 0.0, 0.707])
+    assert approx_equal(quaternion_to_yaw(q), math.radians(90))
+    q = quaternion.quaternion(*[0.0, 0.707, 0.0, -0.707])
+    assert approx_equal(quaternion_to_yaw(q), math.radians(-90))
+    q = quaternion.quaternion(*[0.0, -0.707, 0.0, -0.707])
+    assert approx_equal(quaternion_to_yaw(q), math.radians(90))
+    q = quaternion.quaternion(*[0.0, -0.707, 0.0, 0.707])
+    assert approx_equal(quaternion_to_yaw(q), math.radians(-90))
 
 
 if __name__ == "__main__":
+    test_quat_stuff()
     dataset = GibsonDataset(
         "train",
         samples=2000,
