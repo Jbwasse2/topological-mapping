@@ -1555,3 +1555,23 @@ I0126 18:30:29.207131 112833 Sensor.h:81] Deconstructing Sensor
 I0126 18:30:29.240725 112833 Renderer.cpp:34] Deconstructing Renderer
 I0126 18:30:29.240754 112833 WindowlessContext.h:17] Deconstructing WindowlessContext
 I0126 18:30:29.243028 112833 Simulator.cpp:46] Deconstructing Simulator
+Traceback (most recent call last):
+  File "sim_model.py", line 389, in <module>
+    main()
+  File "sim_model.py", line 375, in main
+    localization_model = get_localization_model(device)
+  File "sim_model.py", line 356, in get_localization_model
+    model = Siamese().to(device)
+  File "/home/justin/research/topological/mapping-wormholes/src/rl/data/results/localization/forward_best_model/model.py", line 24, in __init__
+    self.encoder = self.get_Resnet()
+  File "/home/justin/research/topological/mapping-wormholes/src/rl/data/results/localization/forward_best_model/model.py", line 10, in get_Resnet
+    resnet18 = models.resnet18(pretrained=True)
+  File "/home/justin/anaconda3/envs/habitat36/lib/python3.6/site-packages/torchvision/models/resnet.py", line 241, in resnet18
+    **kwargs)
+  File "/home/justin/anaconda3/envs/habitat36/lib/python3.6/site-packages/torchvision/models/resnet.py", line 224, in _resnet
+    model = ResNet(block, layers, **kwargs)
+  File "/home/justin/anaconda3/envs/habitat36/lib/python3.6/site-packages/torchvision/models/resnet.py", line 162, in __init__
+    nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+  File "/home/justin/anaconda3/envs/habitat36/lib/python3.6/site-packages/torch/nn/init.py", line 418, in kaiming_normal_
+    return tensor.normal_(0, std)
+KeyboardInterrupt

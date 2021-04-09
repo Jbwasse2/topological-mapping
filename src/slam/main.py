@@ -62,7 +62,7 @@ def create_sim(scene, cfg):
 
 def get_dict(fname):
     f = gzip.open(
-        "../../data/datasets/pointnav/gibson/v4/train_large/content/"
+        "../../data/datasets/pointnav/gibson/v5/train_large/content/"
         + fname
         + ".json.gz"
     )
@@ -76,7 +76,7 @@ def get_dict(fname):
 def add_traj_to_SLAM(agent, scene_name):
     d = get_dict(scene_name)
     foo = []
-    NUMBER_OF_TRAJECTORIES_COLLECTED = 20
+    NUMBER_OF_TRAJECTORIES_COLLECTED = 100
     counter = 0
     start = (0, 0)
     skips = 0
@@ -84,7 +84,7 @@ def add_traj_to_SLAM(agent, scene_name):
         print("Traj= ", i)
         for j in range(len(d[i]["shortest_paths"][0][0])):
             image_location = (
-                "../../data/datasets/pointnav/gibson/v4/train_large/images/"
+                "../../data/datasets/pointnav/gibson/v5/train_large/images/"
                 + scene_name
                 + "/"
                 + "episodeRGB"
@@ -95,7 +95,7 @@ def add_traj_to_SLAM(agent, scene_name):
             )
             rgb = plt.imread(image_location)
             depth_location = (
-                "../../data/datasets/pointnav/gibson/v4/train_large/images/"
+                "../../data/datasets/pointnav/gibson/v5/train_large/images/"
                 + scene_name
                 + "/"
                 + "episodeDepth"
@@ -140,5 +140,5 @@ def main(env):
 
 
 if __name__ == "__main__":
-    scene = 'Bolton'
+    scene = "Poyen"
     main(scene)

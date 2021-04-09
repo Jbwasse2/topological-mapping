@@ -1,16 +1,14 @@
 import gzip
-import re
-from copy import deepcopy
-from torchvision import transforms as transforms
 import itertools
 import math
 import os
 import pathlib
 import random
+import re
 import shutil
+from copy import deepcopy
 
 import cv2
-import habitat
 import matplotlib
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -20,22 +18,21 @@ import quaternion
 import seaborn as sns
 import torch
 import torch.nn.functional as F
-from habitat.datasets.utils import get_action_shortest_path
-from habitat.utils.geometry_utils import (
-    angle_between_quaternions,
-    quaternion_from_coeff,
-    quaternion_to_list,
-)
-from habitat_baselines.slambased.reprojection import homogenize_p
+from torchvision import transforms as transforms
 from tqdm import tqdm
-from habitat.utils.geometry_utils import quaternion_rotate_vector
-from habitat.tasks.utils import cartesian_to_polar
-from habitat.utils.geometry_utils import angle_between_quaternions
 
+import habitat
+from habitat.datasets.utils import get_action_shortest_path
+from habitat.tasks.utils import cartesian_to_polar
+from habitat.utils.geometry_utils import (angle_between_quaternions,
+                                          quaternion_from_coeff,
+                                          quaternion_rotate_vector,
+                                          quaternion_to_list)
+from habitat_baselines.slambased.reprojection import homogenize_p
 # from model.model import Siamese
 from test_data import GibsonMapDataset
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 matplotlib.rcParams["font.family"] = "Helvetica"
 font = {"weight": "bold"}
 
@@ -88,7 +85,7 @@ def actual_edge_len(edge, d, sim):
     actuation_rotation = np.deg2rad(
         sim.config.agents[0].action_space[2].actuation.amount
     )
-    return len(shortest_path) + int(angle / actuation_rotation)
+    return len(shortest_path)  # + int(angle / actuation_rotation)
 
 
 # Full calculations and sim of gt length is expensive, only care about close points, so estimate of point may be sufficient
@@ -149,11 +146,14 @@ def estimate_edge_len_SLAM(edge, d):
     try:
         position1 = pose1["position"]
     except Exception as e:
-        pu.db
+        return None
     rotation1 = pose1["rotation"]
     # Get ending position
     node2 = edge[1]
-    pose2 = d[node2[0]][node2[1]]
+    try:
+        pose2 = d[node2[0]][node2[1]]
+    except Exception as e:
+        pu.db
     if pose2 == None:
         return None
     position2 = pose2["position"]
@@ -350,7 +350,7 @@ def connect_graph_trajectories(
             results = estimate_edge_len_SLAM(edge, d)
             # Make sure local goal position is in front of local start position
             rho, phi = get_displacement_label(node1, node2, d)
-            if results <= similarity and np.abs(phi) < 1.57:  # approx 90 degrees
+            if results <= similarity:  # approx 90 degrees
                 # Don't add edge if nodes are on seperate floors
                 if abs(position1[1] - position2[1]) > 0.1:
                     continue
@@ -421,7 +421,6 @@ def create_topological_map(
     # Make sure number of labels == number of trajs
     for i in range(len(d)):
         total_trajs += len(d[i]["shortest_paths"][0][0])
-    pu.db
     assert slam_labels.shape[0] == total_trajs
     d_slam = se3_to_habitat(slam_labels, d)
     d = d_to_new_format(d)
@@ -469,7 +468,7 @@ def build_graph(hold_out_percent, env):
             trajs,
             device,
             sim,
-            sparsity=15,
+            sparsity=1,
         )
         np.save("traj_new.npy", traj_new)
         np.save("traj_ind.npy", traj_ind)
@@ -486,7 +485,7 @@ def build_graph(hold_out_percent, env):
         traj_ind,
         device,
         episodes=episodes,
-        similarity=15,
+        similarity=1,
         sim=sim,
         d=d,
         scene=env,
@@ -557,13 +556,14 @@ def find_wormholes(G, world, similarity):
 
 def visualize_graph(env_name, G):
     cfg = create_cfg(env_name)
-    env = "Nemacolin"
+    env = "Poyen"
 
 
 # This takes a premade map, adds the slam label stuff, and saves the map.
 # Requires getting SLAM labels from slam/main.py, map from make_map_worm_experiment.py
 def extend_top_map(top_map, scene, max_distance=15):
     G = nx.read_gpickle(top_map)
+    pu.db
     slam_labels = np.array(torch.load("../data/results/slam/" + scene + "/traj.pt"))
     d = get_dict(scene)
     d_slam = se3_to_habitat(slam_labels, d)
@@ -579,7 +579,7 @@ def extend_top_map(top_map, scene, max_distance=15):
         if dist > max_distance:  # approx 90 degrees
             G.remove_edge(edge[0], edge[1])
 
-    nx.write_gpickle(G, "../../data/map/mapWormClean_" + str(scene) + ".gpickle")
+    nx.write_gpickle(G, "../../data/map/mapWormClean502_" + str(scene) + ".gpickle")
     return G
 
 
@@ -587,11 +587,11 @@ def main():
     import random
 
     random.seed(0)
-    env = "Bolton"
+    env = "Poyen"
     G, traj_new_eval, traj_ind_eval = build_graph(0.00, env)
 
 
-# G = nx.read_gpickle("../../data/map/map_Goodwine.gpickle")
+# G = nx.read_gpickle("../../data/map/map_Poyen.gpickle")
 # test_envs = np.load("./model/test_env.npy")
 # ENV = test_envs[0]
 # visualize_graph(ENV, G)
@@ -611,8 +611,8 @@ def find_wormholes(G, d, scene, wormhole_distance=1.5):
 def wormhole_experiment():
     import glob
 
-    env = "Nemacolin"
-    path = "../data/map/mapWorm_" + env + ".gpickle"
+    env = "Poyen"
+    path = "../data/map/mapWorm50_" + env + "0.8.gpickle"
     G = nx.read_gpickle(path)
     d = get_dict(env)
     G = extend_top_map(path, env)
@@ -623,4 +623,5 @@ def wormhole_experiment():
 
 
 if __name__ == "__main__":
-    main()
+    #    main()
+    wormhole_experiment()

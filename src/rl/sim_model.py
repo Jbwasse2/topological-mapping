@@ -19,9 +19,11 @@ import habitat
 from data.results.localization.forward_best_model.model import Siamese
 from habitat import Config, logger
 from habitat.tasks.utils import cartesian_to_polar
-from habitat.utils.geometry_utils import (agent_state_target2ref,
-                                          angle_between_quaternions,
-                                          quaternion_rotate_vector)
+from habitat.utils.geometry_utils import (
+    agent_state_target2ref,
+    angle_between_quaternions,
+    quaternion_rotate_vector,
+)
 from habitat_baselines.common.environments import get_env_class
 from habitat_baselines.common.tensorboard_utils import TensorboardWriter
 from habitat_baselines.config.default import get_config
@@ -29,10 +31,12 @@ from habitat_baselines.rl.ppo.ppo_trainer import PPOTrainer
 from habitat_baselines.utils.common import poll_checkpoint_folder
 from habitat_baselines.utils.env_utils import construct_envs
 
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+
 
 def get_dict(fname):
     f = gzip.open(
-        "../../data/datasets/pointnav/gibson/v4/train_large/content/"
+        "../../data/datasets/pointnav/gibson/v5/train_large/content/"
         + fname
         + ".json.gz"
     )
@@ -102,7 +106,11 @@ def get_node_pose(node, d):
         position = pose["position"]
         rotation = pose["rotation"]
     except KeyError:
-        pose = d[node[0]]["shortest_paths"][0][0][node[1]]
+        try:
+            pose = d[node[0]]["shortest_paths"][0][0][node[1]]
+        except Exception as e:
+            pu.db
+            print("FUCK")
         position = pose["position"]
         rotation = pose["rotation"]
     return position, rotation
@@ -138,7 +146,7 @@ def try_to_reach(
     local_goal = path[1]
     # Move robot to starting position/heading
     agent_state = sim.agents[0].get_state()
-    ground_truth_d = get_dict("Bolton")
+    ground_truth_d = get_dict("Poyen")
     pos, rot = get_node_pose(current_node, ground_truth_d)
     agent_state.position = pos
     agent_state.rotation = rot
@@ -166,17 +174,19 @@ def try_to_reach(
         video.release()
     # Check to see if agent made it
     agent_pos = sim.agents[0].get_state().position
-    ground_truth_d = get_dict("Bolton")
+    ground_truth_d = get_dict("Poyen")
     (episode, frame) = end_node
     goal_pos = ground_truth_d[episode]["shortest_paths"][0][0][frame]["position"]
     distance = np.linalg.norm(agent_pos - goal_pos)
     if distance >= 0.2:
+        print(distance)
         return 2
     return 0
 
+
 def get_node_depth(node, scene_name):
     image_location = (
-        "../../data/datasets/pointnav/gibson/v4/train_large/images/"
+        "../../data/datasets/pointnav/gibson/v5/train_large/images/"
         + scene_name
         + "/"
         + "episodeDepth"
@@ -187,9 +197,10 @@ def get_node_depth(node, scene_name):
     )
     return plt.imread(image_location)
 
+
 def get_node_image(node, scene_name):
     image_location = (
-        "../../data/datasets/pointnav/gibson/v4/train_large/images/"
+        "../../data/datasets/pointnav/gibson/v5/train_large/images/"
         + scene_name
         + "/"
         + "episodeRGB"
@@ -213,7 +224,7 @@ def try_to_reach_local(
     device,
     video,
 ):
-    MAX_NUMBER_OF_STEPS = 100
+    MAX_NUMBER_OF_STEPS = 30
     prev_action = torch.zeros(1, 1).to(device)
     not_done_masks = torch.zeros(1, 1).to(device)
     not_done_masks += 1
@@ -223,25 +234,6 @@ def try_to_reach_local(
     # goal_image is for video/visualization
     # goal_image_model is for torch model for predicting distance/heading
     scene_name = os.path.splitext(os.path.basename(sim.config.sim_cfg.scene.id))[0]
-    goal_image_model = (
-        cv2.resize(get_node_image(local_goal_node, scene_name), (224, 224)) / 255
-    )
-    transform = transforms.Compose(
-        [
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-        ]
-    )
-    goal_image_model = (
-        transform(goal_image_model).to(device).unsqueeze(0).type(torch.float32)
-    )
-    goal_depth_model = get_node_depth(local_goal_node, scene_name) / 255
-    transform_depth = transforms.Compose(
-        [
-            transforms.ToTensor(),
-        ]
-    )
-    goal_depth_model = transform_depth(goal_depth_model).to(device).unsqueeze(0).type(torch.float32)
     if video is not None:
         scene_name = os.path.splitext(os.path.basename(sim.config.sim_cfg.scene.id))[0]
 
@@ -250,10 +242,9 @@ def try_to_reach_local(
 
     for i in range(MAX_NUMBER_OF_STEPS):
         displacement = torch.from_numpy(
-            get_displacement_local_goal(
-                ob, goal_image_model, goal_depth_model, transform, transform_depth, localization_model, device
-            )
+            get_displacement_local_goal(sim, local_goal_node, d)
         ).type(torch.float32)
+
         if video is not None:
             image = np.hstack([ob["rgb"], goal_image])
             image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
@@ -275,30 +266,33 @@ def try_to_reach_local(
             )
         actions.append(action[0].item())
         prev_action = action
-        if action[0].item() == 0 or displacement[0] < 0.1:  # This is stop action
-            print("STOP")
+        if action[0].item() == 0:  # This is stop action
+            print("STOP ACTION")
+            return 1
+        if displacement[0] < 0.2:
+            print("STOP GT")
             return 1
         ob = sim.step(action[0].item())
     return 0
 
 
-def get_displacement_local_goal(
-    ob, goal_image_model, goal_depth_model, transform, transform_depth, localization_model, device
-):
-    start_image_model = (
-        cv2.resize(ob["rgb"][:, :, 0:3], (224, 224)) / 255
+def get_displacement_local_goal(sim, local_goal, d):
+    # See https://github.com/facebookresearch/habitat-lab/blob/b7a93bc493f7fb89e5bf30b40be204ff7b5570d7/habitat/tasks/nav/nav.py
+    # for more information
+    pos_goal, rot_goal = get_node_pose(local_goal, d)
+    # Quaternion is returned as list, need to change datatype
+    if isinstance(rot_goal, type(np.array)):
+        rot_goal = quaternion(*rot_goal)
+    pos_agent = sim.get_agent_state().position
+    rot_agent = sim.get_agent_state().rotation
+    direction_vector = pos_goal - pos_agent
+    direction_vector_agent = quaternion_rotate_vector(
+        rot_agent.inverse(), direction_vector
     )
-    start_image_model = (
-        transform(start_image_model).to(device).unsqueeze(0).type(torch.float32)
-    )
-#    depth = sim.get_sensor_observations()["depth"]
-#    TODO add conversion formula?
-    
-    frac = np.max(ob['depth'])
-    start_depth_model = (ob['depth'] * (frac * 255) / np.max(ob['depth'])).astype("uint8")
-    start_depth_model = transform_depth(start_depth_model).to(device).unsqueeze(0).type(torch.float32)
-    estimate = localization_model(start_image_model, goal_image_model, start_depth_model, goal_depth_model)
-    return estimate.cpu().detach().numpy()[0]
+    rho, phi = cartesian_to_polar(-direction_vector_agent[2], direction_vector_agent[0])
+
+    # Should be same as agent_world_angle
+    return np.array([rho, -phi])
 
 
 def visualize_observation(observation, start, goal):
@@ -338,21 +332,7 @@ def run_experiment(
                 device,
             )
         return_codes[results] += 1
-        break
-        if results == 2:
-            pu.db
-            results = try_to_reach(
-                G,
-                node1,
-                node2,
-                d,
-                ddppo_model,
-                localization_model,
-                deepcopy(hidden_state),
-                scene,
-                device,
-            )
-            break
+
     return return_codes
 
 
@@ -371,6 +351,7 @@ def get_localization_model(device):
 
 
 def main():
+    G = nx.read_gpickle("./data/map/mapWormClean502_Poyen.gpickle")
     seed = 4
     random.seed(seed)
     np.random.seed(seed)
@@ -382,11 +363,11 @@ def main():
         else torch.device("cpu")
     )
     localization_model = get_localization_model(device)
-    scene = create_sim("Bolton")
+    scene = create_sim("Poyen")
     ddppo_model, hidden_state = get_ddppo_model(config, device)
     # example_forward(model, hidden_state, scene, device)
-    G = nx.read_gpickle("./data/map/map_Bolton0.0.gpickle")
-    d = np.load("../data/map/d_slam.npy", allow_pickle=True).item()
+    # d = np.load("../data/map/d_slam.npy", allow_pickle=True).item()
+    d = get_dict("Poyen")
     results = run_experiment(
         G, d, ddppo_model, localization_model, hidden_state, scene, device
     )

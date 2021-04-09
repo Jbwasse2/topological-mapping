@@ -1,22 +1,23 @@
 import argparse
-import numpy as np
-from PIL import Image
 import glob
 import gzip
 import os
 from pathlib import Path
 
-import habitat
 import matplotlib
 import matplotlib.pyplot as plt
+import numpy as np
 import pudb
 import scipy.misc
+from PIL import Image
 from tqdm import tqdm
+
+import habitat
 
 
 def get_dict(fname):
     f = gzip.open(
-        "./data/datasets/pointnav/gibson/v4/train_large/content/" + fname + ".json.gz"
+        "./data/datasets/pointnav/gibson/v5/train_large/content/" + fname + ".json.gz"
     )
     content = f.read()
     content = content.decode()
@@ -41,7 +42,8 @@ def create_sim(scene):
 
 def generate_image_dataset(scene):
     sim = create_sim(scene)
-    image_path = "./data/datasets/pointnav/gibson/v4/train_large/images/" + scene + "/"
+    pu.db
+    image_path = "./data/datasets/pointnav/gibson/v5/train_large/images/" + scene + "/"
     Path(image_path).mkdir(parents=True, exist_ok=True)
     d = get_dict(scene)
     for collection in range(len(d)):

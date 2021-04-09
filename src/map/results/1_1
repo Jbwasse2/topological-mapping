@@ -82,3 +82,12 @@ I0131 13:31:57.070056 28369 Sensor.h:81] Deconstructing Sensor
 I0131 13:31:57.137784 28369 Renderer.cpp:34] Deconstructing Renderer
 I0131 13:31:57.137837 28369 WindowlessContext.h:17] Deconstructing WindowlessContext
 I0131 13:31:57.140547 28369 Simulator.cpp:46] Deconstructing Simulator
+Traceback (most recent call last):
+  File "make_map.py", line 623, in <module>
+    wormhole_experiment()
+  File "make_map.py", line 613, in wormhole_experiment
+    d = get_dict(env)
+  File "make_map.py", line 173, in get_dict
+    content = eval(content)
+  File "<string>", line 1, in <module>
+KeyboardInterrupt

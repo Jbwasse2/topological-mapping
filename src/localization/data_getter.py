@@ -21,9 +21,11 @@ from torchvision.transforms import ToTensor
 from tqdm import tqdm
 
 from habitat.tasks.utils import cartesian_to_polar
-from habitat.utils.geometry_utils import (angle_between_quaternions,
-                                          quaternion_from_coeff,
-                                          quaternion_rotate_vector)
+from habitat.utils.geometry_utils import (
+    angle_between_quaternions,
+    quaternion_from_coeff,
+    quaternion_rotate_vector,
+)
 from rich.progress import track
 
 
@@ -227,8 +229,8 @@ class GibsonDataset(Dataset):
                     i, j = self.dist_angle_to_indicies(distance, angle)
                     if self.debug:
                         self.over_head_visualization(sample_1, sample_2, d, angle, env)
-#                    if sample_1 == (16,339) and sample_2 == (11,359):
-#                        self.over_head_visualization(sample_1, sample_2, d, angle, env)
+                    #                    if sample_1 == (16,339) and sample_2 == (11,359):
+                    #                        self.over_head_visualization(sample_1, sample_2, d, angle, env)
                     ret[i][j].append((env, sample_1, sample_2, distance, angle))
                     sample_counter += 1
         return ret
@@ -258,8 +260,8 @@ class GibsonDataset(Dataset):
             "rotation": rot_start,
         }
         d[-2]["shortest_paths"][0][0][-2] = {"position": pos_goal, "rotation": rot_goal}
-        #sample_1 = (-1, -1)
-        #sample_2 = (-2, -2)
+        # sample_1 = (-1, -1)
+        # sample_2 = (-2, -2)
         # sample_1 = (11, 408)
         # sample_2 = (3, 281)
         pu.db
@@ -438,6 +440,7 @@ class GibsonDataset(Dataset):
         pos_goal, rot_goal = get_node_pose(local_goal, d)
         return angle_between_quaternions(rot_start, rot_goal)
 
+
 def get_displacement_label(local_start, local_goal, d):
     # See https://github.com/facebookresearch/habitat-lab/blob/b7a93bc493f7fb89e5bf30b40be204ff7b5570d7/habitat/tasks/nav/nav.py
     # for more information
@@ -493,7 +496,7 @@ def get_node_pose(node, d):
     pose = d[node[0]]["shortest_paths"][0][0][node[1]]
     position = pose["position"]
     rotation = pose["rotation"]
-    return np.array(position),quaternion_from_coeff(rotation)
+    return np.array(position), quaternion_from_coeff(rotation)
 
 
 def quaternion_to_yaw(q):

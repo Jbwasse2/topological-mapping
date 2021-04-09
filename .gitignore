@@ -7,8 +7,11 @@ src/slam/out/
 src/slam/top_down/
 *.swp
 *.swo
+*.jpg
+*.png
 *.mkv
 data
+*.gpickle
 *.pth
 *.npy
 src/slam/orb_slam2

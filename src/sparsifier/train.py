@@ -1,6 +1,4 @@
 import argparse
-from torch.autograd import Variable
-from tqdm import tqdm
 import os
 import time
 from shutil import copyfile
@@ -10,11 +8,13 @@ import pudb
 import torch
 import torch.optim as optim
 from torch import nn
+from torch.autograd import Variable
 from torch.utils import data
-from rich.progress import track
+from tqdm import tqdm
 
 from data_getter import GibsonDataset
 from model import Siamese
+from rich.progress import track
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
@@ -30,14 +30,14 @@ def train(model, device, epochs=30):
     os.mkdir(results_dir)
     copyfile("./model.py", results_dir + "model.py")
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=0.001)
+    optimizer = optim.Adam(model.parameters(), lr=0.00001)
     BATCH_SIZE = 64
     seed = 0
     train_dataset = GibsonDataset(
         "train",
         seed,
-        samples=20000,
-        max_distance=30,
+        samples=10000,
+        max_distance=60,
         episodes=20,
         ignore_0=False,
         debug=False,
@@ -52,8 +52,8 @@ def train(model, device, epochs=30):
     test_dataset = GibsonDataset(
         "test",
         seed,
-        samples=2000,
-        max_distance=30,
+        samples=1000,
+        max_distance=60,
         episodes=20,
         ignore_0=False,
         debug=False,

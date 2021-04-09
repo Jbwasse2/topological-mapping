@@ -1,10 +1,11 @@
-import numpy as np
-from tqdm import tqdm
-import habitat
-import pudb
 import networkx as nx
-from make_map import get_dict
+import numpy as np
+import pudb
+from tqdm import tqdm
+
+import habitat
 from habitat.datasets.utils import get_action_shortest_path
+from make_map import get_dict
 
 
 def create_sim(scene):
@@ -21,12 +22,12 @@ def create_sim(scene):
 def actual_edge_len(edge, scene, d, sim):
     # Get starting position and rotation
     node1 = edge[0]
-    pose1 = d[node1[0]]["shortest_paths"][0][node1[1]]
+    pose1 = d[node1[0]]["shortest_paths"][0][0][node1[1]]
     position1 = pose1["position"]
     rotation1 = pose1["rotation"]
     # Get ending position
     node2 = edge[1]
-    pose2 = d[node2[0]]["shortest_paths"][0][node2[1]]
+    pose2 = d[node2[0]]["shortest_paths"][0][0][node2[1]]
     position2 = pose2["position"]
     rotation2 = pose2["rotation"]
     # Get actual distance from simulator, use same settings as the one used in data collection
@@ -45,11 +46,10 @@ def actual_edge_len(edge, scene, d, sim):
 
 def main():
     test_envs = np.load("./model/test_env.npy")
-    scene = test_envs[0]
+    scene = "Poyen"
     sim = create_sim(scene)
     d = get_dict(scene)
-    G = nx.read_gpickle("../../data/map/map_Goodwine.gpickle")
-    pu.db
+    G = nx.read_gpickle("../../data/map/mapWorm_Poyen0.8.gpickle")
     lengths = {}
     # For now only search over edges that go between different trajectories
     # The following will search over all edges
@@ -57,16 +57,17 @@ def main():
     graph_edges = list(G.edges)
     edges = np.array(list(G.edges))
     edges = edges.reshape(len(edges), 4)
-    edges_idx = np.where(edges[:, 0] != edges[:, 2])[0]
-    for idx in tqdm(edges_idx):
+#    edges_idx = np.where(edges[:, 0] != edges[:, 2])[0]
+    for idx in tqdm(range(len(edges))):
         edge = graph_edges[idx]
+        pu.db
         length = actual_edge_len(edge, scene, d, sim)
         if length not in lengths:
             lengths[length] = 0
         lengths[length] += 1
     print(lengths)
 
-    np.save("lengths2.npy", lengths)
+    np.save("lengths_brown_bad.npy", lengths)
 
 
 if __name__ == "__main__":

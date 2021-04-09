@@ -1,5 +1,4 @@
 import torch
-import torch.nn.functional as nnf
 import torch.nn.functional as F
 import torchvision.models as models
 from torch import nn
@@ -41,8 +40,8 @@ class Siamese(nn.Module):
         self.conv1 = nn.Conv2d(in_channels=1024, out_channels=256, kernel_size=1)
         self.conv2 = nn.Conv2d(in_channels=256, out_channels=256, kernel_size=3)
         self.conv3 = nn.Conv2d(in_channels=256, out_channels=64, kernel_size=3)
-        self.dropout1 = nn.Dropout2d(0.5)
-        self.dropout2 = nn.Dropout2d(0.5)
+        self.dropout1 = nn.Dropout(0.5)
+        self.dropout2 = nn.Dropout(0.5)
         self.fc1 = nn.Linear(64 * 3 * 3, 128)
         self.fc2 = nn.Linear(128, 2)
 

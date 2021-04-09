@@ -1,6 +1,4 @@
 import glob
-import quaternion
-from tqdm import tqdm
 import gzip
 import random
 from pathlib import Path
@@ -10,6 +8,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pudb
+import quaternion
 import torch
 import torchvision.transforms as transforms
 from PIL import Image
@@ -17,8 +16,9 @@ from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms as transforms
 from torchvision import utils
 from torchvision.transforms import ToTensor
+from tqdm import tqdm
+
 from rich.progress import track
-import matplotlib
 
 matplotlib.use("Agg")
 
@@ -49,8 +49,10 @@ class GibsonDataset(Dataset):
         samples=10000,
         ignore_0=False,
         debug=False,
+        give_distance=False,
     ):
         random.seed(seed)
+        self.give_distance = give_distance
         self.debug = debug
         self.ignore_0 = ignore_0
         self.split_type = split_type
@@ -67,6 +69,7 @@ class GibsonDataset(Dataset):
         split = 0.85
         self.train_env = self.env_names[0 : int(len(self.env_names) * split)]
         self.test_env = self.env_names[int(len(self.env_names) * split) :]
+        pu.db
         if visualize:
             d = get_dict(self.train_env[0])
             self.visualize_dict(d[0])
@@ -155,9 +158,9 @@ class GibsonDataset(Dataset):
     def balance_dataset(self, max_number_of_examples=2000):
         min_size = np.inf
         if self.ignore_0:
-            dist_range = range(1, self.max_distance + 1)
+            dist_range = range(1, self.max_distance)
         else:
-            dist_range = range(self.max_distance + 1)
+            dist_range = range(self.max_distance)
         for i in dist_range:
             min_size = min(min_size, len(self.dataset[i]))
         min_size = min(min_size, max_number_of_examples)
@@ -167,15 +170,20 @@ class GibsonDataset(Dataset):
         for i in dist_range:
             weight = 1.0
             ret[i] = random.sample(self.dataset[i], int(min_size * weight))
+        # last entrie is gonna be far away examples
+        ret[self.max_distance] = []
+        for i in range(min_size):
+            random_far_away = random.choice(far_away_keys)
+            ret[self.max_distance].append(random.choice(self.dataset[random_far_away]))
         return ret
 
     # Don't forget map/trajectory is directed.
     def get_dataset(self, envs):
         ret = {}
-        retries = 100
+        retries = 10
         if self.debug:
             envs = envs[0:3]
-        for distance in tqdm(range(self.max_distance + 1)):
+        for distance in tqdm(range(400)):
             for sample in range(self.samples):
                 # Keep trying to find sample that satisfies requirements...
                 for _ in range(retries):
@@ -272,7 +280,8 @@ class GibsonDataset(Dataset):
             y = 0
         else:
             y = 1
-
+        if self.give_distance:
+            return (x, y, l2 - l1)
         return (x, y)
 
 
@@ -281,27 +290,30 @@ if __name__ == "__main__":
         "train",
         samples=10,
         seed=0,
-        max_distance=30,
+        max_distance=60,
         ignore_0=False,
         debug=True,
         episodes=20,
+        give_distance=True
     )
     max_angle = 0
     max_displacement = 0
     displacements = []
     angles = []
     ys = []
+    pu.db
     for batch in tqdm(dataset):
         (
             x,
             y,
+            d
         ) = batch
         #        dataset.visualize_sample(x, y, episode, l1, l2)
         im1, im2 = x
-        ys.append(y)
+        ys.append(d)
         # im = np.hstack([im1, im2])
         # plt.text(50, 25, str(y))
         # plt.imshow(im)
         # plt.show()
-    plt.hist(ys, bins=10)
+    plt.hist(ys, bins=1000)
     plt.savefig("histogram_y.jpg")
