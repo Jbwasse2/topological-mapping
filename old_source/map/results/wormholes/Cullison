@@ -1,0 +1,99 @@
+2021-02-22 17:22:03,104 initializing sim Sim-v0
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+I0222 17:22:03.111213 68603 AssetAttributesManager.cpp:122] Asset attributes (capsule3DSolid : capsule3DSolid_hemiRings_4_cylRings_1_segments_12_halfLen_0.75_useTexCoords_false_useTangents_false) created and registered.
+I0222 17:22:03.111282 68603 AssetAttributesManager.cpp:122] Asset attributes (capsule3DWireframe : capsule3DWireframe_hemiRings_8_cylRings_1_segments_16_halfLen_1) created and registered.
+I0222 17:22:03.111331 68603 AssetAttributesManager.cpp:122] Asset attributes (coneSolid : coneSolid_segments_12_halfLen_1.25_rings_1_useTexCoords_false_useTangents_false_capEnd_true) created and registered.
+I0222 17:22:03.111361 68603 AssetAttributesManager.cpp:122] Asset attributes (coneWireframe : coneWireframe_segments_32_halfLen_1.25) created and registered.
+I0222 17:22:03.111375 68603 AssetAttributesManager.cpp:122] Asset attributes (cubeSolid : cubeSolid) created and registered.
+I0222 17:22:03.111387 68603 AssetAttributesManager.cpp:122] Asset attributes (cubeWireframe : cubeWireframe) created and registered.
+I0222 17:22:03.111428 68603 AssetAttributesManager.cpp:122] Asset attributes (cylinderSolid : cylinderSolid_rings_1_segments_12_halfLen_1_useTexCoords_false_useTangents_false_capEnds_true) created and registered.
+I0222 17:22:03.111462 68603 AssetAttributesManager.cpp:122] Asset attributes (cylinderWireframe : cylinderWireframe_rings_1_segments_32_halfLen_1) created and registered.
+I0222 17:22:03.111479 68603 AssetAttributesManager.cpp:122] Asset attributes (icosphereSolid : icosphereSolid_subdivs_1) created and registered.
+I0222 17:22:03.111495 68603 AssetAttributesManager.cpp:122] Asset attributes (icosphereWireframe : icosphereWireframe_subdivs_1) created and registered.
+I0222 17:22:03.111517 68603 AssetAttributesManager.cpp:122] Asset attributes (uvSphereSolid : uvSphereSolid_rings_8_segments_16_useTexCoords_false_useTangents_false) created and registered.
+I0222 17:22:03.111541 68603 AssetAttributesManager.cpp:122] Asset attributes (uvSphereWireframe : uvSphereWireframe_rings_16_segments_32) created and registered.
+I0222 17:22:03.111549 68603 AssetAttributesManager.cpp:108] AssetAttributesManager::buildCtorFuncPtrMaps : Built default primitive asset templates : 12
+I0222 17:22:03.112370 68603 PhysicsAttributesManager.cpp:39] File (./data/default.phys_scene_config.json) not found so new, default physics manager attributes created and registered.
+I0222 17:22:03.112514 68603 StageAttributesManager.cpp:79] File (../../data/scene_datasets/gibson/Cullison.glb) Based stage attributes created and registered.
+I0222 17:22:03.112529 68603 Simulator.cpp:145] Loading navmesh from ../../data/scene_datasets/gibson/Cullison.navmesh
+I0222 17:22:03.626058 68603 Simulator.cpp:147] Loaded.
+I0222 17:22:03.626108 68603 SceneGraph.h:93] Created DrawableGroup: 
+Renderer: GeForce RTX 2080/PCIe/SSE2 by NVIDIA Corporation
+OpenGL version: 4.6.0 NVIDIA 450.102.04
+Using optional features:
+    GL_ARB_ES2_compatibility
+    GL_ARB_direct_state_access
+    GL_ARB_get_texture_sub_image
+    GL_ARB_invalidate_subdata
+    GL_ARB_multi_bind
+    GL_ARB_robustness
+    GL_ARB_separate_shader_objects
+    GL_ARB_texture_filter_anisotropic
+    GL_ARB_texture_storage
+    GL_ARB_texture_storage_multisample
+    GL_ARB_vertex_array_object
+    GL_KHR_debug
+Using driver workarounds:
+    no-forward-compatible-core-context
+    nv-egl-incorrect-gl11-function-pointers
+    no-layout-qualifiers-on-old-glsl
+    nv-zero-context-profile-mask
+    nv-implementation-color-read-format-dsa-broken
+    nv-cubemap-inconsistent-compressed-image-size
+    nv-cubemap-broken-full-compressed-image-query
+    nv-compressed-block-size-in-bits
+I0222 17:22:03.732203 68603 ResourceManager.cpp:934] Importing Basis files as BC7
+I0222 17:22:07.721459 68603 ResourceManager.cpp:302] ResourceManager::loadStage : Not loading semantic mesh
+W0222 17:22:07.721516 68603 Simulator.cpp:235] :
+---
+ The active scene does not contain semantic annotations. 
+---
+I0222 17:22:07.722080 68603 simulator.py:181] Loaded navmesh ../../data/scene_datasets/gibson/Cullison.navmesh
+  0%|          | 0/20 [00:00<?, ?it/s]  5%|▌         | 1/20 [00:01<00:36,  1.91s/it] 10%|█         | 2/20 [00:04<00:44,  2.48s/it] 15%|█▌        | 3/20 [00:06<00:36,  2.14s/it] 20%|██        | 4/20 [00:08<00:32,  2.04s/it] 25%|██▌       | 5/20 [00:10<00:31,  2.07s/it] 30%|███       | 6/20 [00:12<00:26,  1.91s/it] 35%|███▌      | 7/20 [00:12<00:20,  1.56s/it] 40%|████      | 8/20 [00:13<00:16,  1.36s/it] 45%|████▌     | 9/20 [00:16<00:17,  1.60s/it] 50%|█████     | 10/20 [00:16<00:14,  1.40s/it] 55%|█████▌    | 11/20 [00:18<00:13,  1.44s/it] 60%|██████    | 12/20 [00:20<00:12,  1.57s/it] 65%|██████▌   | 13/20 [00:22<00:11,  1.67s/it] 70%|███████   | 14/20 [00:24<00:10,  1.69s/it] 75%|███████▌  | 15/20 [00:25<00:08,  1.64s/it] 80%|████████  | 16/20 [00:27<00:07,  1.87s/it] 85%|████████▌ | 17/20 [00:28<00:04,  1.37s/it] 90%|█████████ | 18/20 [00:30<00:03,  1.80s/it] 95%|█████████▌| 19/20 [00:31<00:01,  1.43s/it]100%|██████████| 20/20 [00:32<00:00,  1.33s/it]100%|██████████| 20/20 [00:32<00:00,  1.63s/it]
+  0%|          | 0/20 [00:00<?, ?it/s]100%|██████████| 20/20 [00:00<00:00, 15243.70it/s]
+0it [00:00, ?it/s]20it [00:00, 41775.94it/s]
+0it [00:00, ?it/s]make_map_worm_experiment.py:46: UserWarning: Implicit dimension choice for softmax has been deprecated. Change the call to include dim=X as an argument.
+  results = F.softmax(model(images1, images2))
+1it [02:04, 124.84s/it]2it [11:52, 396.99s/it]3it [22:07, 496.55s/it]4it [30:56, 509.24s/it]4it [36:18, 544.52s/it]
+Traceback (most recent call last):
+  File "make_map_worm_experiment.py", line 299, in <module>
+    G = main(env, map_type="topological")
+  File "make_map_worm_experiment.py", line 262, in main
+    map_type=map_type,
+  File "make_map_worm_experiment.py", line 193, in create_topological_map_wormhole
+    map_type=map_type,
+  File "make_map_worm_experiment.py", line 147, in add_trajs_to_graph_wormhole
+    model, d, edges, sim, device, similarity, map_type
+  File "make_map_worm_experiment.py", line 86, in find_close_node
+    results = estimate_edge_len_wormhole(model, edges, sim, device)
+  File "make_map_worm_experiment.py", line 46, in estimate_edge_len_wormhole
+    results = F.softmax(model(images1, images2))
+  File "/home/justin/anaconda3/envs/habitat36/lib/python3.6/site-packages/torch/nn/modules/module.py", line 727, in _call_impl
+    result = self.forward(*input, **kwargs)
+  File "/home/justin/research/topological/mapping-wormholes/src/map/worm_model/model.py", line 59, in forward
+    out2 = self.encode(x2)
+  File "/home/justin/research/topological/mapping-wormholes/src/map/worm_model/model.py", line 50, in encode
+    x = self.encoder(im)
+  File "/home/justin/anaconda3/envs/habitat36/lib/python3.6/site-packages/torch/nn/modules/module.py", line 727, in _call_impl
+    result = self.forward(*input, **kwargs)
+  File "/home/justin/anaconda3/envs/habitat36/lib/python3.6/site-packages/torch/nn/modules/container.py", line 117, in forward
+    input = module(input)
+  File "/home/justin/anaconda3/envs/habitat36/lib/python3.6/site-packages/torch/nn/modules/module.py", line 727, in _call_impl
+    result = self.forward(*input, **kwargs)
+  File "/home/justin/anaconda3/envs/habitat36/lib/python3.6/site-packages/torch/nn/modules/container.py", line 117, in forward
+    input = module(input)
+  File "/home/justin/anaconda3/envs/habitat36/lib/python3.6/site-packages/torch/nn/modules/module.py", line 727, in _call_impl
+    result = self.forward(*input, **kwargs)
+  File "/home/justin/anaconda3/envs/habitat36/lib/python3.6/site-packages/torch/nn/modules/batchnorm.py", line 136, in forward
+    self.weight, self.bias, bn_training, exponential_average_factor, self.eps)
+  File "/home/justin/anaconda3/envs/habitat36/lib/python3.6/site-packages/torch/nn/functional.py", line 2058, in batch_norm
+    training, momentum, eps, torch.backends.cudnn.enabled
+RuntimeError: CUDA out of memory. Tried to allocate 2.21 GiB (GPU 0; 7.80 GiB total capacity; 3.15 GiB already allocated; 111.38 MiB free; 5.37 GiB reserved in total by PyTorch)
+I0222 17:59:07.721374 68603 PhysicsManager.cpp:33] Deconstructing PhysicsManager
+I0222 17:59:07.721429 68603 SemanticScene.h:41] Deconstructing SemanticScene
+I0222 17:59:07.721433 68603 SceneManager.h:25] Deconstructing SceneManager
+I0222 17:59:07.721436 68603 SceneGraph.h:26] Deconstructing SceneGraph
+I0222 17:59:07.721535 68603 Sensor.h:81] Deconstructing Sensor
+I0222 17:59:07.790975 68603 Renderer.cpp:34] Deconstructing Renderer
+I0222 17:59:07.791033 68603 WindowlessContext.h:17] Deconstructing WindowlessContext
+I0222 17:59:07.796329 68603 Simulator.cpp:46] Deconstructing Simulator

@@ -1,0 +1,77 @@
+2021-02-18 18:39:43,586 initializing sim Sim-v0
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+I0218 18:39:43.592442 70067 AssetAttributesManager.cpp:122] Asset attributes (capsule3DSolid : capsule3DSolid_hemiRings_4_cylRings_1_segments_12_halfLen_0.75_useTexCoords_false_useTangents_false) created and registered.
+I0218 18:39:43.592511 70067 AssetAttributesManager.cpp:122] Asset attributes (capsule3DWireframe : capsule3DWireframe_hemiRings_8_cylRings_1_segments_16_halfLen_1) created and registered.
+I0218 18:39:43.592559 70067 AssetAttributesManager.cpp:122] Asset attributes (coneSolid : coneSolid_segments_12_halfLen_1.25_rings_1_useTexCoords_false_useTangents_false_capEnd_true) created and registered.
+I0218 18:39:43.592589 70067 AssetAttributesManager.cpp:122] Asset attributes (coneWireframe : coneWireframe_segments_32_halfLen_1.25) created and registered.
+I0218 18:39:43.592604 70067 AssetAttributesManager.cpp:122] Asset attributes (cubeSolid : cubeSolid) created and registered.
+I0218 18:39:43.592615 70067 AssetAttributesManager.cpp:122] Asset attributes (cubeWireframe : cubeWireframe) created and registered.
+I0218 18:39:43.592658 70067 AssetAttributesManager.cpp:122] Asset attributes (cylinderSolid : cylinderSolid_rings_1_segments_12_halfLen_1_useTexCoords_false_useTangents_false_capEnds_true) created and registered.
+I0218 18:39:43.592691 70067 AssetAttributesManager.cpp:122] Asset attributes (cylinderWireframe : cylinderWireframe_rings_1_segments_32_halfLen_1) created and registered.
+I0218 18:39:43.592710 70067 AssetAttributesManager.cpp:122] Asset attributes (icosphereSolid : icosphereSolid_subdivs_1) created and registered.
+I0218 18:39:43.592723 70067 AssetAttributesManager.cpp:122] Asset attributes (icosphereWireframe : icosphereWireframe_subdivs_1) created and registered.
+I0218 18:39:43.592747 70067 AssetAttributesManager.cpp:122] Asset attributes (uvSphereSolid : uvSphereSolid_rings_8_segments_16_useTexCoords_false_useTangents_false) created and registered.
+I0218 18:39:43.592770 70067 AssetAttributesManager.cpp:122] Asset attributes (uvSphereWireframe : uvSphereWireframe_rings_16_segments_32) created and registered.
+I0218 18:39:43.592778 70067 AssetAttributesManager.cpp:108] AssetAttributesManager::buildCtorFuncPtrMaps : Built default primitive asset templates : 12
+I0218 18:39:43.593590 70067 PhysicsAttributesManager.cpp:39] File (./data/default.phys_scene_config.json) not found so new, default physics manager attributes created and registered.
+I0218 18:39:43.593698 70067 StageAttributesManager.cpp:79] File (../../data/scene_datasets/gibson/Hambleton.glb) Based stage attributes created and registered.
+I0218 18:39:43.593709 70067 Simulator.cpp:145] Loading navmesh from ../../data/scene_datasets/gibson/Hambleton.navmesh
+I0218 18:39:43.593761 70067 Simulator.cpp:147] Loaded.
+I0218 18:39:43.593773 70067 SceneGraph.h:93] Created DrawableGroup: 
+Renderer: GeForce RTX 2080/PCIe/SSE2 by NVIDIA Corporation
+OpenGL version: 4.6.0 NVIDIA 450.102.04
+Using optional features:
+    GL_ARB_ES2_compatibility
+    GL_ARB_direct_state_access
+    GL_ARB_get_texture_sub_image
+    GL_ARB_invalidate_subdata
+    GL_ARB_multi_bind
+    GL_ARB_robustness
+    GL_ARB_separate_shader_objects
+    GL_ARB_texture_filter_anisotropic
+    GL_ARB_texture_storage
+    GL_ARB_texture_storage_multisample
+    GL_ARB_vertex_array_object
+    GL_KHR_debug
+Using driver workarounds:
+    no-forward-compatible-core-context
+    nv-egl-incorrect-gl11-function-pointers
+    no-layout-qualifiers-on-old-glsl
+    nv-zero-context-profile-mask
+    nv-implementation-color-read-format-dsa-broken
+    nv-cubemap-inconsistent-compressed-image-size
+    nv-cubemap-broken-full-compressed-image-query
+    nv-compressed-block-size-in-bits
+I0218 18:39:43.668483 70067 ResourceManager.cpp:934] Importing Basis files as BC7
+I0218 18:39:46.918298 70067 ResourceManager.cpp:302] ResourceManager::loadStage : Not loading semantic mesh
+W0218 18:39:46.918354 70067 Simulator.cpp:235] :
+---
+ The active scene does not contain semantic annotations. 
+---
+I0218 18:39:46.918869 70067 simulator.py:181] Loaded navmesh ../../data/scene_datasets/gibson/Hambleton.navmesh
+Traceback (most recent call last):
+  File "make_map_worm_experiment.py", line 289, in <module>
+    G = main(env, map_type="topological")
+  File "make_map_worm_experiment.py", line 237, in main
+    sparsifier_model = Siamese().to(device)
+  File "/home/justin/anaconda3/envs/habitat36/lib/python3.6/site-packages/torch/nn/modules/module.py", line 612, in to
+    return self._apply(convert)
+  File "/home/justin/anaconda3/envs/habitat36/lib/python3.6/site-packages/torch/nn/modules/module.py", line 359, in _apply
+    module._apply(fn)
+  File "/home/justin/anaconda3/envs/habitat36/lib/python3.6/site-packages/torch/nn/modules/module.py", line 359, in _apply
+    module._apply(fn)
+  File "/home/justin/anaconda3/envs/habitat36/lib/python3.6/site-packages/torch/nn/modules/module.py", line 359, in _apply
+    module._apply(fn)
+  File "/home/justin/anaconda3/envs/habitat36/lib/python3.6/site-packages/torch/nn/modules/module.py", line 381, in _apply
+    param_applied = fn(param)
+  File "/home/justin/anaconda3/envs/habitat36/lib/python3.6/site-packages/torch/nn/modules/module.py", line 610, in convert
+    return t.to(device, dtype if t.is_floating_point() else None, non_blocking)
+RuntimeError: CUDA error: out of memory
+I0218 18:39:49.996239 70067 PhysicsManager.cpp:33] Deconstructing PhysicsManager
+I0218 18:39:49.996279 70067 SemanticScene.h:41] Deconstructing SemanticScene
+I0218 18:39:49.996284 70067 SceneManager.h:25] Deconstructing SceneManager
+I0218 18:39:49.996286 70067 SceneGraph.h:26] Deconstructing SceneGraph
+I0218 18:39:49.996371 70067 Sensor.h:81] Deconstructing Sensor
+I0218 18:39:50.049404 70067 Renderer.cpp:34] Deconstructing Renderer
+I0218 18:39:50.049446 70067 WindowlessContext.h:17] Deconstructing WindowlessContext
+I0218 18:39:50.052140 70067 Simulator.cpp:46] Deconstructing Simulator

@@ -1,0 +1,9 @@
+Traceback (most recent call last):
+  File "make_map.py", line 623, in <module>
+    wormhole_experiment()
+  File "make_map.py", line 612, in wormhole_experiment
+    G = nx.read_gpickle(path)
+  File "<decorator-gen-654>", line 2, in read_gpickle
+  File "/home/justin/anaconda3/envs/habitat36/lib/python3.6/site-packages/networkx/utils/decorators.py", line 213, in _open_file
+    fobj = _dispatch_dict[ext](path, mode=mode)
+FileNotFoundError: [Errno 2] No such file or directory: '../data/map/mapWorm_Seeley0.8.gpickle'
