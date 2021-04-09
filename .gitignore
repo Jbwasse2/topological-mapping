@@ -1,5 +1,8 @@
 #
 #
+src/install/
+src/log/
+src/build/
 src/map/results/
 habitat-lab
 *.pt
