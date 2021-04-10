@@ -23,6 +23,5 @@ setup(
                 'talker = top_map.publisher_member_function:main',
                 'listener = top_map.subscriber_member_function:main',
         ],
-},
-
+    }
 )
