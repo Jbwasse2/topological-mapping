@@ -5,7 +5,7 @@ import os
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image
-from gtesting_helper import run_node
+from testing_helper import run_node
 
 
 class CameraTester(Node):
