@@ -1,10 +1,14 @@
-from top_map.camera import CameraPublisher
-from multiprocessing import Process
-import signal
 import os
+import signal
+from multiprocessing import Process
+
+import cv2
 import rclpy
+from cv_bridge import CvBridge
 from rclpy.node import Node
 from sensor_msgs.msg import Image
+from top_map.camera import CameraPublisher
+
 from testing_helper import run_node
 
 
@@ -22,6 +26,9 @@ class CameraTester(Node):
         self.results.append(msg.encoding == "bgr8")
         # Check if image is empty, if it is camera isn't on
         self.results.append(sum(msg.data) != 0)
+        bridge = CvBridge()
+        image = bridge.imgmsg_to_cv2(msg, "bgr8")
+        cv2.imwrite("./test/results/camera.png", image)
 
 
 def test_camera():
