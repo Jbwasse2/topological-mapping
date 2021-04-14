@@ -1,19 +1,16 @@
-import habitat
-from pathlib import Path
-import matplotlib.pyplot as plt
-from habitat.utils.visualizations.maps import get_topdown_map
+import argparse
 import gzip
+import os
+from pathlib import Path
+
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
-from slam_agents import (
-    ORBSLAM2MonoAgent,
-    ORBSLAM2Agent,
-    get_config,
-    cfg_baseline,
-    make_good_config_for_orbslam2,
-)
-import argparse
-import os
+
+import habitat
+from habitat.utils.visualizations.maps import get_topdown_map
+from slam_agents import (ORBSLAM2Agent, ORBSLAM2MonoAgent, cfg_baseline,
+                         get_config, make_good_config_for_orbslam2)
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
@@ -22,7 +19,7 @@ def create_agent(scene):
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--agent-type",
-        default="orbslam2-rgbd",
+        default="mono",
         choices=["blind", "orbslam2-rgbd", "orbslam2-rgb-monod", "mono"],
     )
     parser.add_argument("--task-config", type=str, default="tasks/pointnav_rgbd.yaml")
@@ -62,7 +59,7 @@ def create_sim(scene, cfg):
 
 def get_dict(fname):
     f = gzip.open(
-        "../../data/datasets/pointnav/gibson/v5/train_large/content/"
+        "../../data/datasets/pointnav/gibson/v4/train_large/content/"
         + fname
         + ".json.gz"
     )
@@ -84,7 +81,7 @@ def add_traj_to_SLAM(agent, scene_name):
         print("Traj= ", i)
         for j in range(len(d[i]["shortest_paths"][0][0])):
             image_location = (
-                "../../data/datasets/pointnav/gibson/v5/train_large/images/"
+                "../../data/datasets/pointnav/gibson/v4/train_large/images/"
                 + scene_name
                 + "/"
                 + "episodeRGB"
@@ -95,7 +92,7 @@ def add_traj_to_SLAM(agent, scene_name):
             )
             rgb = plt.imread(image_location)
             depth_location = (
-                "../../data/datasets/pointnav/gibson/v5/train_large/images/"
+                "../../data/datasets/pointnav/gibson/v4/train_large/images/"
                 + scene_name
                 + "/"
                 + "episodeDepth"
@@ -108,6 +105,7 @@ def add_traj_to_SLAM(agent, scene_name):
             observation = {}
             observation["rgb"] = rgb
             observation["depth"] = depth
+            pu.db
             if agent.update_internal_state(observation) == False:
                 skips += 1
 
@@ -140,5 +138,5 @@ def main(env):
 
 
 if __name__ == "__main__":
-    scene = "Poyen"
+    scene = 'Bowlus'
     main(scene)

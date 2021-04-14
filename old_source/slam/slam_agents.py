@@ -234,6 +234,7 @@ class ORBSLAM2Agent(RandomAgent):
     def update_internal_state(self, habitat_observation):
         super(ORBSLAM2Agent, self).update_internal_state(habitat_observation)
         self.cur_time += self.timestep
+        pu.db
         rgb, depth = self.rgb_d_from_observation(habitat_observation)
         t = time.time()
         try:

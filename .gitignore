@@ -1,5 +1,7 @@
 #
 #
+src/top_map/configs/ORBvoc.txt
+src/top_map/test/rosbag/
 src/install/
 src/log/
 src/build/

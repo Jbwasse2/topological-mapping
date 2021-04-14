@@ -10,7 +10,7 @@ from rclpy.node import Node
 from sensor_msgs.msg import Image
 from top_map.camera import CameraPublisher
 
-from testing_helper import run_node
+from testing_helper import run_node, play_rosbag
 
 
 class CameraTester(Node):
@@ -33,6 +33,26 @@ class CameraTester(Node):
         cv2.imwrite("./test/results/camera.png", image)
 
 
+class BagTester(Node):
+    def __init__(self):
+        super().__init__("bag_tester")
+        self.results = []
+        self.subscription = self.create_subscription(
+            Image, "camera", self.image_callback2, 1
+        )
+        self.bridge = CvBridge()
+        self.image_number = 0
+        self.results = False
+
+    def image_callback2(self, msg):
+        image = self.bridge.imgmsg_to_cv2(msg, "bgr8")
+        cv2.imwrite(
+            "./test/results/bag/camera" + str(self.image_number) + ".png", image
+        )
+        self.image_number += 1
+        self.results = True
+
+
 def test_camera():
     rclpy.init()
 
@@ -49,6 +69,22 @@ def test_camera():
     os.kill(p.pid, signal.SIGKILL)
     rclpy.shutdown()
     assert False not in results
+
+
+def test_bag():
+    rclpy.init()
+    rosbag_location = "./test/rosbag/rosbag2_2021_04_14-09_01_00"
+    p = Process(
+        target=play_rosbag,
+        args=(rosbag_location, False),
+    )
+    p.start()
+    bag_tester = BagTester()
+    rclpy.spin_once(bag_tester)
+    bag_tester.destroy_node()
+    os.kill(p.pid, signal.SIGKILL)
+    rclpy.shutdown()
+    assert bag_tester.results is not False
 
 
 def run_test_camera():
