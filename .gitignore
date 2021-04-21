@@ -1,6 +1,7 @@
 #
 #
 src/top_map/configs/ORBvoc.txt
+src/top_map/test/resources/
 src/top_map/test/rosbag/
 src/install/
 src/log/
@@ -9,6 +10,7 @@ src/map/results/
 src/top_map/test/results/
 habitat-lab
 *.pt
+*.mp4
 src/slam/out/
 src/slam/top_down/
 *.swp
