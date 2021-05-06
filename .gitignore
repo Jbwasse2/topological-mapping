@@ -1,5 +1,6 @@
 #
 #
+*.bag
 src/top_map/configs/ORBvoc.txt
 src/top_map/test/resources/
 src/top_map/test/rosbag/

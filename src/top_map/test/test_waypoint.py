@@ -1,4 +1,6 @@
 from top_map.waypoint import WaypointPublisher
+import glob
+import pytest
 from multiprocessing import Process
 from testing_helper import play_rosbag
 import os
@@ -25,6 +27,7 @@ def get_goal():
 
 
 # TODO: I think I should go through the example made in rmp_nav to see if my method of finessing the data is correct.
+@pytest.mark.timeout(30)
 def test_meng_wp_video():
     rclpy.init()
     # Run bag node to test
@@ -33,16 +36,17 @@ def test_meng_wp_video():
         target=play_rosbag,
         args=(rosbag_location, False),
     )
+    p.start()
+    pu.db
     waypointPublisher = WaypointPublisher("./test/results/wp/")
     goal = get_goal()
     waypointPublisher.goal = goal
     waypointPublisher.goal_show = goal[6]
     p.start()
-    try:
-        rclpy.spin(waypointPublisher)
-    except Exception as e:
-        print(e)
+    rclpy.spin(waypointPublisher)
     waypointPublisher.destroy_node()
     os.kill(p.pid, signal.SIGKILL)
     rclpy.shutdown()
+
     pu.db
+    assert len(glob.glob("./test/results/wp/*")) == 1240
