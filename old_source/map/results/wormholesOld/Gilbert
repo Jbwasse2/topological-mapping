@@ -1,79 +1,0 @@
-2021-01-31 11:28:28,046 initializing sim Sim-v0
-WARNING: Logging before InitGoogleLogging() is written to STDERR
-I0131 11:28:28.051865 83335 AssetAttributesManager.cpp:122] Asset attributes (capsule3DSolid : capsule3DSolid_hemiRings_4_cylRings_1_segments_12_halfLen_0.75_useTexCoords_false_useTangents_false) created and registered.
-I0131 11:28:28.051923 83335 AssetAttributesManager.cpp:122] Asset attributes (capsule3DWireframe : capsule3DWireframe_hemiRings_8_cylRings_1_segments_16_halfLen_1) created and registered.
-I0131 11:28:28.051959 83335 AssetAttributesManager.cpp:122] Asset attributes (coneSolid : coneSolid_segments_12_halfLen_1.25_rings_1_useTexCoords_false_useTangents_false_capEnd_true) created and registered.
-I0131 11:28:28.051981 83335 AssetAttributesManager.cpp:122] Asset attributes (coneWireframe : coneWireframe_segments_32_halfLen_1.25) created and registered.
-I0131 11:28:28.051993 83335 AssetAttributesManager.cpp:122] Asset attributes (cubeSolid : cubeSolid) created and registered.
-I0131 11:28:28.052001 83335 AssetAttributesManager.cpp:122] Asset attributes (cubeWireframe : cubeWireframe) created and registered.
-I0131 11:28:28.052033 83335 AssetAttributesManager.cpp:122] Asset attributes (cylinderSolid : cylinderSolid_rings_1_segments_12_halfLen_1_useTexCoords_false_useTangents_false_capEnds_true) created and registered.
-I0131 11:28:28.052059 83335 AssetAttributesManager.cpp:122] Asset attributes (cylinderWireframe : cylinderWireframe_rings_1_segments_32_halfLen_1) created and registered.
-I0131 11:28:28.052073 83335 AssetAttributesManager.cpp:122] Asset attributes (icosphereSolid : icosphereSolid_subdivs_1) created and registered.
-I0131 11:28:28.052083 83335 AssetAttributesManager.cpp:122] Asset attributes (icosphereWireframe : icosphereWireframe_subdivs_1) created and registered.
-I0131 11:28:28.052100 83335 AssetAttributesManager.cpp:122] Asset attributes (uvSphereSolid : uvSphereSolid_rings_8_segments_16_useTexCoords_false_useTangents_false) created and registered.
-I0131 11:28:28.052117 83335 AssetAttributesManager.cpp:122] Asset attributes (uvSphereWireframe : uvSphereWireframe_rings_16_segments_32) created and registered.
-I0131 11:28:28.052124 83335 AssetAttributesManager.cpp:108] AssetAttributesManager::buildCtorFuncPtrMaps : Built default primitive asset templates : 12
-I0131 11:28:28.052736 83335 PhysicsAttributesManager.cpp:39] File (./data/default.phys_scene_config.json) not found so new, default physics manager attributes created and registered.
-I0131 11:28:28.052865 83335 StageAttributesManager.cpp:79] File (../../data/scene_datasets/gibson/Gilbert.glb) Based stage attributes created and registered.
-I0131 11:28:28.052877 83335 Simulator.cpp:145] Loading navmesh from ../../data/scene_datasets/gibson/Gilbert.navmesh
-I0131 11:28:28.555891 83335 Simulator.cpp:147] Loaded.
-I0131 11:28:28.555924 83335 SceneGraph.h:93] Created DrawableGroup: 
-Renderer: GeForce RTX 2080/PCIe/SSE2 by NVIDIA Corporation
-OpenGL version: 4.6.0 NVIDIA 450.102.04
-Using optional features:
-    GL_ARB_ES2_compatibility
-    GL_ARB_direct_state_access
-    GL_ARB_get_texture_sub_image
-    GL_ARB_invalidate_subdata
-    GL_ARB_multi_bind
-    GL_ARB_robustness
-    GL_ARB_separate_shader_objects
-    GL_ARB_texture_filter_anisotropic
-    GL_ARB_texture_storage
-    GL_ARB_texture_storage_multisample
-    GL_ARB_vertex_array_object
-    GL_KHR_debug
-Using driver workarounds:
-    no-forward-compatible-core-context
-    nv-egl-incorrect-gl11-function-pointers
-    no-layout-qualifiers-on-old-glsl
-    nv-zero-context-profile-mask
-    nv-implementation-color-read-format-dsa-broken
-    nv-cubemap-inconsistent-compressed-image-size
-    nv-cubemap-broken-full-compressed-image-query
-    nv-compressed-block-size-in-bits
-I0131 11:28:28.647323 83335 ResourceManager.cpp:934] Importing Basis files as BC7
-I0131 11:28:31.317927 83335 ResourceManager.cpp:302] ResourceManager::loadStage : Not loading semantic mesh
-W0131 11:28:31.317976 83335 Simulator.cpp:235] :
----
- The active scene does not contain semantic annotations. 
----
-I0131 11:28:31.318485 83335 simulator.py:181] Loaded navmesh ../../data/scene_datasets/gibson/Gilbert.navmesh
-  0%|          | 0/20 [00:00<?, ?it/s]  5%|▌         | 1/20 [00:00<00:13,  1.36it/s] 10%|█         | 2/20 [00:01<00:10,  1.71it/s] 15%|█▌        | 3/20 [00:02<00:12,  1.31it/s] 20%|██        | 4/20 [00:02<00:12,  1.28it/s] 25%|██▌       | 5/20 [00:03<00:10,  1.46it/s] 30%|███       | 6/20 [00:03<00:08,  1.74it/s] 35%|███▌      | 7/20 [00:04<00:07,  1.66it/s] 40%|████      | 8/20 [00:04<00:06,  1.92it/s] 45%|████▌     | 9/20 [00:05<00:06,  1.72it/s] 50%|█████     | 10/20 [00:06<00:07,  1.40it/s] 55%|█████▌    | 11/20 [00:07<00:07,  1.24it/s] 60%|██████    | 12/20 [00:08<00:05,  1.36it/s] 65%|██████▌   | 13/20 [00:08<00:04,  1.44it/s] 70%|███████   | 14/20 [00:09<00:03,  1.73it/s] 75%|███████▌  | 15/20 [00:09<00:02,  1.68it/s] 80%|████████  | 16/20 [00:10<00:02,  1.54it/s] 85%|████████▌ | 17/20 [00:11<00:02,  1.39it/s] 90%|█████████ | 18/20 [00:11<00:01,  1.54it/s] 95%|█████████▌| 19/20 [00:12<00:00,  1.76it/s]100%|██████████| 20/20 [00:13<00:00,  1.53it/s]100%|██████████| 20/20 [00:13<00:00,  1.53it/s]
-  0%|          | 0/20 [00:00<?, ?it/s]100%|██████████| 20/20 [00:00<00:00, 51150.05it/s]
-0it [00:00, ?it/s]20it [00:00, 133576.56it/s]
-0it [00:00, ?it/s]make_map_worm_experiment.py:34: UserWarning: Implicit dimension choice for softmax has been deprecated. Change the call to include dim=X as an argument.
-  results = F.softmax(model(image1, image2))
-1it [00:31, 31.55s/it]2it [01:22, 43.08s/it]3it [03:53, 92.10s/it]4it [07:24, 139.29s/it]5it [09:09, 126.69s/it]6it [10:40, 114.76s/it]7it [13:29, 132.43s/it]8it [15:18, 124.99s/it]9it [18:14, 140.88s/it]10it [24:36, 215.34s/it]11it [31:30, 276.18s/it]12it [36:35, 284.92s/it]13it [41:33, 288.75s/it]14it [43:49, 242.64s/it]15it [49:39, 275.03s/it]15it [51:46, 207.13s/it]
-Traceback (most recent call last):
-  File "make_map_worm_experiment.py", line 164, in <module>
-    G = main(env)
-  File "make_map_worm_experiment.py", line 142, in main
-    device=device,
-  File "make_map_worm_experiment.py", line 89, in create_topological_map_wormhole
-    sim=sim,
-  File "make_map_worm_experiment.py", line 54, in add_trajs_to_graph_wormhole
-    results = estimate_edge_len_wormhole(model, edge, sim, device)
-  File "make_map_worm_experiment.py", line 29, in estimate_edge_len_wormhole
-    get_node_image(edge[0], scene, transform=True).unsqueeze(0).float().to(device)
-  File "/home/justin/research/topological/mapping-wormholes/src/map/make_map.py", line 256, in get_node_image
-    image = cv2.resize(image, (224, 224)) / 255
-TypeError: Expected Ptr<cv::UMat> for argument 'src'
-I0131 12:20:34.802881 83335 PhysicsManager.cpp:33] Deconstructing PhysicsManager
-I0131 12:20:34.802920 83335 SemanticScene.h:41] Deconstructing SemanticScene
-I0131 12:20:34.802924 83335 SceneManager.h:25] Deconstructing SceneManager
-I0131 12:20:34.802927 83335 SceneGraph.h:26] Deconstructing SceneGraph
-I0131 12:20:34.803004 83335 Sensor.h:81] Deconstructing Sensor
-I0131 12:20:34.852928 83335 Renderer.cpp:34] Deconstructing Renderer
-I0131 12:20:34.852967 83335 WindowlessContext.h:17] Deconstructing WindowlessContext
-I0131 12:20:34.854871 83335 Simulator.cpp:46] Deconstructing Simulator
