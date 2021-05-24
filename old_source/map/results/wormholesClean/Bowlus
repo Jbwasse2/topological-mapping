@@ -1,6 +1,0 @@
-Traceback (most recent call last):
-  File "make_map.py", line 19, in <module>
-    import torch
-  File "/home/justin/anaconda3/envs/habitat36/lib/python3.6/site-packages/torch/__init__.py", line 190, in <module>
-    from torch._C import *
-RuntimeError: KeyboardInterrupt: 

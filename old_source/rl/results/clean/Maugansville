@@ -1,9 +1,0 @@
-Traceback (most recent call last):
-  File "sim_model.py", line 372, in <module>
-    main()
-  File "sim_model.py", line 348, in main
-    G = nx.read_gpickle("./data/map/mapWormClean_Maugansville.gpickle")
-  File "<decorator-gen-654>", line 2, in read_gpickle
-  File "/home/justin/anaconda3/envs/habitat36/lib/python3.6/site-packages/networkx/utils/decorators.py", line 213, in _open_file
-    fobj = _dispatch_dict[ext](path, mode=mode)
-FileNotFoundError: [Errno 2] No such file or directory: './data/map/mapWormClean_Maugansville.gpickle'
