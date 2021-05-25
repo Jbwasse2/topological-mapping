@@ -1,11 +1,12 @@
-from top_map.pose import Orbslam2Pose
-import rclpy
 import os
 import signal
 from multiprocessing import Process
-from testing_helper import play_rosbag, run_node
-from rclpy.node import Node
+
+import rclpy
 from geometry_msgs.msg import Pose
+from rclpy.node import Node
+from testing_helper import play_rosbag, run_node
+from top_map.pose import Orbslam2Pose
 
 
 class PoseTester(Node):
@@ -44,7 +45,7 @@ class PoseTester(Node):
 # Check to make sure a pose message gets published
 def test_orbslam2():
     rclpy.init()
-    rosbag_location = "./test/rosbag/rosbag2_2021_04_14-09_01_00"
+    rosbag_location = "./test/testing_resources/rosbag/rosbag2_2021_04_14-09_01_00"
     pose_args = {"visualize": False}
     p2 = Process(
         target=run_node,

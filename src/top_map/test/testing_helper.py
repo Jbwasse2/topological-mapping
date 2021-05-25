@@ -1,8 +1,4 @@
 import os
-from multiprocessing import Process
-import time
-import pudb
-from rclpy.node import Node
 
 import rclpy
 
@@ -24,6 +20,7 @@ def run_node(node_type, args):
 # Input: bag_location : directory to ROS2 bag location
 #       loop : Should the rosbag be played indefinetly?
 def play_rosbag(bag_location, loop=False):
+    assert os.path.exists(bag_location)
     while 1:
         os.system("ros2 bag play " + bag_location)
         if loop is False:
@@ -31,4 +28,4 @@ def play_rosbag(bag_location, loop=False):
 
 
 if __name__ == "__main__":
-    play_rosbag("./rosbag/rosbag2_2021_04_14-09_01_00", True)
+    play_rosbag("./testing_resources/rosbag/rosbag2_2021_04_14-09_01_00", False)
