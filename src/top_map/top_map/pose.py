@@ -1,17 +1,17 @@
 # Methods for getting the pose of the robot
-import pudb
-import numpy as np
-import quaternion
-
 # I have no idea why, but in order for orbslam2 to run on my system
 # I need to import cv2 first even if I don't use it.
 import cv2  # noqa
-import orbslam2
-from rclpy.node import Node
+import numpy as np
 import pudb  # noqa
+import quaternion
+
+import orbslam2
 from cv_bridge import CvBridge
-from sensor_msgs.msg import Image
 from geometry_msgs.msg import Pose
+from nav_msgs.msg import OccupancyGrid
+from rclpy.node import Node
+from sensor_msgs.msg import Image
 from std_msgs.msg import Header
 
 
@@ -90,22 +90,40 @@ class Orbslam2Pose(Node):
                     str(msg.header.stamp),
                 )
             )
+            self.publish_failure_pose(msg.header.frame_id)
         else:
             self.get_logger().info(
                 'ORBSLAM2 succesfully updated state "%s"' % str(msg.header.stamp)
             )
-            header = Header()
-            header.frame_id = msg.header.frame_id
-            msg = Pose()
-            header.stamp = self.get_clock().now().to_msg()
-            position, rotation = self.trajectory_point_to_pose(
-                self.slam.get_trajectory_points()[-1]
-            )
-            msg.position.x = position[0]
-            msg.position.y = position[1]
-            msg.position.z = position[2]
-            msg.orientation.x = rotation.x
-            msg.orientation.y = rotation.y
-            msg.orientation.z = rotation.z
-            msg.orientation.w = rotation.w
-            self.publisher.publish(msg)
+            self.publish_pose(msg.header.frame_id)
+
+    def publish_failure_pose(self, frame_id):
+        header = Header()
+        header.frame_id = frame_id
+        msg = Pose()
+        header.stamp = self.get_clock().now().to_msg()
+        msg.position.x = np.inf
+        msg.position.y = np.inf
+        msg.position.z = np.inf
+        msg.orientation.x = np.inf 
+        msg.orientation.y = np.inf
+        msg.orientation.z = np.inf
+        msg.orientation.w = np.inf
+        self.publisher.publish(msg)
+
+    def publish_pose(self, frame_id):
+        header = Header()
+        header.frame_id = frame_id
+        msg = Pose()
+        header.stamp = self.get_clock().now().to_msg()
+        position, rotation = self.trajectory_point_to_pose(
+            self.slam.get_trajectory_points()[-1]
+        )
+        msg.position.x = position[0]
+        msg.position.y = position[1]
+        msg.position.z = position[2]
+        msg.orientation.x = rotation.x
+        msg.orientation.y = rotation.y
+        msg.orientation.z = rotation.z
+        msg.orientation.w = rotation.w
+        self.publisher.publish(msg)

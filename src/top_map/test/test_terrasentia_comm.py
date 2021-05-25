@@ -1,14 +1,16 @@
-import rclpy
 import os
 import signal
-from multiprocessing import Process
-import time
-from geometry_msgs.msg import Vector3
 import socket
-from rclpy.node import Node
-from top_map.terrasentia_comm import TerraComm
-from testing_helper import run_node
+import time
+from multiprocessing import Process
+
 import pudb  # noqa
+from top_map.terrasentia_comm import TerraComm
+from top_map.util import run_node
+
+import rclpy
+from geometry_msgs.msg import Vector3
+from rclpy.node import Node
 
 # This dummy will test the message passsing to the TerraSentia.
 # This will open a socket on a localhost port,

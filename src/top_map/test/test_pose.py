@@ -2,11 +2,13 @@ import os
 import signal
 from multiprocessing import Process
 
+import pytest
+from top_map.pose import Orbslam2Pose
+from top_map.util import play_rosbag, run_node
+
 import rclpy
 from geometry_msgs.msg import Pose
 from rclpy.node import Node
-from testing_helper import play_rosbag, run_node
-from top_map.pose import Orbslam2Pose
 
 
 class PoseTester(Node):
@@ -40,7 +42,6 @@ class PoseTester(Node):
 #        and rotation.z == 0.0
 #    )
 #    rclpy.shutdown()
-
 
 # Check to make sure a pose message gets published
 def test_orbslam2():

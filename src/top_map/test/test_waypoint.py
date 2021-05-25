@@ -5,10 +5,10 @@ from multiprocessing import Process
 
 import cv2
 import pytest
+from top_map.util import play_rosbag
+from top_map.waypoint import WaypointPublisher
 
 import rclpy
-from testing_helper import play_rosbag
-from top_map.waypoint import WaypointPublisher
 
 
 class WaypointPublisherTester(WaypointPublisher):

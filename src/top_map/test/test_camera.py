@@ -4,13 +4,13 @@ import signal
 from multiprocessing import Process
 
 import cv2
+from top_map.camera import CameraPublisher
+from top_map.util import play_rosbag, run_node
 
 import rclpy
 from cv_bridge import CvBridge
 from rclpy.node import Node
 from sensor_msgs.msg import Image
-from testing_helper import play_rosbag, run_node
-from top_map.camera import CameraPublisher
 
 
 class CameraTester(Node):
@@ -84,7 +84,7 @@ def test_bag():
         args=(rosbag_location, False),
     )
     p.start()
-    bag_tester = BagTester(timeout=1.0)
+    bag_tester = BagTester(timeout=5.0)
     rclpy.spin_once(bag_tester)
     try:
         bag_tester.destroy_node()
