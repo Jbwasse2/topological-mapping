@@ -5,20 +5,21 @@ from multiprocessing import Process
 
 import cv2
 import pytest
+
+import rclpy
+from rclpy.task import Future
 from top_map.util import play_rosbag
 from top_map.waypoint import WaypointPublisher
 
-import rclpy
-
 
 class WaypointPublisherTester(WaypointPublisher):
-    def __init__(self, timeout, create_graphic):
+    def __init__(self, timeout, create_graphic, future):
         super().__init__(create_graphic)
-        if timeout is not None:
-            self.timer = self.create_timer(timeout, self.timer_callback)
+        self.future = future
+        self.timer = self.create_timer(timeout, self.timer_callback)
 
     def timer_callback(self):
-        self.destroy_node()
+        self.future.set_result("Timeout")
 
 
 # Goal for meng is a list of 11 images where 6th image is goal and 5
@@ -41,7 +42,6 @@ def get_goal():
 
 # TODO: I think I should go through the example made in rmp_nav to see
 # if my method of finessing the data is correct.
-@pytest.mark.skip(reason="Test hangs instead of fails if current time is used")
 def test_meng_wp_video():
     rclpy.init()
     # Run bag node to test
@@ -50,19 +50,15 @@ def test_meng_wp_video():
         target=play_rosbag,
         args=(rosbag_location, False),
     )
-    waypointPublisher = WaypointPublisherTester(3, "./test/results/wp/")
+    future = Future()
+    waypointPublisher = WaypointPublisherTester(3, "./test/results/wp/", future)
     goal = get_goal()
     waypointPublisher.goal = goal
     waypointPublisher.goal_show = goal[6]
     p.start()
-    rclpy.spin(waypointPublisher)
-    # TODO For some reason the code is not returning here!
-    try:
-        waypointPublisher.destroy_node()
-    # Already killed
-    except rclpy.handle.InvalidHandle:
-        pass
+    rclpy.spin_until_future_complete(waypointPublisher,future)
+    waypointPublisher.destroy_node()
     os.kill(p.pid, signal.SIGKILL)
     rclpy.shutdown()
 
-    assert len(glob.glob("./test/results/wp/*")) == 1240
+    assert len(glob.glob("./test/results/wp/*")) != 0
