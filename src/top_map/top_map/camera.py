@@ -13,7 +13,7 @@ class CameraPublisher(Node):
         super().__init__("camera_publisher")
         self.stream_video = stream_video
         self.cap = cv2.VideoCapture(camera_id)
-        self.publisher_ = self.create_publisher(Image, "camera", 100)
+        self.publisher_ = self.create_publisher(Image, "camera", 1)
         timer_frequency = frequency
         self.timer = self.create_timer(timer_frequency, self.timer_callback)
         self.counter = 0
