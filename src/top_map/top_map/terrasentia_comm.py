@@ -48,7 +48,8 @@ class TerraComm(Node):
             self.socket.sendall(bytes(terra_msg, "utf-8"))
         except Exception as e:
             self.get_logger().warn(
-                "[TerraComm], FAILED to send message to socket. MSG = " + str(e)
+                "[TerraComm], FAILED to send message to socket. MSG = " +
+                str(e)
             )
 
     def create_socket(self):

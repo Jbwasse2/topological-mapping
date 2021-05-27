@@ -5,7 +5,7 @@ from multiprocessing import Process
 import numpy as np
 import pytest
 import rclpy
-from geometry_msgs.msg import Pose, PoseStamped
+from geometry_msgs.msg import PoseStamped
 from rclpy.node import Node
 from rclpy.qos import QoSProfile
 from rclpy.task import Future
@@ -14,7 +14,7 @@ from top_map.pose import Orbslam2Pose
 from top_map.util import bag_wrapper, play_rosbag, run_node
 
 
-#Checks if any pose message is sent
+# Checks if any pose message is sent
 class PoseTester(Node):
     def __init__(self, future):
         super().__init__("pose_tester")
@@ -29,19 +29,23 @@ class PoseTester(Node):
 
     def timer_callback(self):
         self.future.set_result("Timeout")
-        self.get_logger().info('Timing Out!')
+        self.get_logger().info("Timing Out!")
 
-#Checks if a good pose message is sent eventually.
+
+# Checks if a good pose message is sent eventually.
+
+
 class PoseTesterValid(PoseTester):
     def __init__(self, future):
         super().__init__(future)
 
     def pose_callback(self, msg):
-        #Pass only if results are not inf
+        # Pass only if results are not inf
         if msg.pose.position.x == np.inf:
             pass
         else:
             self.future.set_result("Pass")
+
 
 class BufferTester(Node):
     def __init__(self, future):
@@ -68,19 +72,26 @@ class BufferTester(Node):
 
     def timer_callback(self):
         self.future.set_result("Timeout")
-        self.get_logger().info('Timing Out!')
-        self.get_logger().info('Counter = ' + str(self.counter))
-        self.get_logger().info('Image Counter = ' + str(self.image_counter))
+        self.get_logger().info("Timing Out!")
+        self.get_logger().info("Counter = " + str(self.counter))
+        self.get_logger().info("Image Counter = " + str(self.image_counter))
 
-#This makes sure the QoS selected ensures that all messages are kept
+
+# This makes sure the QoS selected ensures that all messages are kept
+
+
 @pytest.mark.skip(reason="Incomplete")
 def test_orbslam2_buffer():
     rclpy.init()
-#bag_wrapper(wrap_node, rosbag_location, kwargs):
+    # bag_wrapper(wrap_node, rosbag_location, kwargs):
     rosbag_location = "./test/testing_resources/rosbag/rosbag2_2021_04_14-09_01_00"
     pose_args = {"visualize": False}
     orbslam2PoseWrapped = bag_wrapper(Orbslam2Pose, rosbag_location, pose_args)
-    args = {'wrap_node' : Orbslam2Pose, 'rosbag_location' : rosbag_location, 'kwargs' : pose_args}
+    args = {
+        "wrap_node": Orbslam2Pose,
+        "rosbag_location": rosbag_location,
+        "kwargs": pose_args,
+    }
     p = Process(
         target=run_node,
         args=(
@@ -90,12 +101,12 @@ def test_orbslam2_buffer():
     )
     p.start()
     future = Future()
-    bufferTester= BufferTester(future)
+    bufferTester = BufferTester(future)
     rclpy.spin_until_future_complete(bufferTester, future)
     bufferTester.destroy_node()
     os.kill(p.pid, signal.SIGKILL)
     rclpy.shutdown()
-    assert future.result() == 'Pass' 
+    assert future.result() == "Pass"
 
 
 # First Check to make sure any pose message gets published
@@ -125,4 +136,4 @@ def test_orbslam2_message():
     os.kill(p.pid, signal.SIGKILL)
     os.kill(p2.pid, signal.SIGKILL)
     rclpy.shutdown()
-    assert future.result() == 'Pass' 
+    assert future.result() == "Pass"

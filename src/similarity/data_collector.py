@@ -9,15 +9,22 @@ import glob
 import os
 import pickle
 import signal
+import time
 from multiprocessing import Process
 from pathlib import Path
 
+import cv2
+import matplotlib.pyplot as plt
+import numpy as np
 import pudb
 import rclpy
+from cv_bridge import CvBridge
 from geometry_msgs.msg import Pose, PoseStamped
 from rclpy.node import Node
 from rclpy.qos import QoSProfile
 from rclpy.task import Future
+from sensor_msgs.msg import Image
+from std_msgs.msg import Header
 from top_map.pose import Orbslam2Pose
 from top_map.util import bag_wrapper, play_rosbag, run_node
 
@@ -26,6 +33,7 @@ class PoseWriter(Node):
     def __init__(self, future):
         super().__init__("pose_tester")
         self.future = future
+        #https://docs.ros2.org/latest/api/rclpy/api/qos.html#rclpy.qos.QoSProfile
         q = QoSProfile(history=2)
         self.subscription = self.create_subscription(
             PoseStamped, "pose", self.pose_callback, qos_profile=q
@@ -57,28 +65,63 @@ class PoseWriter(Node):
         self.flag = 1
         self.counter += 1
 
+class ImagesToCamera(Node):
+    def __init__(self, image_dir):
+        super().__init__("image_to_camera")
+        self.timer = self.create_timer(1/30, self.timer_callback)
+        self.counter = 0
+        self.images = self.get_images(image_dir)
+        self.bridge = CvBridge()
+        self.publisher_ = self.create_publisher(Image, "camera", 1)
+
+    def get_images(self, image_dir):
+        return list(sorted(Path(image_dir).rglob('*.jpg')))
+
+    def timer_callback(self):
+        image = cv2.imread(str(self.images[self.counter]))
+        msg = Image()
+        header = Header()
+        header.frame_id = str(self.counter)
+        header.stamp = self.get_clock().now().to_msg()
+        msg.header = header
+        msg.height = image.shape[0]
+        msg.width = image.shape[1]
+        msg.encoding = "bgr8"
+        value = self.bridge.cv2_to_imgmsg(image.astype(np.uint8))
+        msg.data = value.data
+        self.publisher_.publish(msg)
+        self.counter += 1
+
 
 def collect_data():
-#    rosbags = Path('./data/bags/').rglob('*.db3')
-    #https://docs.ros2.org/latest/api/rclpy/api/qos.html#rclpy.qos.QoSProfile
-    rosbags = Path('../top_map/test/testing_resources/rosbag/').rglob('*.db3')
+    rosbags = Path('./data/bags/').rglob('*.db3')
     for rosbag in rosbags:
         #In the future should check to make sure text file
         #doesn't already exist. Could probably also optimize this
         #by reseting orbslam node instead of making new instance
-        parent = rosbag.parent
-        rosbag_location = str(parent)
         pose_args = {"visualize": False}
-        orbslam2PoseWrapped = bag_wrapper(Orbslam2Pose, rosbag_location, pose_args)
-        args = {'wrap_node' : Orbslam2Pose, 'rosbag_location' : rosbag_location, 'kwargs' : pose_args}
         p = Process(
             target=run_node,
             args=(
-                orbslam2PoseWrapped,
-                args,
+                Orbslam2Pose,
+                pose_args,
             ),
         )
         p.start()
+        #Give time for orbslam2 to init
+        time.sleep(15)
+        #It is easier to glob over bags for potential files, so just change string a 
+        #bit in order to get proper image location
+        parent = str(rosbag.parent).replace("bags","clean")
+        image_args = {"image_dir" : parent}
+        p_images = Process(
+            target=run_node,
+            args=(
+                ImagesToCamera,
+                image_args,
+            ),
+        )
+        p_images.start()
         future = Future()
         poseWriter = PoseWriter(future)
         rclpy.spin_until_future_complete(poseWriter, future)

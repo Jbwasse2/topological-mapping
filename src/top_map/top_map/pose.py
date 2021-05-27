@@ -6,8 +6,7 @@ import numpy as np
 import pudb  # noqa
 import quaternion
 from cv_bridge import CvBridge
-from geometry_msgs.msg import Pose, PoseStamped
-from nav_msgs.msg import OccupancyGrid
+from geometry_msgs.msg import PoseStamped
 from rclpy.node import Node
 from rclpy.qos import QoSProfile
 from sensor_msgs.msg import Image
@@ -110,7 +109,7 @@ class Orbslam2Pose(Node):
         msg.pose.position.x = np.inf
         msg.pose.position.y = np.inf
         msg.pose.position.z = np.inf
-        msg.pose.orientation.x = np.inf 
+        msg.pose.orientation.x = np.inf
         msg.pose.orientation.y = np.inf
         msg.pose.orientation.z = np.inf
         msg.pose.orientation.w = np.inf

@@ -4,7 +4,6 @@ import signal
 from multiprocessing import Process
 
 import cv2
-import pytest
 
 import rclpy
 from rclpy.task import Future
@@ -56,7 +55,7 @@ def test_meng_wp_video():
     waypointPublisher.goal = goal
     waypointPublisher.goal_show = goal[6]
     p.start()
-    rclpy.spin_until_future_complete(waypointPublisher,future)
+    rclpy.spin_until_future_complete(waypointPublisher, future)
     waypointPublisher.destroy_node()
     os.kill(p.pid, signal.SIGKILL)
     rclpy.shutdown()

@@ -27,7 +27,8 @@ class CameraTester(Node):
         self.results.append(msg.encoding == "bgr8")
         # Check if image is empty, if it is camera isn't on
         # Also check if camera exists, if it doesn't, don't fail
-        self.results.append(sum(msg.data) != 0 or len(glob.glob("/dev/video?")) == 0)
+        self.results.append(sum(msg.data) != 0 or len(
+            glob.glob("/dev/video?")) == 0)
         bridge = CvBridge()
         image = bridge.imgmsg_to_cv2(msg, "bgr8")
         cv2.imwrite("./test/results/camera.png", image)
@@ -52,7 +53,8 @@ class BagTester(Node):
     def image_callback2(self, msg):
         image = self.bridge.imgmsg_to_cv2(msg, "bgr8")
         cv2.imwrite(
-            "./test/results/bag/camera" + str(self.image_number) + ".png", image
+            "./test/results/bag/camera" +
+            str(self.image_number) + ".png", image
         )
         self.image_number += 1
         self.results = True
