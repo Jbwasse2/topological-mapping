@@ -1,5 +1,6 @@
 # Some notes of Meng's code
 # His waypoint predictor takes images as 64x64 BGR images with values 0-1
+import shutil
 from pathlib import Path
 
 import cv2
@@ -7,20 +8,20 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pudb  # noqa
+
 import rclpy
 from cv_bridge import CvBridge
 from geometry_msgs.msg import Twist, Vector3
 from rclpy.node import Node
 from sensor_msgs.msg import Image
 from topological_nav.reachability import model_factory
-import shutil
 
 
 class WaypointPublisher(Node):
     def __init__(self, create_graphic=""):
         super().__init__("waypoint_publisher")
         # If output file doesn't exist create it for iamges to be saved to instead of displayed.
-        if create_graphic is not "":
+        if create_graphic != "":
             shutil.rmtree(create_graphic)
             Path(create_graphic).mkdir(parents=True, exist_ok=True)
             self.counter = 0
@@ -30,7 +31,8 @@ class WaypointPublisher(Node):
         self.subscription = self.create_subscription(
             Image, "camera", self.image_callback, 1
         )
-        self.publisher_ = self.create_publisher(Twist, "terra_command_twist", 1)
+        self.publisher_ = self.create_publisher(
+            Twist, "terra_command_twist", 1)
         self.bridge = CvBridge()
         self.get_logger().info("Created Waypoint Node")
         self.count = 0
@@ -67,19 +69,23 @@ class WaypointPublisher(Node):
         msg = self.create_waypoint_message(waypoint, reachability_estimator)
         self.publisher_.publish(msg)
         # The arrow is strictly for visualization, not used for navigation
-        if self.create_graphic is not "":
+        if self.create_graphic != "":
             arrow_start = (32, 20)
-            arrow_end = (32 + int(10 * -waypoint[1]), 20 + int(10 * -waypoint[0]))
+            arrow_end = (
+                32 + int(10 * -waypoint[1]), 20 + int(10 * -waypoint[0]))
             color = (0, 0, 255)  # Red
             thickness = 2
             # cv2 like BGR because they like eating glue
             image = cv2.resize(image, (64, 64))
             image = np.hstack((image, self.goal_show))
-            image = cv2.arrowedLine(image, arrow_start, arrow_end, color, thickness)
+            image = cv2.arrowedLine(
+                image, arrow_start, arrow_end, color, thickness)
             (height, width, _) = image.shape
-            # Add 0's to front to make it easier for script to make into video, counter should not be larger than 6 digits (IE 999999)
+            # Add 0's to front to make it easier for script to make into video
+            # counter should not be larger than 6 digits (IE 999999)
             counter_string = str(self.counter).rjust(6, "0")
-            cv2.imwrite(self.create_graphic + "frame" + counter_string + ".png", image)
+            cv2.imwrite(self.create_graphic + "frame" +
+                        counter_string + ".png", image)
             self.counter += 1
 
     def get_wp(self, ob, goal):

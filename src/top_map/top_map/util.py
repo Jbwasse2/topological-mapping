@@ -1,10 +1,26 @@
 import os
 from multiprocessing import Process
-import time
-import pudb
-from rclpy.node import Node
 
 import rclpy
+
+
+# Some of the tests and even some operational code needs to run a rosbag
+# after initializing, this class wraps around a given Node class
+# and initializes it in the usual way then calls play_rosbag
+# This function makes a class that inherits from the input "wrap_node"
+# This function returns the CLASS NOT AN INSTANCE!
+# This is because I already wrote run_node to take a class, not an instance.
+def bag_wrapper(wrap_node, rosbag_location, kwargs):
+    class BagWrapper(wrap_node):
+        def __init__(self, wrap_node, rosbag_location, kwargs):
+            super().__init__(**kwargs)
+            p = Process(
+                target=play_rosbag,
+                args=(rosbag_location, False),
+            )
+            p.start()
+
+    return BagWrapper
 
 
 # This function is mostly used to run nodes in the background to test
@@ -24,6 +40,7 @@ def run_node(node_type, args):
 # Input: bag_location : directory to ROS2 bag location
 #       loop : Should the rosbag be played indefinetly?
 def play_rosbag(bag_location, loop=False):
+    assert os.path.exists(bag_location)
     while 1:
         os.system("ros2 bag play " + bag_location)
         if loop is False:
@@ -31,4 +48,4 @@ def play_rosbag(bag_location, loop=False):
 
 
 if __name__ == "__main__":
-    play_rosbag("./rosbag/rosbag2_2021_04_14-09_01_00", True)
+    play_rosbag("./testing_resources/rosbag/rosbag2_2021_04_14-09_01_00", False)

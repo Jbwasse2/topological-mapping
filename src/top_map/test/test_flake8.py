@@ -20,4 +20,4 @@ from ament_flake8.main import main
 @pytest.mark.linter
 def test_flake8():
     rc = main(argv=[])
-    assert rc == 0, 'Found errors'
+    assert rc == 0, "Found errors"
