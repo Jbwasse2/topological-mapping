@@ -48,7 +48,11 @@ def test_meng_wp_video():
     rosbag_location = "./test/testing_resources/rosbag/test.bag"
     p = Process(
         target=play_rosbag,
-        args=(rosbag_location, False,"--topics /terrasentia/usb_cam_node/image_raw --wait-for-subscribers" ),
+        args=(
+            rosbag_location,
+            False,
+            "--topics /terrasentia/usb_cam_node/image_raw --wait-for-subscribers",
+        ),
     )
     future = Future()
     waypointPublisher = WaypointPublisherTester(5, "./test/results/wp/", future)
@@ -58,8 +62,16 @@ def test_meng_wp_video():
     p.start()
     rclpy.spin_until_future_complete(waypointPublisher, future)
     waypointPublisher.destroy_node()
-    kill_testbag_cmd = ". /opt/ros/melodic/setup.sh && rosnode list | grep play | xargs rosnode kill"
-    subprocess.Popen(kill_testbag_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT, shell=True)
+    kill_testbag_cmd = (
+        ". /opt/ros/melodic/setup.sh && "
+        + "rosnode list | grep play | xargs rosnode kill"
+    )
+    subprocess.Popen(
+        kill_testbag_cmd,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.STDOUT,
+        shell=True,
+    )
     os.kill(p.pid, signal.SIGKILL)
     rclpy.shutdown()
 

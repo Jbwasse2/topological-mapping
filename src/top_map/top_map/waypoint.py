@@ -78,7 +78,7 @@ class WaypointPublisher(Node):
             thickness = 2
             # cv2 like BGR because they like eating glue
             image = cv2.resize(image, (64, 64))
-            image = np.hstack((image, cv2.resize(self.goal_show, (64,64))))
+            image = np.hstack((image, cv2.resize(self.goal_show, (64, 64))))
             image = cv2.arrowedLine(
                 image, arrow_start, arrow_end, color, thickness)
             (height, width, _) = image.shape

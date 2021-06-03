@@ -24,7 +24,7 @@ class BagExtractor(Node):
         name = str(self.counter).zfill(7)
         image = bridge.imgmsg_to_cv2(msg, "rgb8")
         image = cv2.flip(image, -1)
-        #Even though the Terrasentia says the encoding is RGB8, it is actually BGR8
+        # Even though the Terrasentia says the encoding is RGB8, it is actually BGR8
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         cv2.imwrite(
             "../data/indoorData/unorganized/" + name + ".jpg", image
