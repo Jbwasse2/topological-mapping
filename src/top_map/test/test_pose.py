@@ -42,7 +42,6 @@ class PoseTesterValid(PoseTester):
     def pose_callback(self, msg):
         # Pass only if results are not inf
         if msg.pose.position.x == np.inf:
-            print("inf")
             pass
         else:
             self.future.set_result("Pass")
@@ -115,9 +114,8 @@ def test_orbslam2_buffer():
 # A good message is one that isn't inf in all poses.
 def test_orbslam2_message():
     import pudb
-    pu.db
     rclpy.init()
-    rosbag_location = "./test/testing_resources/rosbag/test.bag"
+    rosbag_location = "./test/testing_resources/rosbag/test_long.bag"
     pose_args = {"visualize": False}
     p2 = Process(
         target=run_node,
@@ -136,6 +134,8 @@ def test_orbslam2_message():
     pose = PoseTesterValid(future)
     rclpy.spin_until_future_complete(pose, future)
     pose.destroy_node()
+    kill_testbag_cmd = ". /opt/ros/melodic/setup.sh && rosnode list | grep play | xargs rosnode kill"
+    subprocess.Popen(kill_testbag_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT, shell=True)
     os.kill(p.pid, signal.SIGKILL)
     os.kill(p2.pid, signal.SIGKILL)
     rclpy.shutdown()
