@@ -12,19 +12,22 @@ class BagExtractor(Node):
         super().__init__("Bag_Extractor")
         self.results = []
         self.subscription = self.create_subscription(
-            Image, "camera", self.image_callback2, 100
+            Image, "/terrasentia/usb_cam_node/image_raw", self.image_callback2, 100
         )
         self.counter = 0
 
     def image_callback2(self, msg):
-        assert msg.encoding == "bgr8"
+        assert msg.encoding == "rgb8"
         # Check if image is empty, if it is camera isn't on
         # Also check if camera exists, if it doesn't, don't fail
         bridge = CvBridge()
-        image = bridge.imgmsg_to_cv2(msg, "bgr8")
         name = str(self.counter).zfill(7)
+        image = bridge.imgmsg_to_cv2(msg, "rgb8")
+        image = cv2.flip(image, -1)
+        #Even though the Terrasentia says the encoding is RGB8, it is actually BGR8
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         cv2.imwrite(
-            "../data/real_world/indoor/clean/unorganized/" + name + ".jpg", image
+            "../data/indoorData/unorganized/" + name + ".jpg", image
         )
         self.counter += 1
 

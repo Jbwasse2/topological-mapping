@@ -20,7 +20,7 @@ class Orbslam2Pose(Node):
     def __init__(
         self,
         vocab_path="./configs/ORBvoc.txt",
-        slam_settings_path="./configs/mp3d3_small1k.yaml",
+        slam_settings_path="./configs/terrasentia.yaml",
         visualize=False,
     ):
         super().__init__("orbslam2")
@@ -69,8 +69,8 @@ class Orbslam2Pose(Node):
         return position, rot_quat
 
     def update_internal_state(self, msg):
-        assert msg.height == 480
-        assert msg.width == 640
+        #        assert msg.height == 480
+        #        assert msg.width == 640
         assert msg.encoding == "bgr8"
         # Check if camera data is empty, if it is then skip this frame
         if sum(msg.data) == 0:

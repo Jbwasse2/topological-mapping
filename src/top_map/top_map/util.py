@@ -42,10 +42,18 @@ def run_node(node_type, args):
 def play_rosbag(bag_location, loop=False):
     assert os.path.exists(bag_location)
     while 1:
-        os.system("ros2 bag play " + bag_location)
+        #There is a mixing problem with just calling the rosbag
+        #with py2.7 and py3.6 that occurs due to sourcing both
+        #ros1 and ros2 respectively. This circumvents this sourcing problem
+        s1 = "export PYTHONPATH='' && "
+        s2 = ". /opt/ros/melodic/setup.sh && "
+        s3 = "printenv | grep PYTHONPATH && "
+        s4 = "rosbag play -q " + bag_location + " 2>&1 >/dev/null"
+        s = s1 + s2 +s3 + s4
+        os.system(s)
         if loop is False:
             break
 
 
 if __name__ == "__main__":
-    play_rosbag("./testing_resources/rosbag/rosbag2_2021_04_14-09_01_00", False)
+    play_rosbag("./test/testing_resources/rosbag/test.bag", False)

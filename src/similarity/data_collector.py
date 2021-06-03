@@ -8,6 +8,7 @@
 import glob
 import os
 import pickle
+from natsort import natsorted
 import signal
 import time
 from multiprocessing import Process
@@ -33,7 +34,7 @@ class PoseWriter(Node):
     def __init__(self, future):
         super().__init__("pose_tester")
         self.future = future
-        #https://docs.ros2.org/latest/api/rclpy/api/qos.html#rclpy.qos.QoSProfile
+        # https://docs.ros2.org/latest/api/rclpy/api/qos.html#rclpy.qos.QoSProfile
         q = QoSProfile(history=2)
         self.subscription = self.create_subscription(
             PoseStamped, "pose", self.pose_callback, qos_profile=q
@@ -52,30 +53,42 @@ class PoseWriter(Node):
             self.flag = 0
         else:
             self.future.set_result("Timeout")
-            self.get_logger().info('Timing Out!')
+            self.get_logger().info("Timing Out!")
             return
 
     def pose_callback(self, msg):
         if self.set_timer == 0:
             self.timer = self.create_timer(1, self.timer_callback)
-            self.get_logger().info('Starting pose callback timer')
+            self.get_logger().info("Starting pose callback timer")
             self.set_timer = 1
-        self.get_logger().info('Got pose ' + str(self.counter))
-        self.poses.append( (msg.header.frame_id, msg.pose.position.x, msg.pose.position.y, msg.pose.position.z, msg.pose.orientation.w, msg.pose.orientation.x, msg.pose.orientation.y, msg.pose.orientation.z))
+        self.get_logger().info("Got pose " + str(self.counter))
+        self.poses.append(
+            (
+                msg.header.frame_id,
+                msg.pose.position.x,
+                msg.pose.position.y,
+                msg.pose.position.z,
+                msg.pose.orientation.w,
+                msg.pose.orientation.x,
+                msg.pose.orientation.y,
+                msg.pose.orientation.z,
+            )
+        )
         self.flag = 1
         self.counter += 1
+
 
 class ImagesToCamera(Node):
     def __init__(self, image_dir):
         super().__init__("image_to_camera")
-        self.timer = self.create_timer(1/30, self.timer_callback)
+        self.timer = self.create_timer(1 / 30, self.timer_callback)
         self.counter = 0
         self.images = self.get_images(image_dir)
         self.bridge = CvBridge()
         self.publisher_ = self.create_publisher(Image, "camera", 1)
 
     def get_images(self, image_dir):
-        return list(sorted(Path(image_dir).rglob('*.jpg')))
+        return list(natsorted(Path(image_dir).rglob("*.jpg")))
 
     def timer_callback(self):
         image = cv2.imread(str(self.images[self.counter]))
@@ -94,12 +107,12 @@ class ImagesToCamera(Node):
 
 
 def collect_data():
-    rosbags = Path('./data/bags/').rglob('*.db3')
+    rosbags = Path("./data/bags/").rglob("*.db3")
     for rosbag in rosbags:
-        #In the future should check to make sure text file
-        #doesn't already exist. Could probably also optimize this
-        #by reseting orbslam node instead of making new instance
-        pose_args = {"visualize": False}
+        # In the future should check to make sure text file
+        # doesn't already exist. Could probably also optimize this
+        # by reseting orbslam node instead of making new instance
+        pose_args = {"visualize": False, "slam_settings_path": "./configs/gibson.yaml"}
         p = Process(
             target=run_node,
             args=(
@@ -108,12 +121,13 @@ def collect_data():
             ),
         )
         p.start()
-        #Give time for orbslam2 to init
+        # Give time for orbslam2 to init
         time.sleep(15)
-        #It is easier to glob over bags for potential files, so just change string a 
-        #bit in order to get proper image location
-        parent = str(rosbag.parent).replace("bags","clean")
-        image_args = {"image_dir" : parent}
+        # It is easier to glob over bags for potential files, so just change string a
+        # bit in order to get proper image location
+        parent = str(rosbag.parent).replace("bags", "clean")
+        parent = "./data/gibson/Browntown"
+        image_args = {"image_dir": parent}
         p_images = Process(
             target=run_node,
             args=(
@@ -125,9 +139,10 @@ def collect_data():
         future = Future()
         poseWriter = PoseWriter(future)
         rclpy.spin_until_future_complete(poseWriter, future)
-        fp = open(str(parent)+'.pkl', 'wb')
+        fp = open(str(parent) + ".pkl", "wb")
         pickle.dump(poseWriter.poses, fp)
         os.kill(p.pid, signal.SIGKILL)
+        break
 
 
 if __name__ == "__main__":

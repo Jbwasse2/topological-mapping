@@ -84,7 +84,7 @@ class BufferTester(Node):
 def test_orbslam2_buffer():
     rclpy.init()
     # bag_wrapper(wrap_node, rosbag_location, kwargs):
-    rosbag_location = "./test/testing_resources/rosbag/rosbag2_2021_04_14-09_01_00"
+    rosbag_location = "./test/testing_resources/rosbag/test.bag"
     pose_args = {"visualize": False}
     orbslam2PoseWrapped = bag_wrapper(Orbslam2Pose, rosbag_location, pose_args)
     args = {
@@ -114,7 +114,7 @@ def test_orbslam2_buffer():
 # A good message is one that isn't inf in all poses.
 def test_orbslam2_message():
     rclpy.init()
-    rosbag_location = "./test/testing_resources/rosbag/rosbag2_2021_04_14-09_01_00"
+    rosbag_location = "./test/testing_resources/rosbag/test.bag"
     pose_args = {"visualize": False}
     p2 = Process(
         target=run_node,

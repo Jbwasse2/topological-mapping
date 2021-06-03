@@ -25,17 +25,17 @@ class WaypointPublisherTester(WaypointPublisher):
 # images before and after give context
 def get_goal():
     goal = []
-    goal.append(cv2.imread("./test/testing_resources/frame000365.png"))
-    goal.append(cv2.imread("./test/testing_resources/frame000366.png"))
-    goal.append(cv2.imread("./test/testing_resources/frame000367.png"))
-    goal.append(cv2.imread("./test/testing_resources/frame000368.png"))
-    goal.append(cv2.imread("./test/testing_resources/frame000369.png"))
-    goal.append(cv2.imread("./test/testing_resources/frame000370.png"))
-    goal.append(cv2.imread("./test/testing_resources/frame000371.png"))
-    goal.append(cv2.imread("./test/testing_resources/frame000372.png"))
-    goal.append(cv2.imread("./test/testing_resources/frame000373.png"))
-    goal.append(cv2.imread("./test/testing_resources/frame000374.png"))
-    goal.append(cv2.imread("./test/testing_resources/frame000375.png"))
+    goal.append(cv2.imread("./test/testing_resources/000274.png"))
+    goal.append(cv2.imread("./test/testing_resources/000275.png"))
+    goal.append(cv2.imread("./test/testing_resources/000276.png"))
+    goal.append(cv2.imread("./test/testing_resources/000277.png"))
+    goal.append(cv2.imread("./test/testing_resources/000278.png"))
+    goal.append(cv2.imread("./test/testing_resources/000279.png"))
+    goal.append(cv2.imread("./test/testing_resources/000280.png"))
+    goal.append(cv2.imread("./test/testing_resources/000281.png"))
+    goal.append(cv2.imread("./test/testing_resources/000282.png"))
+    goal.append(cv2.imread("./test/testing_resources/000283.png"))
+    goal.append(cv2.imread("./test/testing_resources/000284.png"))
     return goal
 
 
@@ -44,7 +44,7 @@ def get_goal():
 def test_meng_wp_video():
     rclpy.init()
     # Run bag node to test
-    rosbag_location = "./test/testing_resources/rosbag/rosbag2_2021_04_14-09_01_00"
+    rosbag_location = "./test/testing_resources/rosbag/test.bag"
     p = Process(
         target=play_rosbag,
         args=(rosbag_location, False),
