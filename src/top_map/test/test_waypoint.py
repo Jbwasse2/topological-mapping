@@ -1,4 +1,5 @@
 import glob
+import subprocess
 import os
 import signal
 from multiprocessing import Process
@@ -25,17 +26,17 @@ class WaypointPublisherTester(WaypointPublisher):
 # images before and after give context
 def get_goal():
     goal = []
-    goal.append(cv2.imread("./test/testing_resources/000274.png"))
-    goal.append(cv2.imread("./test/testing_resources/000275.png"))
-    goal.append(cv2.imread("./test/testing_resources/000276.png"))
-    goal.append(cv2.imread("./test/testing_resources/000277.png"))
-    goal.append(cv2.imread("./test/testing_resources/000278.png"))
-    goal.append(cv2.imread("./test/testing_resources/000279.png"))
-    goal.append(cv2.imread("./test/testing_resources/000280.png"))
-    goal.append(cv2.imread("./test/testing_resources/000281.png"))
-    goal.append(cv2.imread("./test/testing_resources/000282.png"))
-    goal.append(cv2.imread("./test/testing_resources/000283.png"))
-    goal.append(cv2.imread("./test/testing_resources/000284.png"))
+    goal.append(cv2.imread("./test/testing_resources/0000274.jpg"))
+    goal.append(cv2.imread("./test/testing_resources/0000275.jpg"))
+    goal.append(cv2.imread("./test/testing_resources/0000276.jpg"))
+    goal.append(cv2.imread("./test/testing_resources/0000277.jpg"))
+    goal.append(cv2.imread("./test/testing_resources/0000278.jpg"))
+    goal.append(cv2.imread("./test/testing_resources/0000279.jpg"))
+    goal.append(cv2.imread("./test/testing_resources/0000280.jpg"))
+    goal.append(cv2.imread("./test/testing_resources/0000281.jpg"))
+    goal.append(cv2.imread("./test/testing_resources/0000282.jpg"))
+    goal.append(cv2.imread("./test/testing_resources/0000283.jpg"))
+    goal.append(cv2.imread("./test/testing_resources/0000284.jpg"))
     return goal
 
 
@@ -47,16 +48,18 @@ def test_meng_wp_video():
     rosbag_location = "./test/testing_resources/rosbag/test.bag"
     p = Process(
         target=play_rosbag,
-        args=(rosbag_location, False),
+        args=(rosbag_location, False,"--topics /terrasentia/usb_cam_node/image_raw --wait-for-subscribers" ),
     )
     future = Future()
-    waypointPublisher = WaypointPublisherTester(3, "./test/results/wp/", future)
+    waypointPublisher = WaypointPublisherTester(5, "./test/results/wp/", future)
     goal = get_goal()
     waypointPublisher.goal = goal
     waypointPublisher.goal_show = goal[6]
     p.start()
     rclpy.spin_until_future_complete(waypointPublisher, future)
     waypointPublisher.destroy_node()
+    kill_testbag_cmd = ". /opt/ros/melodic/setup.sh && rosnode list | grep play | xargs rosnode kill"
+    subprocess.Popen(kill_testbag_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT, shell=True)
     os.kill(p.pid, signal.SIGKILL)
     rclpy.shutdown()
 

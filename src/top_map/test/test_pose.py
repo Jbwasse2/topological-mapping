@@ -42,6 +42,7 @@ class PoseTesterValid(PoseTester):
     def pose_callback(self, msg):
         # Pass only if results are not inf
         if msg.pose.position.x == np.inf:
+            print("inf")
             pass
         else:
             self.future.set_result("Pass")
@@ -56,7 +57,7 @@ class BufferTester(Node):
         )
         self.image_counter = 0
         self.subscription = self.create_subscription(
-            Image, "camera", self.image_callback, qos_profile=q
+            Image, "/terrasentia/usb_cam_node/image_raw", self.image_callback, qos_profile=q
         )
         self.timer = self.create_timer(50, self.timer_callback)
         self.future = future
@@ -113,6 +114,8 @@ def test_orbslam2_buffer():
 # Then Check to make sure a "good" message gets published
 # A good message is one that isn't inf in all poses.
 def test_orbslam2_message():
+    import pudb
+    pu.db
     rclpy.init()
     rosbag_location = "./test/testing_resources/rosbag/test.bag"
     pose_args = {"visualize": False}
@@ -126,7 +129,7 @@ def test_orbslam2_message():
     p2.start()
     p = Process(
         target=play_rosbag,
-        args=(rosbag_location, False),
+        args=(rosbag_location, False, "-l --topics /terrasentia/usb_cam_node/image_raw"),
     )
     p.start()
     future = Future()

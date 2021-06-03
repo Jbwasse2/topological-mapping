@@ -1,4 +1,5 @@
 import os
+import subprocess
 from multiprocessing import Process
 
 import rclpy
@@ -39,7 +40,7 @@ def run_node(node_type, args):
 
 # Input: bag_location : directory to ROS2 bag location
 #       loop : Should the rosbag be played indefinetly?
-def play_rosbag(bag_location, loop=False):
+def play_rosbag(bag_location, loop=False, rosbag_args=None):
     assert os.path.exists(bag_location)
     while 1:
         #There is a mixing problem with just calling the rosbag
@@ -48,11 +49,15 @@ def play_rosbag(bag_location, loop=False):
         s1 = "export PYTHONPATH='' && "
         s2 = ". /opt/ros/melodic/setup.sh && "
         s3 = "printenv | grep PYTHONPATH && "
-        s4 = "rosbag play -q " + bag_location + " 2>&1 >/dev/null"
+        s4 = "rosbag play -q " + bag_location + " " + str(rosbag_args)
         s = s1 + s2 +s3 + s4
-        os.system(s)
+        subprocess.Popen(s, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT, shell=True)
         if loop is False:
             break
+    #Keeps process from returning to foreground
+    #Useful for when you are debugging with pudb
+    #Otherwise the process would return to the foreground
+    #Meanning you have to run fg to return to pudb
 
 
 if __name__ == "__main__":
