@@ -76,3 +76,4 @@ def test_meng_wp_video():
     rclpy.shutdown()
 
     assert len(glob.glob("./test/results/wp/*")) != 0
+

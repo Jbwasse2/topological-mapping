@@ -12,7 +12,7 @@ from sensor_msgs.msg import Image
 
 
 class BagTester(Node):
-    def __init__(self, future, timeout=None):
+    def __init__(self, timeout=None):
         super().__init__("bag_tester")
         self.future = future
         self.results = []
@@ -38,7 +38,6 @@ class BagTester(Node):
 
 
 def test_bag():
-
     rclpy.init()
     rosbag_location = "./test/testing_resources/rosbag/test_short.bag"
     p = Process(

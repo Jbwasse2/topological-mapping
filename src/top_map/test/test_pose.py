@@ -155,3 +155,4 @@ def test_orbslam2_message():
     os.kill(p2.pid, signal.SIGKILL)
     rclpy.shutdown()
     assert future.result() == "Pass"
+
