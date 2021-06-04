@@ -29,7 +29,7 @@ class WaypointPublisher(Node):
         self.create_graphic = create_graphic
         self.model = self.get_model()
         self.subscription = self.create_subscription(
-            Image, "camera", self.image_callback, 1
+            Image, "/terrasentia/usb_cam_node/image_raw", self.image_callback, 1
         )
         self.publisher_ = self.create_publisher(
             Twist, "terra_command_twist", 1)
@@ -62,6 +62,7 @@ class WaypointPublisher(Node):
     def image_callback(self, msg):
         self.get_logger().info("I heard {0}".format(str(msg.header)))
         image = self.bridge.imgmsg_to_cv2(msg, "bgr8")
+        image = cv2.flip(image, -1)
         waypoint, reachability_estimator = self.get_wp(image, self.goal)
         self.get_logger().info(
             "Reachability Estimator is {0}".format(str(reachability_estimator))
@@ -77,7 +78,7 @@ class WaypointPublisher(Node):
             thickness = 2
             # cv2 like BGR because they like eating glue
             image = cv2.resize(image, (64, 64))
-            image = np.hstack((image, self.goal_show))
+            image = np.hstack((image, cv2.resize(self.goal_show, (64, 64))))
             image = cv2.arrowedLine(
                 image, arrow_start, arrow_end, color, thickness)
             (height, width, _) = image.shape
@@ -119,17 +120,19 @@ class WaypointPublisher(Node):
             im = np.swapaxes(im, 1, 2)
             im = np.asarray(im)
             im = (im / 255).astype("float32")
+            return im
         else:
             # (11,64a,64b,3) -> (11, 3, 64a, 64b)
             # So we switch (1,3) and then (2,3)
+            out_im = np.zeros((11, 64, 64, 3))
             for i in range(im.shape[0]):
-                im[i] = cv2.cvtColor(im[i], cv2.COLOR_BGR2RGB)
-                im[i] = cv2.resize(im[i], (64, 64))
-            im = np.swapaxes(im, 1, 3)
-            im = np.swapaxes(im, 2, 3)
-            im = np.asarray(im)
-            im = (im / 255).astype("float32")
-        return im
+                im_temp = cv2.cvtColor(im[i], cv2.COLOR_BGR2RGB)
+                out_im[i] = cv2.resize(im_temp, (64, 64))
+            out_im = np.swapaxes(out_im, 1, 3)
+            out_im = np.swapaxes(out_im, 2, 3)
+            out_im = np.asarray(out_im)
+            out_im = (out_im / 255).astype("float32")
+            return out_im
 
     def __del__(self):
         cv2.destroyAllWindows()

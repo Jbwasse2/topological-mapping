@@ -1,4 +1,5 @@
 import os
+import subprocess
 import signal
 from multiprocessing import Process
 
@@ -56,7 +57,10 @@ class BufferTester(Node):
         )
         self.image_counter = 0
         self.subscription = self.create_subscription(
-            Image, "camera", self.image_callback, qos_profile=q
+            Image,
+            "/terrasentia/usb_cam_node/image_raw",
+            self.image_callback,
+            qos_profile=q,
         )
         self.timer = self.create_timer(50, self.timer_callback)
         self.future = future
@@ -84,7 +88,7 @@ class BufferTester(Node):
 def test_orbslam2_buffer():
     rclpy.init()
     # bag_wrapper(wrap_node, rosbag_location, kwargs):
-    rosbag_location = "./test/testing_resources/rosbag/rosbag2_2021_04_14-09_01_00"
+    rosbag_location = "./test/testing_resources/rosbag/test.bag"
     pose_args = {"visualize": False}
     orbslam2PoseWrapped = bag_wrapper(Orbslam2Pose, rosbag_location, pose_args)
     args = {
@@ -114,7 +118,7 @@ def test_orbslam2_buffer():
 # A good message is one that isn't inf in all poses.
 def test_orbslam2_message():
     rclpy.init()
-    rosbag_location = "./test/testing_resources/rosbag/rosbag2_2021_04_14-09_01_00"
+    rosbag_location = "./test/testing_resources/rosbag/test_long.bag"
     pose_args = {"visualize": False}
     p2 = Process(
         target=run_node,
@@ -126,14 +130,29 @@ def test_orbslam2_message():
     p2.start()
     p = Process(
         target=play_rosbag,
-        args=(rosbag_location, False),
+        args=(
+            rosbag_location,
+            False,
+            "-l --topics /terrasentia/usb_cam_node/image_raw",
+        ),
     )
     p.start()
     future = Future()
     pose = PoseTesterValid(future)
     rclpy.spin_until_future_complete(pose, future)
     pose.destroy_node()
+    kill_testbag_cmd = (
+        ". /opt/ros/melodic/setup.sh && "
+        + "rosnode list | grep play | xargs rosnode kill"
+    )
+    subprocess.Popen(
+        kill_testbag_cmd,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.STDOUT,
+        shell=True,
+    )
     os.kill(p.pid, signal.SIGKILL)
     os.kill(p2.pid, signal.SIGKILL)
     rclpy.shutdown()
     assert future.result() == "Pass"
+

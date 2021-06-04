@@ -20,7 +20,7 @@ class Orbslam2Pose(Node):
     def __init__(
         self,
         vocab_path="./configs/ORBvoc.txt",
-        slam_settings_path="./configs/mp3d3_small1k.yaml",
+        slam_settings_path="./configs/terrasentia_orb.yaml",
         visualize=False,
     ):
         super().__init__("orbslam2")
@@ -36,7 +36,10 @@ class Orbslam2Pose(Node):
         # meeting any safety critical times.
         q = QoSProfile(history=2)
         self.subscription = self.create_subscription(
-            Image, "camera", self.update_internal_state, qos_profile=q
+            Image,
+            "/terrasentia/usb_cam_node/image_raw",
+            self.update_internal_state,
+            qos_profile=q,
         )
         self.publisher = self.create_publisher(PoseStamped, "pose", qos_profile=q)
         self.bridge = CvBridge()
@@ -69,9 +72,9 @@ class Orbslam2Pose(Node):
         return position, rot_quat
 
     def update_internal_state(self, msg):
-        assert msg.height == 480
-        assert msg.width == 640
-        assert msg.encoding == "bgr8"
+        assert msg.height == 240
+        assert msg.width == 320
+        assert msg.encoding == "rgb8"
         # Check if camera data is empty, if it is then skip this frame
         if sum(msg.data) == 0:
             self.get_logger().warning(
