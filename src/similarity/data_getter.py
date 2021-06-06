@@ -185,7 +185,11 @@ class ViNGImageDataset(Dataset):
         # Get negative samples in different trajectories
         neg_samples_in_diff_traj = int((self.samples / 2) * (diff_traj_split))
         for _ in tqdm(range(neg_samples_in_diff_traj)):
-            env1, env2 = random.sample(envs, 2)
+            if len(envs) > 2:
+                env1, env2 = random.sample(envs, 2)
+            else:
+                env1 = envs[0]
+                env2 = envs[0]
             start = random.choice(
                 range(
                     image_offset_in_envs[env1],
@@ -243,6 +247,10 @@ class ViNGImageDataset(Dataset):
         if self.give_distance:
             return (x, label, self.dataset[idx])
         return (x, label)
+
+    def save_env_data(self, path):
+        np.save(path + "train_env.npy", self.train_env)
+        np.save(path + "test_env.npy", self.test_env)
 
 
 if __name__ == "__main__":

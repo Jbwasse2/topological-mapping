@@ -12,7 +12,7 @@ from torch.autograd import Variable
 from torch.utils import data
 from tqdm import tqdm
 
-from data_getter import GibsonDataset
+from data_getter import ViNGImageDataset
 from model import Siamese
 from rich.progress import track
 
@@ -26,21 +26,19 @@ def soft_classification_loss(guess, truth):
 
 def train(model, device, epochs=30):
     current_time = time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime())
-    results_dir = "../../data/results/sparsifier/" + current_time + "/"
+    results_dir = "./data/results/similarity/" + current_time + "/"
     os.mkdir(results_dir)
     copyfile("./model.py", results_dir + "model.py")
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=0.00001)
     BATCH_SIZE = 64
     seed = 0
-    train_dataset = GibsonDataset(
+    train_dataset = ViNGImageDataset(
         "train",
-        seed,
         samples=10000,
-        max_distance=60,
-        episodes=20,
-        ignore_0=False,
-        debug=False,
+        image_data_path="./data/clean/",
+        seed=0,
+        max_distance=20,
     )
     train_dataset.save_env_data(results_dir)
     train_dataloader = data.DataLoader(
@@ -49,14 +47,13 @@ def train(model, device, epochs=30):
         shuffle=True,
         num_workers=16,
     )
-    test_dataset = GibsonDataset(
+    pu.db
+    test_dataset = ViNGImageDataset(
         "test",
-        seed,
         samples=1000,
-        max_distance=60,
-        episodes=20,
-        ignore_0=False,
-        debug=False,
+        image_data_path="./data/clean/",
+        seed=0,
+        max_distance=20,
     )
     test_dataloader = data.DataLoader(
         test_dataset,
@@ -146,4 +143,3 @@ if __name__ == "__main__":
     if args.network_location:
         model.load_state_dict(torch.load(args.network_location))
     model = train(model, device)
-
