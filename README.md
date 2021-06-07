@@ -21,6 +21,8 @@ Now to get the code running
 When you want to rerun this code again at a later time, you will just need to source the RMP_NAV repo, ROS2, and the install/setup.zsh.
 
 ## Running Test
+- Download testing_resources here https://drive.google.com/file/d/1UDs-nCx5W-fLwSjGmX3WU9r9qK_DQPDG/view?usp=sharing
+- unzip and put testing_resources in topological-mapping/src/top_map/test/
 - `cd top_map`
 - Run tests `python -m pytest -s test/`
 
