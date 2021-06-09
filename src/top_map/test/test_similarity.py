@@ -19,6 +19,7 @@ from rclpy.task import Future
 from std_msgs.msg import Header
 from cv_bridge import CvBridge
 
+
 import pudb
 
 
@@ -31,21 +32,21 @@ class SimilarityClient(Node):
             self.get_logger().info('service not available, waiting again...')
         self.req = Similarity.Request()
 
-    #sensor_msgs/Image image1
-    #sensor_msgs/Image image2
-    #float64 confidence
+    # sensor_msgs/Image image1
+    # sensor_msgs/Image image2
+    # float64 confidence
     def send_request(self):
         image1 = Image()
-        image1.height = 240
+        image1.height = 280
         image1.width = 320
-        image1.encoding= "rgb8"
+        image1.encoding = "rgb8"
         frame = self.create_random_image()
         value = self.bridge.cv2_to_imgmsg(frame.astype(np.uint8))
         image1.data = value.data
         image2 = Image()
-        image2.height = 240
+        image2.height = 280
         image2.width = 320
-        image2.encoding= "rgb8"
+        image2.encoding = "rgb8"
         frame = self.create_random_image()
         value = self.bridge.cv2_to_imgmsg(frame.astype(np.uint8))
         image2.data = value.data
@@ -55,7 +56,7 @@ class SimilarityClient(Node):
         self.future = self.cli.call_async(self.req)
 
     def create_random_image(self):
-        return np.random.randint(255, size=(240,320))
+        return np.random.randint(255, size=(280, 320, 3))
 
 
 def test_Similarity():
