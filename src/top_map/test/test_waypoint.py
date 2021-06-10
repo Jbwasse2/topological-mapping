@@ -64,8 +64,8 @@ def test_meng_wp_video():
     rclpy.spin_until_future_complete(waypointPublisher, future)
     waypointPublisher.destroy_node()
     kill_testbag_cmd = (
-        ". /opt/ros/melodic/setup.sh && "
-        + "rosnode list | grep play | xargs rosnode kill"
+        "export PYTHONPATH= && . /opt/ros/melodic/setup.sh && rosnode list "
+        + "| grep play | xargs rosnode kill"
     )
     subprocess.Popen(
         kill_testbag_cmd,

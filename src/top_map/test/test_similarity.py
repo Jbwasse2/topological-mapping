@@ -1,26 +1,14 @@
 from top_map.similarityService import SimilarityService
-import time
 import os
 import signal
 from multiprocessing import Process
-from top_map.util import bag_wrapper, play_rosbag, run_node
+from top_map.util import run_node
 from top_map_msg_srv.srv import Similarity
 import rclpy
-import cv2
 import numpy as np
-import quaternion
 from cv_bridge import CvBridge
-from geometry_msgs.msg import PoseStamped
-from top_map_msg_srv.srv import Similarity
 from rclpy.node import Node
-from rclpy.qos import QoSProfile
 from sensor_msgs.msg import Image
-from rclpy.task import Future
-from std_msgs.msg import Header
-from cv_bridge import CvBridge
-
-
-import pudb
 
 
 class SimilarityClient(Node):
@@ -29,7 +17,7 @@ class SimilarityClient(Node):
         self.bridge = CvBridge()
         self.cli = self.create_client(Similarity, "similarity")
         while not self.cli.wait_for_service(timeout_sec=1.0):
-            self.get_logger().info('service not available, waiting again...')
+            self.get_logger().info("service not available, waiting again...")
         self.req = Similarity.Request()
 
     # sensor_msgs/Image image1
@@ -64,10 +52,7 @@ def test_Similarity():
     args = {}
     p = Process(
         target=run_node,
-        args=(
-            SimilarityService,
-            args
-        ),
+        args=(SimilarityService, args),
     )
     results = 0
     p.start()
@@ -77,12 +62,10 @@ def test_Similarity():
         rclpy.spin_once(minimal_client)
         if minimal_client.future.done():
             try:
-                response = minimal_client.future.result()
-            except Exception as e:
-                minimal_client.get_logger().info(
-                    'Service call failed %r' % (e,))
-            else:
+                minimal_client.future.result()
                 results = 1
+            except Exception as e:
+                minimal_client.get_logger().info("Service call failed %r" % (e,))
             break
 
     os.kill(p.pid, signal.SIGKILL)

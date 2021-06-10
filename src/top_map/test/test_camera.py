@@ -12,7 +12,7 @@ from sensor_msgs.msg import Image
 
 
 class BagTester(Node):
-    def __init__(self, timeout=None):
+    def __init__(self, future, timeout=None):
         super().__init__("bag_tester")
         self.future = future
         self.results = []
@@ -56,16 +56,17 @@ def test_bag():
     bag_tester.destroy_node()
     # kills test.bag
     kill_testbag_cmd = (
-        ". /opt/ros/melodic/setup.sh && rosnode list "
+        "export PYTHONPATH= && . /opt/ros/melodic/setup.sh && rosnode list "
         + "| grep play | xargs rosnode kill"
     )
     subprocess.Popen(
         kill_testbag_cmd,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.STDOUT,
+        #    stdout=subprocess.DEVNULL,
+        #    stderr=subprocess.STDOUT,
         shell=True,
     )
     rclpy.shutdown()
+    # DO NOT FORGET TO START ROSBRIDGE AND ROSCORE!!!
     assert future.result() == "Pass"
 
 

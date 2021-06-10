@@ -5,27 +5,18 @@ import torch
 from torch import nn
 import torchvision.transforms as transforms
 import cv2
-import numpy as np
-import quaternion
 from cv_bridge import CvBridge
-from geometry_msgs.msg import PoseStamped
 from top_map_msg_srv.srv import Similarity
 from rclpy.node import Node
-from rclpy.qos import QoSProfile
-from sensor_msgs.msg import Image
-from std_msgs.msg import Header, Bool
 import rclpy
 from data.indoorData.results.similarity.best_model.model import Siamese
-
-import pudb
 
 
 class SimilarityService(Node):
     def __init__(self):
         super().__init__("similarity_publisher")
         self.results = []
-        self.srv = self.create_service(
-            Similarity, "similarity", self.get_similarity)
+        self.srv = self.create_service(Similarity, "similarity", self.get_similarity)
         self.model = self.get_model()
 
     def get_model(self):
@@ -33,7 +24,6 @@ class SimilarityService(Node):
         weight_path = "./data/indoorData/results/similarity/best_model/saved_model.pth"
         model.load_state_dict(torch.load(weight_path))
         model.eval()
-        print("FINISHED LOADING MODEL")
         return model
 
     # This expects the data images to come in as "cleaned rgb8" images
@@ -52,6 +42,7 @@ class SimilarityService(Node):
             )
             image = transform(image)
             return image.unsqueeze(0).float()
+
         bridge = CvBridge()
         image1 = bridge.imgmsg_to_cv2(request.image1, "bgr8")
         image2 = bridge.imgmsg_to_cv2(request.image2, "bgr8")
