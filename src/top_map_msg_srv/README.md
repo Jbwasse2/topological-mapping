@@ -1,0 +1,3 @@
+This is here because there is apparently no way to make custom services with python ros2... 
+
+To add a msg/srv edit the CMakeLists.txt appropiately.

@@ -55,7 +55,8 @@ def test_meng_wp_video():
         ),
     )
     future = Future()
-    waypointPublisher = WaypointPublisherTester(5, "./test/results/wp/", future)
+    waypointPublisher = WaypointPublisherTester(
+        5, "./test/results/wp/", future)
     goal = get_goal()
     waypointPublisher.goal = goal
     waypointPublisher.goal_show = goal[6]
@@ -63,8 +64,8 @@ def test_meng_wp_video():
     rclpy.spin_until_future_complete(waypointPublisher, future)
     waypointPublisher.destroy_node()
     kill_testbag_cmd = (
-        ". /opt/ros/melodic/setup.sh && "
-        + "rosnode list | grep play | xargs rosnode kill"
+        "export PYTHONPATH= && . /opt/ros/melodic/setup.sh && rosnode list "
+        + "| grep play | xargs rosnode kill"
     )
     subprocess.Popen(
         kill_testbag_cmd,
@@ -76,4 +77,3 @@ def test_meng_wp_video():
     rclpy.shutdown()
 
     assert len(glob.glob("./test/results/wp/*")) != 0
-

@@ -20,8 +20,9 @@ setup(
     tests_require=["pytest"],
     entry_points={
         "console_scripts": [
-            "camera = top_map.camera:main",
             "extractor = top_map.extractor:main",
+            "similarityServer = top_map.similarityServer:main",
+            "similarityClient = top_map.similarityClient:main",
         ],
     },
 )

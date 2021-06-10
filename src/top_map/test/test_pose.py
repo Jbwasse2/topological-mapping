@@ -142,7 +142,7 @@ def test_orbslam2_message():
     rclpy.spin_until_future_complete(pose, future)
     pose.destroy_node()
     kill_testbag_cmd = (
-        ". /opt/ros/melodic/setup.sh && "
+        "export PYTHONPATH= && . /opt/ros/melodic/setup.sh && rosnode list "
         + "rosnode list | grep play | xargs rosnode kill"
     )
     subprocess.Popen(
@@ -155,4 +155,3 @@ def test_orbslam2_message():
     os.kill(p2.pid, signal.SIGKILL)
     rclpy.shutdown()
     assert future.result() == "Pass"
-

@@ -1,0 +1,5 @@
+sensor_msgs/Image image1
+sensor_msgs/Image image2
+float64 confidence
+---
+bool results
