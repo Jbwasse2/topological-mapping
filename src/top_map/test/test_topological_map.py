@@ -17,31 +17,20 @@ import rclpy
 import numpy as np
 from cv_bridge import CvBridge
 from rclpy.node import Node
-from mock import patch
 
 
 class TopMapTester(TopologicalMap):
-    def __init__(self, future):
+    def __init__(self, future, timeout=None):
         super().__init__()
         self.future = future
+        if timeout is not None:
+            self.timer = self.create_timer(timeout, self.timer_callback)
+    def timer_callback(self):
+        if len(self.map.nodes) > 0:
+            self.future.set_result("Pass")
+        else:
+            self.future.set_result("Timeout")
 
-
-def test_get_embedding():
-    embeddingGetter = EmbeddingGetter()
-    random_image = np.random.randint(255, size=(1, 3, 224, 224))
-    random_image = torch.from_numpy(random_image).float()
-    embedding = embeddingGetter(random_image)
-    assert embedding.shape == torch.Size([1, 512, 7, 7])
-
-
-def test_get_classification():
-    embeddingClassifier = EmbeddingsClassifier()
-    embedding1 = np.random.rand(1, 512, 7, 7)
-    embedding2 = np.random.rand(1, 512, 7, 7)
-    embedding1 = torch.from_numpy(embedding1).float()
-    embedding2 = torch.from_numpy(embedding2).float()
-    prediction = embeddingClassifier(embedding1, embedding2)
-    assert prediction.shape == torch.Size([1, 2])
 
 
 def test_top_map():
@@ -56,11 +45,11 @@ def test_top_map():
         rosbag_location = "./test/testing_resources/rosbag/test_long.bag"
         p2 = Process(
             target=play_rosbag,
-            args=(rosbag_location, False, ""),
+            args=(rosbag_location, False, "-l"),
         )
         p2.start()
         future = Future()
-        topMapTester = TopMapTester(future)
+        topMapTester = TopMapTester(future, timeout=2)
         rclpy.spin_until_future_complete(topMapTester, future)
     except Exception as e:
         results = 0
@@ -83,4 +72,4 @@ def test_top_map():
         os.kill(p2.pid, signal.SIGKILL)
         topMapTester.destroy_node()
         rclpy.shutdown()
-        # assert results == 1
+        assert topMapTester.future.result() == "Pass"

@@ -87,6 +87,7 @@ class SimilarityService(Node):
         prob = nn.functional.softmax(results)
         positive_prob = prob[0][1].cpu().detach()
         response.results = True if positive_prob > request.confidence else False
+        print(prob)
         return response
 
     def prepare_data(self, image):

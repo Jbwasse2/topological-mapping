@@ -156,7 +156,6 @@ def test_Similarity():
             rclpy.spin_once(minimal_client)
             if minimal_client.future.done():
                 try:
-                    pu.db
                     test_results = minimal_client.future.result()
                     if test_results != "Timeout":
                         results[2] = 1
