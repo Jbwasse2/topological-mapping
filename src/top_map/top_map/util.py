@@ -51,8 +51,9 @@ def play_rosbag(bag_location, loop=False, rosbag_args=None):
         s3 = "printenv | grep PYTHONPATH && "
         s4 = "rosbag play -q " + bag_location + " " + str(rosbag_args)
         s = s1 + s2 + s3 + s4
-        subprocess.Popen(s, stdout=subprocess.DEVNULL,
-                         stderr=subprocess.STDOUT, shell=True)
+        subprocess.Popen(
+            s, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT, shell=True
+        )
         if loop is False:
             break
     # Keeps process from returning to foreground
