@@ -1,22 +1,15 @@
 from top_map.similarityService import SimilarityService
 from rclpy.task import Future
-import torch
 import subprocess
 from top_map.util import play_rosbag
 from top_map.topological_map import (
     TopologicalMap,
-    EmbeddingGetter,
-    EmbeddingsClassifier,
 )
 import os
 import signal
 from multiprocessing import Process
 from top_map.util import run_node
-from top_map_msg_srv.srv import Similarity
 import rclpy
-import numpy as np
-from cv_bridge import CvBridge
-from rclpy.node import Node
 
 
 class TopMapTester(TopologicalMap):
@@ -25,6 +18,7 @@ class TopMapTester(TopologicalMap):
         self.future = future
         if timeout is not None:
             self.timer = self.create_timer(timeout, self.timer_callback)
+
     def timer_callback(self):
         if len(self.map.nodes) > 0:
             self.future.set_result("Pass")
@@ -32,8 +26,8 @@ class TopMapTester(TopologicalMap):
             self.future.set_result("Timeout")
 
 
-
 def test_top_map():
+
     try:
         rclpy.init()
         args = {}
@@ -52,10 +46,9 @@ def test_top_map():
         topMapTester = TopMapTester(future, timeout=2)
         rclpy.spin_until_future_complete(topMapTester, future)
     except Exception as e:
-        results = 0
-        print(e)
+        raise (e)
     else:
-        pass
+        topMapTester.destroy_node()
     finally:
         # kills test.bag
         kill_testbag_cmd = (
@@ -68,8 +61,9 @@ def test_top_map():
             stderr=subprocess.STDOUT,
             shell=True,
         )
+        # Kill similarity publisher, for some reason it is sticking around
         os.kill(p.pid, signal.SIGKILL)
         os.kill(p2.pid, signal.SIGKILL)
-        topMapTester.destroy_node()
+
         rclpy.shutdown()
         assert topMapTester.future.result() == "Pass"

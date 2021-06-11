@@ -1,76 +1,47 @@
 import networkx as nx
 import time
 import numpy as np
-import torch
-import torch.nn.functional as F
 from rclpy.node import Node
 import rclpy
 from rclpy.qos import QoSProfile
 from top_map_msg_srv.srv import Similarity, GetEmbedding, EmbeddingSimilarity
 from std_msgs.msg import Header
 from cv_bridge import CvBridge
-from data.indoorData.results.similarity.best_model.model import Siamese
 from sensor_msgs.msg import Image
-from torch import nn
 
-
-class EmbeddingGetter(Siamese):
-    def __init__(self):
-        super().__init__()
-        model = self.get_model()
-
-    def get_model(self):
-        model = Siamese()
-        weight_path = "./data/indoorData/results/similarity/best_model/saved_model.pth"
-        model.load_state_dict(torch.load(weight_path, map_location=torch.device('cpu')))
-        model.eval()
-        return model
-
-    def forward(self, x1):
-        self.encoder.eval()
-        out1 = self.encode(x1)
-        return out1
-
-
-class EmbeddingsClassifier(EmbeddingGetter):
-    def __init__(self):
-        super().__init__()
-
-    def forward(self, x1, x2):
-        x = torch.cat((x1, x2), 1)
-        x = self.conv1(x)
-        x = F.relu(x)
-        x = self.conv2(x)
-        x = F.relu(x)
-        x = self.conv3(x)
-        x = F.relu(x)
-        x = x.view(x.size(0), -1)
-        x = self.fc1(x)
-        x = F.relu(x)
-        x = self.dropout1(x)
-        x = self.fc2(x)
-        return x
 
 class SimilarityClient(Node):
     def __init__(self):
-        super().__init__("Similarity_Client")
+        super().__init__("similarity_client")
+        retries = 0
+        max_retries = 5
         self.bridge = CvBridge()
         self.cli1 = self.create_client(Similarity, "similarity_images")
         self.cli2 = self.create_client(GetEmbedding, "get_embedding")
         self.cli3 = self.create_client(EmbeddingSimilarity, "similarity_embeddings")
         while not self.cli1.wait_for_service(timeout_sec=1.0):
+            retries += 1
+            assert retries < max_retries
             self.get_logger().info("Similarity service not available, waiting again...")
         while not self.cli2.wait_for_service(timeout_sec=1.0):
-            self.get_logger().info("GetEmbedding service not available, waiting again...")
+            retries += 1
+            assert retries < max_retries
+            self.get_logger().info(
+                "GetEmbedding service not available, waiting again..."
+            )
         while not self.cli3.wait_for_service(timeout_sec=1.0):
-            self.get_logger().info("EmbeddingSimilarity service not available, waiting again...")
+            retries += 1
+            assert retries < max_retries
+            self.get_logger().info(
+                "EmbeddingSimilarity service not available, waiting again..."
+            )
         self.req_sim_image = Similarity.Request()
         self.req_get_embedding = GetEmbedding.Request()
         self.req_sim_embed = EmbeddingSimilarity.Request()
 
     def send_request_embedding_similarity(self, embedding1, embedding2, confidence):
-        self.req_sim_embed.embedding1 = embedding1.astype('float32').flatten().tolist()
-        self.req_sim_embed.embedding2 = embedding2.astype('float32').flatten().tolist()
+        self.req_sim_embed.embedding1 = embedding1.astype("float32").flatten().tolist()
+        self.req_sim_embed.embedding2 = embedding2.astype("float32").flatten().tolist()
         self.req_sim_embed.confidence = confidence
         self.future = self.cli3.call_async(self.req_sim_embed)
 
@@ -105,7 +76,12 @@ class SimilarityClient(Node):
         self.req.image2 = image2
         self.req.confidence = confidence
         self.future = self.cli.call_async(self.req)
-        
+
+    def __del__(self):
+        self.destroy_client(self.cli1)
+        self.destroy_client(self.cli2)
+        self.destroy_client(self.cli3)
+
 
 # Class for building topological map
 class TopologicalMap(Node):
@@ -113,8 +89,6 @@ class TopologicalMap(Node):
     def __init__(self, use_pose_estimate=False, close_distance=1, confidence=0.8):
         super().__init__("Topological_Map")
         self.map = nx.DiGraph()
-        self.embeddingGetter = EmbeddingGetter()
-        self.embeddingClassifier = EmbeddingsClassifier()
         self.similarityClient = SimilarityClient()
         self.use_pose_estimate = use_pose_estimate
         self.confidence = confidence
@@ -126,7 +100,7 @@ class TopologicalMap(Node):
             qos_profile=q,
         )
         self.counter = 0
-        #TODO Allow for collecting of multiple trajectories...
+        # TODO Allow for collecting of multiple trajectories...
         self.trajectory_label = 0
         self.embedding_dict = {}
         self.bridge = CvBridge()
@@ -149,7 +123,7 @@ class TopologicalMap(Node):
             time.sleep(0.1)
             self.get_logger().info("Waiting for Get Embedding")
         image1_embedding = self.similarityClient.future.result().embedding
-        image1_embedding = np.array(image1_embedding).reshape(1,512,7,7)
+        image1_embedding = np.array(image1_embedding).reshape(1, 512, 7, 7)
         image1_label = self.counter
         image1_trajectory_label = self.trajectory_label
         self.current_node = (image1_trajectory_label, image1_label)
@@ -160,8 +134,10 @@ class TopologicalMap(Node):
             # If something is "similar" to image1, then don't add it.
             for node in self.map.nodes:
                 image2_embedding = self.embedding_dict[node]
-                self.similarityClient.send_request_embedding_similarity(image1_embedding, image2_embedding, self.confidence)
-                #BUG: For some reason I have to spin twice...
+                self.similarityClient.send_request_embedding_similarity(
+                    image1_embedding, image2_embedding, self.confidence
+                )
+                # BUG: For some reason I have to spin twice...
                 rclpy.spin_once(self.similarityClient)
                 rclpy.spin_once(self.similarityClient)
                 while not self.similarityClient.future.done():
@@ -172,15 +148,14 @@ class TopologicalMap(Node):
                     self.current_node = node
                     self.get_logger().info("Embeddings are close...")
                     break
-            #If current_node already in map, this does nothing
+            # If current_node already in map, this does nothing
             self.map.add_node(self.current_node)
-            #DOES NOT UPDATE EMBEDDING IF ALREADY IN THERE!
-            #MAY BE USEFUL TO EXPERIMENT WITH THIS
+            # DOES NOT UPDATE EMBEDDING IF ALREADY IN THERE!
+            # MAY BE USEFUL TO EXPERIMENT WITH THIS
             if self.current_node not in self.embedding_dict:
                 self.embedding_dict[self.current_node] = image1_embedding
                 self.counter += 1
-            if self.last_node != None:
+            if self.last_node is not None:
                 self.map.add_edge(self.last_node, self.current_node)
             self.last_node = self.current_node
             self.current_node = None
-

@@ -17,56 +17,61 @@ from data.indoorData.results.similarity.best_model.model import Siamese
 class EmbeddingGetter(Siamese):
     def __init__(self):
         super().__init__()
-        model = self.get_model()
-
-    def get_model(self):
-        model = Siamese()
-        weight_path = "./data/indoorData/results/similarity/best_model/saved_model.pth"
-        model.load_state_dict(torch.load(weight_path, map_location=torch.device('cpu')))
-        model.eval()
-        return model
-
-    def forward(self, x1):
-        self.encoder.eval()
-        out1 = self.encode(x1)
-        return out1
-
-
-class EmbeddingsClassifier(EmbeddingGetter):
-    def __init__(self):
-        super().__init__()
-
-    def forward(self, x1, x2):
-        x = torch.cat((x1, x2), 1)
-        x = self.conv1(x)
-        x = F.relu(x)
-        x = self.conv2(x)
-        x = F.relu(x)
-        x = self.conv3(x)
-        x = F.relu(x)
-        x = x.view(x.size(0), -1)
-        x = self.fc1(x)
-        x = F.relu(x)
-        x = self.dropout1(x)
-        x = self.fc2(x)
-        return x
-
-
-class SimilarityService(Node):
-    def __init__(self):
-        super().__init__("similarity_publisher")
-        self.embeddingGetter = EmbeddingGetter()
-        self.embeddingClassifier = EmbeddingsClassifier()
-        self.results = []
-        self.srv_sim_images = self.create_service(Similarity, "similarity_images", self.get_similarity)
-        self.srv_embed = self.create_service(GetEmbedding, "get_embedding", self.get_embedding)
-        self.srv_embed_sim = self.create_service(EmbeddingSimilarity, "similarity_embeddings", self.get_similarity_embedding)
         self.model = self.get_model()
 
     def get_model(self):
         model = Siamese()
         weight_path = "./data/indoorData/results/similarity/best_model/saved_model.pth"
-        model.load_state_dict(torch.load(weight_path, map_location=torch.device('cpu')))
+        model.load_state_dict(torch.load(weight_path, map_location=torch.device("cpu")))
+        model.eval()
+        return model
+
+    def forward(self, x1):
+        self.model.encoder.eval()
+        out1 = self.model.encoder(x1)
+        return out1
+
+
+class EmbeddingsClassifier(EmbeddingGetter):
+    def __init__(self):
+        super(EmbeddingsClassifier, self).__init__()
+
+    def forward(self, x1, x2):
+        x = torch.cat((x1, x2), 1)
+        x = self.model.conv1(x)
+        x = F.relu(x)
+        x = self.model.conv2(x)
+        x = F.relu(x)
+        x = self.model.conv3(x)
+        x = F.relu(x)
+        x = x.view(x.size(0), -1)
+        x = self.model.fc1(x)
+        x = F.relu(x)
+        x = self.model.dropout1(x)
+        x = self.model.fc2(x)
+        return x
+
+
+class SimilarityService(Node):
+    def __init__(self):
+        super().__init__("similarity_service")
+        self.embeddingGetter = EmbeddingGetter()
+        self.embeddingClassifier = EmbeddingsClassifier()
+        self.srv_sim_images = self.create_service(
+            Similarity, "similarity_images", self.get_similarity
+        )
+        self.srv_embed = self.create_service(
+            GetEmbedding, "get_embedding", self.get_embedding
+        )
+        self.srv_embed_sim = self.create_service(
+            EmbeddingSimilarity, "similarity_embeddings", self.get_similarity_embedding
+        )
+        self.model = self.get_model()
+
+    def get_model(self):
+        model = Siamese()
+        weight_path = "./data/indoorData/results/similarity/best_model/saved_model.pth"
+        model.load_state_dict(torch.load(weight_path, map_location=torch.device("cpu")))
         model.eval()
         return model
 
@@ -79,15 +84,14 @@ class SimilarityService(Node):
         return response
 
     def get_similarity_embedding(self, request, response):
-        embedding1 = np.array(request.embedding1).reshape(1,512,7,7)
+        embedding1 = np.array(request.embedding1).reshape(1, 512, 7, 7)
         embedding1 = torch.from_numpy(embedding1).float()
-        embedding2 = np.array(request.embedding2).reshape(1,512,7,7)
+        embedding2 = np.array(request.embedding2).reshape(1, 512, 7, 7)
         embedding2 = torch.from_numpy(embedding2).float()
         results = self.embeddingClassifier(embedding1, embedding2)
         prob = nn.functional.softmax(results)
         positive_prob = prob[0][1].cpu().detach()
         response.results = True if positive_prob > request.confidence else False
-        print(prob)
         return response
 
     def prepare_data(self, image):
@@ -103,10 +107,10 @@ class SimilarityService(Node):
         image = transform(image)
         return image.unsqueeze(0).float()
 
-
     # This expects the data images to come in as "cleaned rgb8" images
     # So the image should not be raw image from TerraSentia, but is that but
     # flipped horizontally, vertically, and made into RGB8
+
     def get_similarity(self, request, response):
         bridge = CvBridge()
         image1 = bridge.imgmsg_to_cv2(request.image1, "rgb8")
