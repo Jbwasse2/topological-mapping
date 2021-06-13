@@ -20,14 +20,15 @@ class TopMapTester(TopologicalMap):
             self.timer = self.create_timer(timeout, self.timer_callback)
 
     def timer_callback(self):
+        pu.db
         if len(self.map.nodes) > 0:
             self.future.set_result("Pass")
+            self.save("./data/indoorData/results/top_maps/test_top_map.pkl")
         else:
             self.future.set_result("Timeout")
 
 
 def test_top_map():
-
     try:
         rclpy.init()
         args = {}
@@ -39,16 +40,17 @@ def test_top_map():
         rosbag_location = "./test/testing_resources/rosbag/test_long.bag"
         p2 = Process(
             target=play_rosbag,
-            args=(rosbag_location, False, "-l"),
+            args=(rosbag_location, False, ""),
         )
         p2.start()
         future = Future()
-        topMapTester = TopMapTester(future, timeout=2)
+        topMapTester = TopMapTester(future, timeout=70)
         rclpy.spin_until_future_complete(topMapTester, future)
     except Exception as e:
         raise (e)
     else:
         topMapTester.destroy_node()
+        assert topMapTester.future.result() == "Pass"
     finally:
         # kills test.bag
         kill_testbag_cmd = (
@@ -66,4 +68,3 @@ def test_top_map():
         os.kill(p2.pid, signal.SIGKILL)
 
         rclpy.shutdown()
-        assert topMapTester.future.result() == "Pass"

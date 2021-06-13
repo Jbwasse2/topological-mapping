@@ -32,7 +32,7 @@ def bag_wrapper(wrap_node, rosbag_location, kwargs):
 #                args = {"foo": 1, "bar": "justin is cool"}
 def run_node(node_type, args):
     # Get rid of ROS messages from appearing during testing
-    rclpy.logging._root_logger.set_level(10)
+    rclpy.logging._root_logger.set_level(50)
     node_instance = node_type(**args)
     rclpy.spin(node_instance)
     node_instance.destroy_node()

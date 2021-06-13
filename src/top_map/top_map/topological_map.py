@@ -1,4 +1,6 @@
 import networkx as nx
+import cv2
+import pickle
 import time
 import numpy as np
 from rclpy.node import Node
@@ -11,7 +13,7 @@ from sensor_msgs.msg import Image
 
 
 class SimilarityClient(Node):
-    def __init__(self):
+    def __init__(self, wait_for_service=True):
         super().__init__("similarity_client")
         retries = 0
         max_retries = 5
@@ -19,22 +21,25 @@ class SimilarityClient(Node):
         self.cli1 = self.create_client(Similarity, "similarity_images")
         self.cli2 = self.create_client(GetEmbedding, "get_embedding")
         self.cli3 = self.create_client(EmbeddingSimilarity, "similarity_embeddings")
-        while not self.cli1.wait_for_service(timeout_sec=1.0):
-            retries += 1
-            assert retries < max_retries
-            self.get_logger().info("Similarity service not available, waiting again...")
-        while not self.cli2.wait_for_service(timeout_sec=1.0):
-            retries += 1
-            assert retries < max_retries
-            self.get_logger().info(
-                "GetEmbedding service not available, waiting again..."
-            )
-        while not self.cli3.wait_for_service(timeout_sec=1.0):
-            retries += 1
-            assert retries < max_retries
-            self.get_logger().info(
-                "EmbeddingSimilarity service not available, waiting again..."
-            )
+        if wait_for_service:
+            while not self.cli1.wait_for_service(timeout_sec=1.0):
+                retries += 1
+                assert retries < max_retries
+                self.get_logger().info(
+                    "Similarity service not available, waiting again..."
+                )
+            while not self.cli2.wait_for_service(timeout_sec=1.0):
+                retries += 1
+                assert retries < max_retries
+                self.get_logger().info(
+                    "GetEmbedding service not available, waiting again..."
+                )
+            while not self.cli3.wait_for_service(timeout_sec=1.0):
+                retries += 1
+                assert retries < max_retries
+                self.get_logger().info(
+                    "EmbeddingSimilarity service not available, waiting again..."
+                )
         self.req_sim_image = Similarity.Request()
         self.req_get_embedding = GetEmbedding.Request()
         self.req_sim_embed = EmbeddingSimilarity.Request()
@@ -77,21 +82,26 @@ class SimilarityClient(Node):
         self.req.confidence = confidence
         self.future = self.cli.call_async(self.req)
 
-    def __del__(self):
-        self.destroy_client(self.cli1)
-        self.destroy_client(self.cli2)
-        self.destroy_client(self.cli3)
-
 
 # Class for building topological map
 class TopologicalMap(Node):
     # Distance is in meters
-    def __init__(self, use_pose_estimate=False, close_distance=1, confidence=0.8):
+
+    def __init__(
+        self,
+        use_pose_estimate=False,
+        close_distance=1,
+        confidence=0.85,
+        save_meng=True,
+        wait_for_service=True,
+    ):
         super().__init__("Topological_Map")
         self.map = nx.DiGraph()
-        self.similarityClient = SimilarityClient()
+        self.similarityClient = SimilarityClient(wait_for_service)
         self.use_pose_estimate = use_pose_estimate
         self.confidence = confidence
+        self.close_distance = close_distance
+        self.save_meng = save_meng
         q = QoSProfile(history=2)
         self.subscription = self.create_subscription(
             Image,
@@ -106,6 +116,36 @@ class TopologicalMap(Node):
         self.bridge = CvBridge()
         self.current_node = None
         self.last_node = None
+        self.meng = {}
+        self.debug_counter = 0
+
+    def save(self, location="./top_map.pkl"):
+        f = open(location, "wb")
+        info = {
+            "meng": self.meng,
+            "current_node": self.current_node,
+            "last_node": self.last_node,
+            "embedding_dict": self.embedding_dict,
+            "use_pose_estimate": self.use_pose_estimate,
+            "close_distance": self.close_distance,
+            "confidence": self.confidence,
+            "save_meng": self.save_meng,
+            "map": self.map,
+        }
+        pickle.dump(info, f)
+
+    def load(self, location="./top_map.pkl"):
+        f = open(location, "rb")
+        info = pickle.load(f)
+        self.meng = info["meng"]
+        self.current_node = info["current_node"]
+        self.last_node = info["last_node"]
+        self.embedding_dict = info["embedding_dict"]
+        self.use_pose_estimate = info["use_pose_estimate"]
+        self.close_distance = info["close_distance"]
+        self.confidence = info["confidence"]
+        self.save_meng = info["save_meng"]
+        self.map = info["map"]
 
     def fix_camera_image(self, image):
         image = np.flipud(image)
@@ -113,6 +153,8 @@ class TopologicalMap(Node):
         return image
 
     def image_callback(self, msg):
+        self.debug_counter += 1
+        print(self.debug_counter)
         # If use_pose_estimate determine if any images close by
         image1 = self.bridge.imgmsg_to_cv2(msg, "bgr8")
         image1 = self.fix_camera_image(image1)
@@ -154,6 +196,7 @@ class TopologicalMap(Node):
             # MAY BE USEFUL TO EXPERIMENT WITH THIS
             if self.current_node not in self.embedding_dict:
                 self.embedding_dict[self.current_node] = image1_embedding
+                self.meng[self.current_node] = cv2.resize(image1, (64, 64))
                 self.counter += 1
             if self.last_node is not None:
                 self.map.add_edge(self.last_node, self.current_node)
