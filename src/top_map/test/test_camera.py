@@ -31,15 +31,13 @@ class BagTester(Node):
     def image_callback2(self, msg):
         image = self.bridge.imgmsg_to_cv2(msg, "bgr8")
         cv2.imwrite(
-            "./test/results/bag/camera" +
-            str(self.image_number) + ".png", image
+            "./test/results/bag/camera" + str(self.image_number) + ".png", image
         )
         self.image_number += 1
         self.future.set_result("Pass")
 
 
 def test_bag():
-    rclpy.init()
     rosbag_location = "./test/testing_resources/rosbag/test_short.bag"
     p = Process(
         target=play_rosbag,
@@ -61,11 +59,10 @@ def test_bag():
     )
     subprocess.Popen(
         kill_testbag_cmd,
-        #    stdout=subprocess.DEVNULL,
-        #    stderr=subprocess.STDOUT,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.STDOUT,
         shell=True,
     )
-    rclpy.shutdown()
     # DO NOT FORGET TO START ROSBRIDGE AND ROSCORE!!!
     assert future.result() == "Pass"
 

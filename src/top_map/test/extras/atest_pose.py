@@ -86,7 +86,6 @@ class BufferTester(Node):
 
 @pytest.mark.skip(reason="Incomplete")
 def test_orbslam2_buffer():
-    rclpy.init()
     # bag_wrapper(wrap_node, rosbag_location, kwargs):
     rosbag_location = "./test/testing_resources/rosbag/test.bag"
     pose_args = {"visualize": False}
@@ -117,7 +116,6 @@ def test_orbslam2_buffer():
 # Then Check to make sure a "good" message gets published
 # A good message is one that isn't inf in all poses.
 def test_orbslam2_message():
-    rclpy.init()
     rosbag_location = "./test/testing_resources/rosbag/test_long.bag"
     pose_args = {"visualize": False}
     p2 = Process(
@@ -153,5 +151,4 @@ def test_orbslam2_message():
     )
     os.kill(p.pid, signal.SIGKILL)
     os.kill(p2.pid, signal.SIGKILL)
-    rclpy.shutdown()
     assert future.result() == "Pass"

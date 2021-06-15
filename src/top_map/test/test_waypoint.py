@@ -43,7 +43,6 @@ def get_goal():
 # TODO: I think I should go through the example made in rmp_nav to see
 # if my method of finessing the data is correct.
 def test_meng_wp_video():
-    rclpy.init()
     # Run bag node to test
     rosbag_location = "./test/testing_resources/rosbag/test.bag"
     p = Process(
@@ -74,6 +73,5 @@ def test_meng_wp_video():
         shell=True,
     )
     os.kill(p.pid, signal.SIGKILL)
-    rclpy.shutdown()
 
     assert len(glob.glob("./test/results/wp/*")) != 0
