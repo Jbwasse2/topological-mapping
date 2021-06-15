@@ -1,13 +1,8 @@
 from top_map.similarityService import (
-    SimilarityService,
     EmbeddingGetter,
     EmbeddingsClassifier,
 )
-import os
-import signal
-from multiprocessing import Process
 import torch
-from top_map.util import run_node
 from top_map_msg_srv.srv import Similarity, EmbeddingSimilarity, GetEmbedding
 import rclpy
 import numpy as np
@@ -125,17 +120,17 @@ class SimilarityClient(Node):
         return np.random.rand(1, 512, 7, 7).astype("float32").flatten().tolist()
 
 
+#
 def test_Similarity():
 
     try:
-        rclpy.init()
-        args = {}
-        p = Process(
-            target=run_node,
-            args=(SimilarityService, args),
-        )
+        #        args = {}
+        #        p = Process(
+        #            target=run_node,
+        #            args=(SimilarityService, args),
+        #        )
+        #        p.start()
         results = [0, 0, 0]
-        p.start()
         minimal_client = SimilarityClient(timeout=10)
         minimal_client.send_request()
         while rclpy.ok():
@@ -188,9 +183,8 @@ def test_Similarity():
         minimal_client.destroy_subscription(minimal_client.cli1)
         minimal_client.destroy_subscription(minimal_client.cli2)
         minimal_client.destroy_subscription(minimal_client.cli3)
-        os.kill(p.pid, signal.SIGKILL)
+        #        os.kill(p.pid, signal.SIGKILL)
         minimal_client.destroy_node()
-        rclpy.shutdown()
         assert results[0] == 1
         assert results[1] == 1
         assert results[2] == 1
