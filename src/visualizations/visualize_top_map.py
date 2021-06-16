@@ -16,19 +16,20 @@ import networkx as nx
 # https://stackoverflow.com/questions/53967392/creating-a-graph-with-images-as-nodes
 # Will need to play around with piesize and arrowsize to make this work...
 def graph_visualize(top_map):
-    piesize = 0.11  # this is the image size
-    p2 = piesize / 2.0
+    piesize = 0.02  # this is the image size
     G = top_map.map
+    width = len(G.nodes)
+    p2 = piesize / width
     images = top_map.meng
-    fig = plt.figure(figsize=(5, 5))
+    fig = plt.figure(figsize=(width * 3, width * 3))
     ax = plt.subplot(111)
-    ax.set_aspect("equal")
+    #    ax.set_aspect("equal")
     pos = nx.circular_layout(G)
-    nx.draw_networkx_edges(G, pos, ax=ax, arrows=True, arrowsize=100)
+    nx.draw_networkx_edges(G, pos, ax=ax, arrows=True, arrowsize=20)
 
     trans = ax.transData.transform
     trans2 = fig.transFigure.inverted().transform
-    for n in G:
+    for n in G.nodes:
         xx, yy = trans(pos[n])  # figure coordinates
         xa, ya = trans2((xx, yy))  # axes coordinates
         a = plt.axes([xa - p2, ya - p2, piesize, piesize])
@@ -36,7 +37,7 @@ def graph_visualize(top_map):
         image = images[n]
         a.imshow(image)
         a.axis("off")
-    plt.show()
+    plt.savefig("./top_map.png", bbox_inches="tight")
 
 
 rc("font", **{"family": "serif", "serif": ["Computer Modern"]})
