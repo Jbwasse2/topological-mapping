@@ -11,8 +11,8 @@ import rclpy
 
 
 class TopMapTester(TopologicalMap):
-    def __init__(self, future, timeout=None):
-        super().__init__()
+    def __init__(self, future, timeout=None, use_pose_estimate=False):
+        super().__init__(use_pose_estimate=use_pose_estimate)
         self.future = future
         if timeout is not None:
             self.timer = self.create_timer(timeout, self.timer_callback)
@@ -30,11 +30,11 @@ def test_top_map():
         rosbag_location = "./test/testing_resources/rosbag/test_long.bag"
         p2 = Process(
             target=play_rosbag,
-            args=(rosbag_location, False, ""),
+            args=(rosbag_location, False, "-r 0.3"),
         )
         p2.start()
         future = Future()
-        topMapTester = TopMapTester(future, timeout=10)
+        topMapTester = TopMapTester(future, timeout=5, use_pose_estimate=True)
         rclpy.spin_until_future_complete(topMapTester, future)
     except Exception as e:
         raise (e)
