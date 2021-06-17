@@ -35,10 +35,10 @@ def train(model, device, epochs=30):
     seed = 0
     train_dataset = ViNGImageDataset(
         "train",
-        samples=10000,
+        samples=20000,
         image_data_path="./data/clean/",
         seed=0,
-        max_distance=20,
+        max_distance=30,
     )
     train_dataset.save_env_data(results_dir)
     train_dataloader = data.DataLoader(
@@ -47,13 +47,12 @@ def train(model, device, epochs=30):
         shuffle=True,
         num_workers=16,
     )
-    pu.db
     test_dataset = ViNGImageDataset(
         "test",
-        samples=1000,
+        samples=2000,
         image_data_path="./data/clean/",
         seed=0,
-        max_distance=20,
+        max_distance=30,
     )
     test_dataloader = data.DataLoader(
         test_dataset,

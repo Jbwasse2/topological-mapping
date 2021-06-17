@@ -39,7 +39,7 @@ class WaypointPublisher(Node):
 
     def get_model(self):
         model = model_factory.get("model_12env_v2_future_pair_proximity_z0228")(
-            device="cuda"
+            device="cpu"
         )
         return model
 

@@ -34,7 +34,6 @@ class Siamese(nn.Module):
         return x
 
     def forward(self, x1, x2):
-        pu.db
         self.encoder.eval()
         out1 = self.encode(x1)
         out2 = self.encode(x2)
