@@ -56,8 +56,8 @@ class TopologicalMap(Node):
         self.debug_counter = 0
 
     def ekf_callback(self, msg):
-        print("EKF")
         self.position = msg.pose.pose.position
+        self.get_logger().info("Position is now " + str(self.position))
         self.orientation = msg.pose.pose.orientation
 
     def save(self, location="./top_map.pkl"):
@@ -112,7 +112,6 @@ class TopologicalMap(Node):
 
     def image_callback(self, msg):
         self.debug_counter += 1
-        print(self.debug_counter)
         # If use_pose_estimate determine if any images close by
         image1 = self.bridge.imgmsg_to_cv2(msg, "rgb8")
         image1 = self.fix_camera_image(image1)
@@ -135,7 +134,9 @@ class TopologicalMap(Node):
                     "Time to run update map=" + str(time.time() - start)
                 )
         else:
+            start = time.time()
             self.update_map(self.map.nodes, image1_embedding, image1)
+            self.get_logger().info("Time to run update map=" + str(time.time() - start))
 
     def update_map(self, nodes_to_it_over, image1_embedding, image1):
         # If not using use_pose_estimate compare to every other image
@@ -151,7 +152,7 @@ class TopologicalMap(Node):
                 break
         # If current_node already in map, this does nothing
         self.map.add_node(self.current_node)
-        # DOES NOT UPDATE EMBEDDING IF ALREADY IN THERE!
+        # DOES NOT UPDATE EMBEDDING INFORMATION IF ALREADY IN THERE!
         # MAY BE USEFUL TO EXPERIMENT WITH THIS
         if self.current_node not in self.embedding_dict:
             self.embedding_dict[self.current_node] = image1_embedding

@@ -1,26 +1,24 @@
-from rclpy.task import Future
-import subprocess
-from top_map.util import play_rosbag
-from top_map.topological_map import (
-    TopologicalMap,
-)
-import os
+import pytest
 import signal
 from multiprocessing import Process
 import rclpy
+from top_map.planner import Planner
+import subprocess
+from rclpy.task import Future
+import os
+from top_map.util import play_rosbag
 
 
-class TopMapTester(TopologicalMap):
-    def __init__(self, future, timeout=None, use_pose_estimate=False):
-        super().__init__(use_pose_estimate=use_pose_estimate)
+class PlannerTester(Planner):
+    def __init__(self, future, timeout=None):
+        super().__init__("./data/indoorData/results/top_maps/test_top_map.pkl")
         self.future = future
         if timeout is not None:
             self.timer = self.create_timer(timeout, self.timer_callback)
 
     def timer_callback(self):
-        if len(self.map.nodes) > 0:
+        if self.current_node != None and self.plan != None:
             self.future.set_result("Pass")
-            self.save("./data/indoorData/results/top_maps/test_top_map.pkl")
         else:
             self.future.set_result("Timeout")
 
@@ -34,13 +32,13 @@ def test_top_map():
         )
         p2.start()
         future = Future()
-        topMapTester = TopMapTester(future, timeout=5, use_pose_estimate=True)
-        rclpy.spin_until_future_complete(topMapTester, future)
+        plannerTester = PlannerTester(future, timeout=5)
+        rclpy.spin_until_future_complete(plannerTester, future)
     except Exception as e:
         raise (e)
     else:
-        topMapTester.destroy_node()
-        assert topMapTester.future.result() == "Pass"
+        plannerTester.destroy_node()
+        assert plannerTester.future.result() == "Pass"
     finally:
         # kills test.bag
         kill_testbag_cmd = (
