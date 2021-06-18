@@ -1,7 +1,9 @@
 # Planner should be to localize and plan over the topological map
+import numpy as np
 import networkx as nx
 from rclpy.node import Node
 from top_map.topological_map import TopologicalMap
+from top_map.waypoint import WaypointPublisher
 from sensor_msgs.msg import Image
 import random
 
@@ -15,6 +17,11 @@ class Planner(Node):
         super().__init__("Planner")
         self.subscription = self.create_subscription(
             Image, "/terrasentia/usb_cam_node/image_raw", self.image_callback
+        )
+        self.publisher = self.create_publisher(
+            Image,
+            "/top_map/local_goal",
+            2,
         )
         self.top_map = TopologicalMap()
         self.top_map.load(topological_map_pkl)
@@ -57,6 +64,19 @@ class Planner(Node):
                 index = self.plan.index(self.local_goal)
                 self.local_goal = self.plan[index + 1]
 
+    # This is used for meng code in order to suggest waypoints
+    # Meng requires 11 images to set goal, so just copy goal 10 more times for now
+    # Meng image is saved as RGB8, but it actually needs to be sent out as BGR8
+    def set_local_goal(self, image):
+        image_msg = Image()
+        image_msg.height = image.shape[0] * 11
+        image_msg.width = image.shape[1]
+        image_msg.encoding = "bgr8"
+        image = np.vstack([image for _ in range(11)])
+        value = self.top_map.bridge.cv2_to_imgmsg(image.astype(np.uint8))
+        image_msg.data = value.data
+        self.publisher.publish(image_msg)
+
     def localize(self, image1_embedding):
         nodes_to_it_over = self.top_map.map.nodes
         for node in nodes_to_it_over:
@@ -72,6 +92,7 @@ class Planner(Node):
                     self.top_map.map, self.current_node, self.goal
                 )
                 self.local_goal = self.plan[1]
+                self.set_local_goal(self.top_map.meng[self.local_goal])
                 self.get_logger().info("Localized Robot in Map!")
                 return
         self.get_logger().warning("Failed to Localize Robot in Map!")

@@ -54,8 +54,7 @@ def test_meng_wp_video():
         ),
     )
     future = Future()
-    waypointPublisher = WaypointPublisherTester(
-        5, "./test/results/wp/", future)
+    waypointPublisher = WaypointPublisherTester(5, "./test/results/wp/", future)
     goal = get_goal()
     waypointPublisher.goal = goal
     waypointPublisher.goal_show = goal[6]

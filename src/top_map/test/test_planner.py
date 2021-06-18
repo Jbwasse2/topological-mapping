@@ -3,18 +3,39 @@ import signal
 from multiprocessing import Process
 import rclpy
 from top_map.planner import Planner
+from top_map.waypoint import WaypointPublisher
 import subprocess
 from rclpy.task import Future
 import os
-from top_map.util import play_rosbag
+from top_map.util import play_rosbag, run_node
+from geometry_msgs.msg import TwistStamped
 
 
 class PlannerTester(Planner):
     def __init__(self, future, timeout=None):
         super().__init__("./data/indoorData/results/top_maps/test_top_map.pkl")
         self.future = future
+        self.sub_ = self.create_subscription(
+            TwistStamped, "/terrasentia/cmd_vel", self.twistcallback
+        )
+        self.twist_called = False
         if timeout is not None:
             self.timer = self.create_timer(timeout, self.timer_callback)
+
+    def twistcallback(self, msg):
+        # I think that some messages are sent from some other part
+        # of the ros websocket. But hey are always 0's
+        if (
+            msg.twist.linear.x == 0.0
+            and msg.twist.linear.y == 0.0
+            and msg.twist.linear.z == 0.0
+            and msg.twist.angular.x == 0.0
+            and msg.twist.angular.y == 0.0
+            and msg.twist.angular.z == 0.0
+        ):
+            pass
+        else:
+            self.twist_called = True
 
     def timer_callback(self):
         if self.current_node != None and self.plan != None:
@@ -25,6 +46,17 @@ class PlannerTester(Planner):
 
 def test_top_map():
     try:
+        # Start Waypoint Publisher
+        args = {"create_graphic": "./test/results/planner/"}
+        p = Process(
+            target=run_node,
+            args=(
+                WaypointPublisher,
+                args,
+            ),
+        )
+        p.start()
+        # Start ros bag
         rosbag_location = "./test/testing_resources/rosbag/test_long.bag"
         p2 = Process(
             target=play_rosbag,
@@ -38,7 +70,10 @@ def test_top_map():
         raise (e)
     else:
         plannerTester.destroy_node()
-        assert plannerTester.future.result() == "Pass"
+        if plannerTester.future.result() != "Pass":
+            pytest.fail("Future is " + str(plannerTester.future.result()))
+        if not plannerTester.twist_called:
+            pytest.fail("Twist was never called! Did you set a goal?")
     finally:
         # kills test.bag
         kill_testbag_cmd = (
