@@ -95,6 +95,14 @@ class TopologicalMap(Node):
         image = np.fliplr(image)
         return image
 
+    # Input
+    # reference_position: position of reference node
+    # pose_dict: dictionary of poses for nodes in graph
+    # top_map: topological map to search over for close nodes
+    # threshold_distance: if below the distance threshold, the nodes
+    # will be check with a deep learning model
+    # output
+    # All nodes that are close via pose estimate
     def get_all_close_nodes(
         self, reference_position, pose_dict, top_map, threshold_distance
     ):
@@ -161,6 +169,41 @@ class TopologicalMap(Node):
             self.ekf_pose[self.current_node] = pose
             self.counter += 1
         if self.last_node is not None:
-            self.map.add_edge(self.last_node, self.current_node)
+            if self.last_node != self.current_node:
+                self.map.add_edge(self.last_node, self.current_node)
         self.last_node = self.current_node
         self.current_node = None
+
+    def loop_closure(self, graph):
+        for node in self.map.nodes:
+            node_position = self.ekf_pose[node]["position"]
+            close_nodes = self.get_all_close_nodes(
+                node_position, self.ekf_pose, self.map, self.close_distance
+            )
+            for neighboring_node in close_nodes:
+                if neighboring_node == node:
+                    continue
+                image1_embedding = self.embedding_dict[node]
+                image2_embedding = self.embedding_dict[neighboring_node]
+                closeness_indicator = self.similarityService.get_similarity_embedding(
+                    image1_embedding, image2_embedding, self.confidence
+                )
+                if closeness_indicator:
+                    self.get_logger().info(
+                        "Mergin nodes " + str(node) + " and " + str(neighboring_node)
+                    )
+                    # Move all edges from neighboring node to node
+                    # First incoming edges
+                    incoming_edges = graph.in_edges(neighboring_node)
+                    for edge in list(incoming_edges):
+                        other_node = edge[0]
+                        if other_node != node:
+                            graph.edges((other_node, node))
+                    # Next outgoing edges
+                    outgoing_edges = graph.out_edges(neighboring_node)
+                    for edge in list(outgoing_edges):
+                        other_node = edge[1]
+                        if other_node != node:
+                            graph.edges((node, other_node))
+                    # Remove neighoring node from map
+                    graph.remove_edge(neighboring_node)
