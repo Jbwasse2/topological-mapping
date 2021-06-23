@@ -12,7 +12,6 @@ import pudb  # noqa
 import rclpy
 from cv_bridge import CvBridge
 from geometry_msgs.msg import TwistStamped, Vector3, Twist
-from std_msgs.msg import Header
 from rclpy.node import Node
 from sensor_msgs.msg import Image
 from topological_nav.reachability import model_factory
@@ -80,7 +79,7 @@ class WaypointPublisher(Node):
         images = np.reshape(images, (11, 64, 64, 3))
         self.goal = [images[i, :, :] for i in range(images.shape[0])]
         self.goal_show = self.goal[5]
-        if self.start_moving == False:
+        if self.start_moving is False:
             self.start_moving = True
             self.subscription = self.create_subscription(
                 Image,

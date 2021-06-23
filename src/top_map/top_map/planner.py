@@ -3,7 +3,6 @@ import numpy as np
 import networkx as nx
 from rclpy.node import Node
 from top_map.topological_map import TopologicalMap
-from top_map.waypoint import WaypointPublisher
 from sensor_msgs.msg import Image
 import random
 
@@ -31,11 +30,6 @@ class Planner(Node):
         self.current_node = None
         self.plan = None
         self.confidence = confidence
-        if update_rate is not None:
-            self.timer = self.create_timer(timeout, self.timer_callback)
-
-    def timer_callback(self):
-        pass
 
     # Chooses a random node in the map as a goal
     def get_random_node(self, nodes):
@@ -62,7 +56,12 @@ class Planner(Node):
                 # Advance local goal to next node in path
                 self.get_logger().info("Updating Robot Location!")
                 index = self.plan.index(self.local_goal)
-                self.local_goal = self.plan[index + 1]
+                if index + 1 >= len(self.plan):
+                    self.get_logger().warn(
+                        "Tried updating plan, but no more path left!"
+                    )
+                else:
+                    self.local_goal = self.plan[index + 1]
 
     # This is used for meng code in order to suggest waypoints
     # Meng requires 11 images to set goal, so just copy goal 10 more times for now

@@ -1,4 +1,5 @@
 import networkx as nx
+from copy import deepcopy
 import time
 import cv2
 import pickle
@@ -175,7 +176,12 @@ class TopologicalMap(Node):
         self.current_node = None
 
     def loop_closure(self, graph):
-        for node in self.map.nodes:
+        nodes_to_it_over = deepcopy(self.map.nodes)
+        for node in nodes_to_it_over:
+            # Node may have already been removed from graph, if it is then
+            # skip over it
+            if node not in self.map.nodes:
+                continue
             node_position = self.ekf_pose[node]["position"]
             close_nodes = self.get_all_close_nodes(
                 node_position, self.ekf_pose, self.map, self.close_distance
@@ -206,4 +212,4 @@ class TopologicalMap(Node):
                         if other_node != node:
                             graph.edges((node, other_node))
                     # Remove neighoring node from map
-                    graph.remove_edge(neighboring_node)
+                    graph.remove_node(neighboring_node)

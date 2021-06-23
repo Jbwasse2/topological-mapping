@@ -1,5 +1,5 @@
 from rclpy.task import Future
-import pytest
+import numpy as np
 import subprocess
 from top_map.util import play_rosbag
 from top_map.topological_map import (
@@ -9,7 +9,6 @@ import os
 import signal
 from multiprocessing import Process
 import rclpy
-from copy import deepcopy
 
 
 class TopMapTester(TopologicalMap):
@@ -36,7 +35,6 @@ class LoopClosureTester(TopologicalMap):
             self.timer = self.create_timer(timeout, self.timer_callback)
 
     def loop_closure_timer(self):
-        old_map = deepcopy(self.map)
         self.loop_closure(self.map)
 
     def timer_callback(self):
@@ -46,7 +44,6 @@ class LoopClosureTester(TopologicalMap):
             self.future.set_result("Timeout")
 
 
-@pytest.mark.skip(reason="writing other test")
 def test_top_map():
     try:
         rosbag_location = "./test/testing_resources/rosbag/test_long.bag"
@@ -79,17 +76,44 @@ def test_top_map():
 
 
 def test_loop_closure():
+    class position:
+        def __init__(self, x, y, z):
+            self.x = x
+            self.y = y
+            self.z = z
+
     try:
         future = Future()
         topMapTester = LoopClosureTester(future, timeout=3)
-        topMapTester.load(
-            "./data/indoorData/results/top_maps/test_loop_closure_map.pkl"
-        )
+        # Set ekf_pose position
+        topMapTester.ekf_pose[(0, 0)] = {}
+        topMapTester.ekf_pose[(0.0, 0)]["position"] = position(0.0, 0.0, 0.0)
+        topMapTester.ekf_pose[(0.0, 1)] = {}
+        topMapTester.ekf_pose[(0.0, 1)]["position"] = position(0.0, 2.0, 0.0)
+        topMapTester.ekf_pose[(0.0, 2)] = {}
+        topMapTester.ekf_pose[(0.0, 2)]["position"] = position(0.0, 0.1, 0.0)
+        # Set nodes in test map
+        topMapTester.map.add_node((0, 0))
+        topMapTester.map.add_node((0, 1))
+        topMapTester.map.add_node((0, 2))
+        # Set edges in test map
+        topMapTester.map.add_edge((0, 1), (0, 0))
+        topMapTester.map.add_edge((0, 2), (0, 0))
+        # Set embeddings
+        embedding = np.random.rand(1, 512, 7, 7).astype(np.float32)
+        topMapTester.embedding_dict[(0, 0)] = embedding
+        topMapTester.embedding_dict[(0, 1)] = embedding
+        topMapTester.embedding_dict[(0, 2)] = embedding
         rclpy.spin_until_future_complete(topMapTester, future)
     except Exception as e:
         raise (e)
     else:
         topMapTester.destroy_node()
-        assert topMapTester.future.result() == "Pass"
+        nodes = topMapTester.map.nodes
+        assert len(nodes) == 2
+        assert (0, 0) in nodes
+        assert (0, 1) in nodes
+        edges = topMapTester.map.edges
+        assert ((0, 1), (0, 0)) in edges
     finally:
         pass

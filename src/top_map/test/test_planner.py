@@ -38,7 +38,7 @@ class PlannerTester(Planner):
             self.twist_called = True
 
     def timer_callback(self):
-        if self.current_node != None and self.plan != None:
+        if self.current_node is not None and self.plan is not None:
             self.future.set_result("Pass")
         else:
             self.future.set_result("Timeout")
