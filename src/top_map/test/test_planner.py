@@ -13,7 +13,9 @@ from geometry_msgs.msg import TwistStamped
 
 class PlannerTester(Planner):
     def __init__(self, future, timeout=None):
-        super().__init__("./data/indoorData/results/top_maps/test_top_map.pkl")
+        rick = "./test/testing_resources/test_top_map.pkl"
+        assert os.path.exists(rick)
+        super().__init__(rick)
         self.future = future
         self.sub_ = self.create_subscription(
             TwistStamped, "/terrasentia/cmd_vel", self.twistcallback
@@ -87,3 +89,4 @@ def test_top_map():
             shell=True,
         )
         os.kill(p2.pid, signal.SIGKILL)
+        os.kill(p.pid, signal.SIGKILL)
