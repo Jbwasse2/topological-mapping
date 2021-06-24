@@ -1,5 +1,6 @@
 #
 #
+*.pdf
 *.bag
 configs/ORBvoc.txt
 src/top_map/configs/ORBvoc.txt

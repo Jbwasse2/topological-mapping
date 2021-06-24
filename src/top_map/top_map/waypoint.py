@@ -11,13 +11,16 @@ import pudb  # noqa
 
 import rclpy
 from cv_bridge import CvBridge
-from geometry_msgs.msg import Twist, Vector3
+from geometry_msgs.msg import TwistStamped, Vector3, Twist
 from rclpy.node import Node
 from sensor_msgs.msg import Image
 from topological_nav.reachability import model_factory
 
 
 class WaypointPublisher(Node):
+    # debug is neccessary because testing assumes the subscription is
+    # started from the beggining. But at run time we only want to start
+    # sending commands when a local goal is given
     def __init__(self, create_graphic=""):
         super().__init__("waypoint_publisher")
         # If output file doesn't exist create it for iamges to be saved to instead of displayed.
@@ -29,12 +32,22 @@ class WaypointPublisher(Node):
         self.create_graphic = create_graphic
         self.model = self.get_model()
         self.subscription = self.create_subscription(
-            Image, "/terrasentia/usb_cam_node/image_raw", self.image_callback, 1
+            Image,
+            "/terrasentia/usb_cam_node/image_raw",
+            self.image_callback,
+            2,
         )
-        self.publisher_ = self.create_publisher(
-            Twist, "terra_command_twist", 1)
+        self.subscription = self.create_subscription(
+            Image,
+            "/top_map/local_goal",
+            self.local_goal_callback,
+            2,
+        )
+        self.start_moving = False
+        self.publisher_ = self.create_publisher(TwistStamped, "/terrasentia/cmd_vel", 1)
         self.bridge = CvBridge()
         self.get_logger().info("Created Waypoint Node")
+        self.goal = None
         self.count = 0
 
     def get_model(self):
@@ -54,12 +67,28 @@ class WaypointPublisher(Node):
         angular.x = 0.0
         angular.y = 0.0
         angular.z = float(waypoint[1].item()) / 4
-        msg = Twist()
-        msg.linear = lin
-        msg.angular = angular
+        msg = TwistStamped()
+        msg_twist = Twist()
+        msg_twist.linear = lin
+        msg_twist.angular = angular
+        msg.twist = msg_twist
         return msg
 
-    def image_callback(self, msg):
+    def local_goal_callback(self, msg):
+        images = self.bridge.imgmsg_to_cv2(msg, "rgb8")
+        images = np.reshape(images, (11, 64, 64, 3))
+        self.goal = [images[i, :, :] for i in range(images.shape[0])]
+        self.goal_show = self.goal[5]
+        if self.start_moving is False:
+            self.start_moving = True
+            self.subscription = self.create_subscription(
+                Image,
+                "/terrasentia/usb_cam_node/image_raw",
+                self.image_callback,
+                2,
+            )
+
+    def image_to_waypoint(self, msg):
         self.get_logger().info("I heard {0}".format(str(msg.header)))
         image = self.bridge.imgmsg_to_cv2(msg, "bgr8")
         image = cv2.flip(image, -1)
@@ -72,22 +101,25 @@ class WaypointPublisher(Node):
         # The arrow is strictly for visualization, not used for navigation
         if self.create_graphic != "":
             arrow_start = (32, 20)
-            arrow_end = (
-                32 + int(10 * -waypoint[1]), 20 + int(10 * -waypoint[0]))
+            arrow_end = (32 + int(10 * -waypoint[1]), 20 + int(10 * -waypoint[0]))
             color = (0, 0, 255)  # Red
             thickness = 2
             # cv2 like BGR because they like eating glue
             image = cv2.resize(image, (64, 64))
             image = np.hstack((image, cv2.resize(self.goal_show, (64, 64))))
-            image = cv2.arrowedLine(
-                image, arrow_start, arrow_end, color, thickness)
+            image = cv2.arrowedLine(image, arrow_start, arrow_end, color, thickness)
             (height, width, _) = image.shape
             # Add 0's to front to make it easier for script to make into video
             # counter should not be larger than 6 digits (IE 999999)
             counter_string = str(self.counter).rjust(6, "0")
-            cv2.imwrite(self.create_graphic + "frame" +
-                        counter_string + ".png", image)
+            cv2.imwrite(self.create_graphic + "frame" + counter_string + ".png", image)
             self.counter += 1
+
+    def image_callback(self, msg):
+        if self.goal is None:
+            self.get_logger().info("No local goal set!")
+        else:
+            self.image_to_waypoint(msg)
 
     def get_wp(self, ob, goal):
         follower = self.model["follower"]
