@@ -64,14 +64,13 @@ class Planner(Node):
                     self.local_goal = self.plan[index + 1]
 
     # This is used for meng code in order to suggest waypoints
-    # Meng requires 11 images to set goal, so just copy goal 10 more times for now
     # Meng image is saved as RGB8, but it actually needs to be sent out as BGR8
     def set_local_goal(self, image):
         image_msg = Image()
-        image_msg.height = image.shape[0] * 11
-        image_msg.width = image.shape[1]
+        image_msg.height = image[0].shape[0] * 11
+        image_msg.width = image[0].shape[1]
         image_msg.encoding = "bgr8"
-        image = np.vstack([image for _ in range(11)])
+        image = np.vstack(image)
         value = self.top_map.bridge.cv2_to_imgmsg(image.astype(np.uint8))
         image_msg.data = value.data
         self.publisher.publish(image_msg)
