@@ -53,6 +53,12 @@ class TopologicalMap(Node):
         self.current_node = None
         self.last_node = None
         self.meng = {}
+        # Meng requires 5 before images and 5 images after goal
+        self.BUFFER_SIZE = 5
+        self.meng_buffer = [None for _ in range(self.BUFFER_SIZE)]
+        # meng buffer after keeps track of images that comes up
+        # after an image is added to the map
+        self.meng_buffer_after = {}
         self.ekf_pose = {}
         self.debug_counter = 0
 
@@ -96,14 +102,32 @@ class TopologicalMap(Node):
         image = np.fliplr(image)
         return image
 
-    # Input
-    # reference_position: position of reference node
-    # pose_dict: dictionary of poses for nodes in graph
-    # top_map: topological map to search over for close nodes
-    # threshold_distance: if below the distance threshold, the nodes
-    # will be check with a deep learning model
-    # output
-    # All nodes that are close via pose estimate
+    # image : image given at a given time
+    # meng_after_dict : dict of keys=node and values=list
+    # where list keep track of images for saving for meng after
+    # goal has been added to topological map
+    def update_meng_after_dict(self, image, meng_after_dict):
+        # Add image to all lists
+        copy_of_meng_after_dict = deepcopy(meng_after_dict)
+        for key, value in copy_of_meng_after_dict.items():
+            value.pop(0)
+            value.append(cv2.resize(image, (64, 64)))
+            meng_after_dict[key] = value
+            # If list is now full, update self.meng
+            if not any(elem is None for elem in value):
+                self.meng[key] += value
+                meng_after_dict.pop(key, None)
+        return meng_after_dict
+
+        # Input
+        # reference_position: position of reference node
+        # pose_dict: dictionary of poses for nodes in graph
+        # top_map: topological map to search over for close nodes
+        # threshold_distance: if below the distance threshold, the nodes
+        # will be check with a deep learning model
+        # output
+        # All nodes that are close via pose estimate
+
     def get_all_close_nodes(
         self, reference_position, pose_dict, top_map, threshold_distance
     ):
@@ -128,6 +152,12 @@ class TopologicalMap(Node):
         image1_label = self.counter
         image1_trajectory_label = self.trajectory_label
         self.current_node = (image1_trajectory_label, image1_label)
+        # Add image to buffer so that way it can be saved later
+        self.meng_buffer.pop(0)
+        self.meng_buffer.append(cv2.resize(image1, (64, 64)))
+        self.meng_buffer_after = self.update_meng_after_dict(
+            image1, self.meng_buffer_after
+        )
         if self.use_pose_estimate:
             if self.position is not None:
                 start = time.time()
@@ -165,7 +195,12 @@ class TopologicalMap(Node):
         # MAY BE USEFUL TO EXPERIMENT WITH THIS
         if self.current_node not in self.embedding_dict:
             self.embedding_dict[self.current_node] = image1_embedding
-            self.meng[self.current_node] = cv2.resize(image1, (64, 64))
+            self.meng[self.current_node] = self.meng_buffer + [
+                cv2.resize(image1, (64, 64))
+            ]
+            self.meng_buffer_after[self.current_node] = [
+                None for i in range(self.BUFFER_SIZE)
+            ]
             pose = {"position": self.position, "orientation": self.orientation}
             self.ekf_pose[self.current_node] = pose
             self.counter += 1
