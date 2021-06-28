@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 # This node takes the model trianed in the similarity directory in order to facilitate
 # similarity detection for building the topological map
-import torch
-from torch import nn
-import torch.nn.functional as F
-import torchvision.transforms as transforms
 import cv2
 import rclpy
+import torch
+import torch.nn.functional as F
+import torchvision.transforms as transforms
+from torch import nn
+
 from top_map.top_data.indoorData.results.similarity.best_model.model import Siamese
 
 

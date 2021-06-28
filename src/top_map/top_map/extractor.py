@@ -1,7 +1,7 @@
 # The purpose of this file is to extract info from the ROS bag in order to
 # train the deep learning models.
-import rclpy
 import cv2
+import rclpy
 from cv_bridge import CvBridge
 from rclpy.node import Node
 from sensor_msgs.msg import Image
@@ -26,9 +26,7 @@ class BagExtractor(Node):
         image = cv2.flip(image, -1)
         # Even though the Terrasentia says the encoding is RGB8, it is actually BGR8
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        cv2.imwrite(
-            "../data/indoorData/unorganized/" + name + ".jpg", image
-        )
+        cv2.imwrite("../data/indoorData/unorganized/" + name + ".jpg", image)
         self.counter += 1
 
 

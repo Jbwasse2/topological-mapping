@@ -2,6 +2,7 @@
 #
 *.pdf
 *.bag
+src/top_map/test/testing_resources
 configs/ORBvoc.txt
 src/top_map/configs/ORBvoc.txt
 src/top_map/test/resources/

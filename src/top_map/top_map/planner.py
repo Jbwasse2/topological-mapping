@@ -1,10 +1,12 @@
 # Planner should be to localize and plan over the topological map
-import numpy as np
-import networkx as nx
-from rclpy.node import Node
-from top_map.topological_map import TopologicalMap
-from sensor_msgs.msg import Image
 import random
+
+import networkx as nx
+import numpy as np
+from rclpy.node import Node
+from sensor_msgs.msg import Image
+
+from top_map.topological_map import TopologicalMap
 
 
 class Planner(Node):

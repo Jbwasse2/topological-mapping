@@ -1,10 +1,8 @@
-from top_map.similarityService import (
-    EmbeddingGetter,
-    EmbeddingsClassifier,
-)
-import torch
 import numpy as np
+import torch
 from rclpy.node import Node
+
+from top_map.similarityService import EmbeddingGetter, EmbeddingsClassifier
 
 
 def atest_get_embedding():

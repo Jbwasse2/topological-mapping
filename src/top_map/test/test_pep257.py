@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import pytest
-
 from ament_pep257.main import main
 
 

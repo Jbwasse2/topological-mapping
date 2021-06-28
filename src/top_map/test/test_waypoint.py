@@ -1,13 +1,13 @@
 import glob
-import subprocess
 import os
 import signal
+import subprocess
 from multiprocessing import Process
 
 import cv2
-
 import rclpy
 from rclpy.task import Future
+
 from top_map.util import play_rosbag
 from top_map.waypoint import WaypointPublisher
 

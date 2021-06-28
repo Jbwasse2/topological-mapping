@@ -1,14 +1,14 @@
-from rclpy.task import Future
-import numpy as np
-import subprocess
-from top_map.util import play_rosbag
-from top_map.topological_map import (
-    TopologicalMap,
-)
 import os
 import signal
+import subprocess
 from multiprocessing import Process
+
+import numpy as np
 import rclpy
+from rclpy.task import Future
+
+from top_map.topological_map import TopologicalMap
+from top_map.util import play_rosbag
 
 
 class TopMapTester(TopologicalMap):

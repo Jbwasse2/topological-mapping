@@ -8,10 +8,9 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pudb  # noqa
-
 import rclpy
 from cv_bridge import CvBridge
-from geometry_msgs.msg import TwistStamped, Vector3, Twist
+from geometry_msgs.msg import Twist, TwistStamped, Vector3
 from rclpy.node import Node
 from sensor_msgs.msg import Image
 from topological_nav.reachability import model_factory

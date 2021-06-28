@@ -1,15 +1,17 @@
-import networkx as nx
-from copy import deepcopy
-import time
-import cv2
 import pickle
+import time
+from copy import deepcopy
+
+import cv2
+import networkx as nx
 import numpy as np
+from cv_bridge import CvBridge
+from nav_msgs.msg import Odometry
 from rclpy.node import Node
 from rclpy.qos import QoSProfile
-from top_map.similarityService import SimilarityService
-from cv_bridge import CvBridge
 from sensor_msgs.msg import Image
-from nav_msgs.msg import Odometry
+
+from top_map.similarityService import SimilarityService
 
 
 # Class for building topological map

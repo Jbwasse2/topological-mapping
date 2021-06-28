@@ -1,6 +1,6 @@
 import os
-import subprocess
 import signal
+import subprocess
 from multiprocessing import Process
 
 import numpy as np
@@ -11,6 +11,7 @@ from rclpy.node import Node
 from rclpy.qos import QoSProfile
 from rclpy.task import Future
 from sensor_msgs.msg import Image
+
 from top_map.pose import Orbslam2Pose
 from top_map.util import bag_wrapper, play_rosbag, run_node
 

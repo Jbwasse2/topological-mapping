@@ -2,13 +2,13 @@ import subprocess
 from multiprocessing import Process
 
 import cv2
-from top_map.util import play_rosbag
-
 import rclpy
-from rclpy.task import Future
 from cv_bridge import CvBridge
 from rclpy.node import Node
+from rclpy.task import Future
 from sensor_msgs.msg import Image
+
+from top_map.util import play_rosbag
 
 
 class BagTester(Node):

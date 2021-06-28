@@ -3,6 +3,7 @@
 # I need to import cv2 first even if I don't use it.
 import cv2  # noqa
 import numpy as np
+import orbslam2
 import pudb  # noqa
 import quaternion
 from cv_bridge import CvBridge
@@ -11,8 +12,6 @@ from rclpy.node import Node
 from rclpy.qos import QoSProfile
 from sensor_msgs.msg import Image
 from std_msgs.msg import Header
-
-import orbslam2
 
 
 # TODO implement this for RGB or RGBD
@@ -41,8 +40,7 @@ class Orbslam2Pose(Node):
             self.update_internal_state,
             qos_profile=q,
         )
-        self.publisher = self.create_publisher(
-            PoseStamped, "pose", qos_profile=q)
+        self.publisher = self.create_publisher(PoseStamped, "pose", qos_profile=q)
         self.bridge = CvBridge()
         self.get_logger().info("ORBSLAM2 succesfully started")
 
@@ -87,8 +85,7 @@ class Orbslam2Pose(Node):
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         current_time_second = msg.header.stamp.sec - self.start_time.sec
         current_time_nanosecond = msg.header.stamp.nanosec - self.start_time.nanosec
-        current_time = current_time_second + \
-            (current_time_nanosecond * 10 ** -9)
+        current_time = current_time_second + (current_time_nanosecond * 10 ** -9)
         self.slam.process_image_mono(image, current_time)
         if not str(self.slam.get_tracking_state()) == "OK":
             self.get_logger().warning(
@@ -102,8 +99,7 @@ class Orbslam2Pose(Node):
             self.publish_failure_pose(msg.header.frame_id)
         else:
             self.get_logger().info(
-                'ORBSLAM2 succesfully updated state "%s"' % str(
-                    msg.header.stamp)
+                'ORBSLAM2 succesfully updated state "%s"' % str(msg.header.stamp)
             )
             self.publish_pose(msg.header.frame_id)
 

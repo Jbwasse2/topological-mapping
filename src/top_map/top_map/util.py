@@ -1,7 +1,7 @@
 import os
 import subprocess
-from multiprocessing import Process
 import time
+from multiprocessing import Process
 
 import rclpy
 
@@ -41,7 +41,7 @@ def run_node(node_type, args):
 
 # Input: bag_location : directory to ROS2 bag location
 #       loop : Should the rosbag be played indefinetly?
-def play_rosbag(bag_location, loop=False, rosbag_args=None):
+def play_rosbag(bag_location, loop=False, rosbag_args=""):
     assert os.path.exists(bag_location)
     while 1:
         # There is a mixing problem with just calling the rosbag
@@ -113,4 +113,5 @@ def kill_ros2_node(node):
 
 if __name__ == "__main__":
     #    wait_for_ros2_nodes_to_die()
-    kill_ros2_node("similarity_service")
+    # kill_ros2_node("similarity_service")
+    play_rosbag("../test/testing_resources/rosbag/test_short.bag")

@@ -1,14 +1,16 @@
-import pytest
-import signal
-from multiprocessing import Process
-import rclpy
-from top_map.planner import Planner
-from top_map.waypoint import WaypointPublisher
-import subprocess
-from rclpy.task import Future
 import os
-from top_map.util import play_rosbag, run_node
+import signal
+import subprocess
+from multiprocessing import Process
+
+import pytest
+import rclpy
 from geometry_msgs.msg import TwistStamped
+from rclpy.task import Future
+
+from top_map.planner import Planner
+from top_map.util import play_rosbag, run_node
+from top_map.waypoint import WaypointPublisher
 
 
 class PlannerTester(Planner):
@@ -66,7 +68,7 @@ def test_top_map():
         )
         p2.start()
         future = Future()
-        plannerTester = PlannerTester(future, timeout=5)
+        plannerTester = PlannerTester(future, timeout=10)
         rclpy.spin_until_future_complete(plannerTester, future)
     except Exception as e:
         raise (e)
