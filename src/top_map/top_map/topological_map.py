@@ -1,4 +1,5 @@
 import pickle
+import rclpy
 import os
 import time
 from copy import deepcopy
@@ -19,14 +20,9 @@ from top_map.similarityService import SimilarityService
 class TopologicalMap(Node):
     # Distance is in meters
 
-    def __init__(
-        self,
-        use_pose_estimate=False,
-        close_distance=1,
-        confidence=0.85,
-        save_meng=True,
-    ):
+    def __init__(self):
         super().__init__("Topological_Map")
+        self.get_logger().info("Topological Map is Starting")
         self.declare_parameters(
             namespace="",
             parameters=[
