@@ -1,4 +1,5 @@
 import pickle
+import os
 import time
 from copy import deepcopy
 
@@ -63,6 +64,7 @@ class TopologicalMap(Node):
         self.meng_buffer_after = {}
         self.ekf_pose = {}
         self.debug_counter = 0
+        self.get_logger().info("Topological Map is Ready")
 
     def ekf_callback(self, msg):
         self.position = msg.pose.pose.position
@@ -86,6 +88,7 @@ class TopologicalMap(Node):
         pickle.dump(info, f)
 
     def load(self, location="./top_map.pkl"):
+        assert os.path.exists(location)
         f = open(location, "rb")
         info = pickle.load(f)
         self.meng = info["meng"]
@@ -250,3 +253,21 @@ class TopologicalMap(Node):
                             graph.edges((node, other_node))
                     # Remove neighoring node from map
                     graph.remove_node(neighboring_node)
+
+
+def main(args=None):
+    rclpy.init(args=args)
+
+    # Video stream doesnt work when ssh into machine and then run docker. TODO
+    node = TopologicalMap()
+    rclpy.spin(node)
+
+    # Destroy the node explicitly
+    # (optional - otherwise it will be done automatically
+    # when the garbage collector destroys the node object)
+    node.destroy_node()
+    rclpy.shutdown()
+
+
+if __name__ == "__main__":
+    main()

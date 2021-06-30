@@ -1,4 +1,6 @@
 # Planner should be to localize and plan over the topological map
+import rclpy
+from top_map.topological_map import TopologicalMap
 import random
 
 import networkx as nx
@@ -6,16 +8,18 @@ import numpy as np
 from rclpy.node import Node
 from sensor_msgs.msg import Image
 
-from top_map.topological_map import TopologicalMap
-
 
 class Planner(Node):
     # If update rate is none, the planner will localize once and then
     # create a trajectory based on predicted localizations
     # Otherwise if not None, the robot will update the path at a rate given.
-    def __init__(self, topological_map_pkl, update_rate=None, confidence=0.85, seed=0):
+    def __init__(self, update_rate=None, confidence=0.85, seed=0):
         random.seed(seed)
         super().__init__("Planner")
+        self.declare_parameter(
+            "topological_map_pkl", "./test/testing_resources/test_top_map.pkl"
+        )
+        topological_map_pkl = self.get_parameter("topological_map_pkl").value
         self.subscription = self.create_subscription(
             Image, "/terrasentia/usb_cam_node/image_raw", self.image_callback
         )
@@ -32,6 +36,7 @@ class Planner(Node):
         self.current_node = None
         self.plan = None
         self.confidence = confidence
+        self.get_logger().info("Planner is ready")
 
     # Chooses a random node in the map as a goal
     def get_random_node(self, nodes):
@@ -39,7 +44,9 @@ class Planner(Node):
         return random.choice(nodes)
 
     def plan_path(self, graph, start, goal):
-        return nx.algorithms.shortest_paths.weighted.dijkstra_path(graph, start, goal)
+        path = nx.algorithms.shortest_paths.weighted.dijkstra_path(graph, start, goal)
+        assert len(path) > 0
+        return path
 
     def image_callback(self, msg):
         image1 = self.top_map.bridge.imgmsg_to_cv2(msg, "rgb8")
@@ -96,3 +103,21 @@ class Planner(Node):
                 self.get_logger().info("Localized Robot in Map!")
                 return
         self.get_logger().warning("Failed to Localize Robot in Map!")
+
+
+def main(args=None):
+    rclpy.init(args=args)
+
+    # Video stream doesnt work when ssh into machine and then run docker. TODO
+    node = Planner()
+    rclpy.spin(node)
+
+    # Destroy the node explicitly
+    # (optional - otherwise it will be done automatically
+    # when the garbage collector destroys the node object)
+    node.destroy_node()
+    rclpy.shutdown()
+
+
+if __name__ == "__main__":
+    main()
