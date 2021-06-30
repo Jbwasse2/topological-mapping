@@ -27,6 +27,19 @@ class TopologicalMap(Node):
         save_meng=True,
     ):
         super().__init__("Topological_Map")
+        self.declare_parameters(
+            namespace="",
+            parameters=[
+                ("use_pose_estimate", True),
+                ("close_distance", 1.0),
+                ("confidence", 0.85),
+                ("save_meng", True),
+            ],
+        )
+        use_pose_estimate = self.get_parameter("use_pose_estimate").value
+        close_distance = self.get_parameter("close_distance").value
+        confidence = self.get_parameter("confidence").value
+        save_meng = self.get_parameter("save_meng").value
         self.map = nx.DiGraph()
         self.similarityService = SimilarityService()
         self.use_pose_estimate = use_pose_estimate
