@@ -20,8 +20,9 @@ setup(
     entry_points={
         "console_scripts": [
             "extractor = top_map.extractor:main",
-            "similarityServer = top_map.similarityServer:main",
-            "similarityClient = top_map.similarityClient:main",
+            "planner = top_map.planner:main",
+            "mapper = top_map.topological_map:main",
+            "waypoint = top_map.waypoint:main",
         ],
     },
 )

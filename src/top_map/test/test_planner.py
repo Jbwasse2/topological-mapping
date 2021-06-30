@@ -15,9 +15,7 @@ from top_map.waypoint import WaypointPublisher
 
 class PlannerTester(Planner):
     def __init__(self, future, timeout=None):
-        rick = "./test/testing_resources/test_top_map.pkl"
-        assert os.path.exists(rick)
-        super().__init__(rick)
+        super().__init__()
         self.future = future
         self.sub_ = self.create_subscription(
             TwistStamped, "/terrasentia/cmd_vel", self.twistcallback

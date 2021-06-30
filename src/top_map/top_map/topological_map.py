@@ -1,4 +1,6 @@
 import pickle
+import rclpy
+import os
 import time
 from copy import deepcopy
 
@@ -18,14 +20,22 @@ from top_map.similarityService import SimilarityService
 class TopologicalMap(Node):
     # Distance is in meters
 
-    def __init__(
-        self,
-        use_pose_estimate=False,
-        close_distance=1,
-        confidence=0.85,
-        save_meng=True,
-    ):
+    def __init__(self):
         super().__init__("Topological_Map")
+        self.get_logger().info("Topological Map is Starting")
+        self.declare_parameters(
+            namespace="",
+            parameters=[
+                ("use_pose_estimate", True),
+                ("close_distance", 1.0),
+                ("confidence", 0.85),
+                ("save_meng", True),
+            ],
+        )
+        use_pose_estimate = self.get_parameter("use_pose_estimate").value
+        close_distance = self.get_parameter("close_distance").value
+        confidence = self.get_parameter("confidence").value
+        save_meng = self.get_parameter("save_meng").value
         self.map = nx.DiGraph()
         self.similarityService = SimilarityService()
         self.use_pose_estimate = use_pose_estimate
@@ -63,6 +73,7 @@ class TopologicalMap(Node):
         self.meng_buffer_after = {}
         self.ekf_pose = {}
         self.debug_counter = 0
+        self.get_logger().info("Topological Map is Ready")
 
     def ekf_callback(self, msg):
         self.position = msg.pose.pose.position
@@ -86,6 +97,7 @@ class TopologicalMap(Node):
         pickle.dump(info, f)
 
     def load(self, location="./top_map.pkl"):
+        assert os.path.exists(location)
         f = open(location, "rb")
         info = pickle.load(f)
         self.meng = info["meng"]
@@ -250,3 +262,21 @@ class TopologicalMap(Node):
                             graph.edges((node, other_node))
                     # Remove neighoring node from map
                     graph.remove_node(neighboring_node)
+
+
+def main(args=None):
+    rclpy.init(args=args)
+
+    # Video stream doesnt work when ssh into machine and then run docker. TODO
+    node = TopologicalMap()
+    rclpy.spin(node)
+
+    # Destroy the node explicitly
+    # (optional - otherwise it will be done automatically
+    # when the garbage collector destroys the node object)
+    node.destroy_node()
+    rclpy.shutdown()
+
+
+if __name__ == "__main__":
+    main()
