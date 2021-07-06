@@ -13,8 +13,8 @@ from top_map.waypoint import WaypointPublisher
 
 
 class WaypointPublisherTester(WaypointPublisher):
-    def __init__(self, timeout, create_graphic, future):
-        super().__init__(create_graphic)
+    def __init__(self, timeout, future):
+        super().__init__()
         self.future = future
         self.timer = self.create_timer(timeout, self.timer_callback)
 
@@ -54,7 +54,7 @@ def test_meng_wp_video():
         ),
     )
     future = Future()
-    waypointPublisher = WaypointPublisherTester(5, "./test/results/wp/", future)
+    waypointPublisher = WaypointPublisherTester(5, future)
     goal = get_goal()
     waypointPublisher.goal = goal
     waypointPublisher.goal_show = goal[6]

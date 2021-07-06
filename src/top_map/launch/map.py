@@ -7,6 +7,7 @@ def generate_launch_description():
     map_node = Node(
         package="top_map",
         node_executable="mapper",
+        output='screen',
         parameters=[
             {
                 "use_pose_estimate": True,

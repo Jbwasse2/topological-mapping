@@ -1,5 +1,6 @@
 # Some notes of Meng's code
 # His waypoint predictor takes images as 64x64 BGR images with values 0-1
+import pudb
 import shutil
 from pathlib import Path
 
@@ -20,8 +21,12 @@ class WaypointPublisher(Node):
     # debug is neccessary because testing assumes the subscription is
     # started from the beggining. But at run time we only want to start
     # sending commands when a local goal is given
-    def __init__(self, create_graphic=""):
+    def __init__(self):
         super().__init__("waypoint_publisher")
+        self.declare_parameter(
+            "create_graphic", "./test/results/wp/"
+        )
+        create_graphic = self.get_parameter("create_graphic").value
         # If output file doesn't exist create it for iamges to be saved to instead of displayed.
         if create_graphic != "":
             shutil.rmtree(create_graphic)
@@ -111,6 +116,8 @@ class WaypointPublisher(Node):
             # Add 0's to front to make it easier for script to make into video
             # counter should not be larger than 6 digits (IE 999999)
             counter_string = str(self.counter).rjust(6, "0")
+            #https://stackoverflow.com/questions/16615662/how-to-write-text-on-a-image-in-windows-using-python-opencv2
+            cv2.putText(image,str(reachability_estimator)[0:4] , (0,62), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255,255,255),2)
             cv2.imwrite(self.create_graphic + "frame" + counter_string + ".png", image)
             self.counter += 1
 
@@ -172,7 +179,7 @@ class WaypointPublisher(Node):
 def main(args=None):
     rclpy.init(args=args)
 
-    waypoint_publisher = WaypointPublisher(create_graphic="./output/wp/")
+    waypoint_publisher = WaypointPublisher()
 
     rclpy.spin(waypoint_publisher)
 

@@ -49,7 +49,7 @@ class PlannerTester(Planner):
 def test_top_map():
     try:
         # Start Waypoint Publisher
-        args = {"create_graphic": "./test/results/planner/"}
+        args = {}
         p = Process(
             target=run_node,
             args=(

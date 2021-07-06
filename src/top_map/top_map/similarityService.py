@@ -74,7 +74,7 @@ class SimilarityService:
         prob = nn.functional.softmax(results)
         positive_prob = prob[0][1].cpu().detach()
         response = True if positive_prob > confidence else False
-        return response
+        return response, positive_prob.tolist()
 
     # This expects the data images to come in as "cleaned rgb8" images
     # So the image should not be raw image from TerraSentia, but is that but

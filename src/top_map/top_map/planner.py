@@ -1,4 +1,5 @@
 # Planner should be to localize and plan over the topological map
+from operator import itemgetter
 import rclpy
 from top_map.topological_map import TopologicalMap
 import random
@@ -71,6 +72,7 @@ class Planner(Node):
                     )
                 else:
                     self.local_goal = self.plan[index + 1]
+                    self.set_local_goal(self.top_map.meng[self.local_goal])
 
     # This is used for meng code in order to suggest waypoints
     # Meng image is saved as RGB8, but it actually needs to be sent out as BGR8
@@ -86,23 +88,37 @@ class Planner(Node):
 
     def localize(self, image1_embedding):
         nodes_to_it_over = self.top_map.map.nodes
+        close_nodes = []
         for node in nodes_to_it_over:
             image2_embedding = self.top_map.embedding_dict[node]
-            closeness_indicator = (
+            closeness_indicator, prob = (
                 self.top_map.similarityService.get_similarity_embedding(
                     image1_embedding, image2_embedding, self.confidence
                 )
             )
             if closeness_indicator:
-                self.current_node = node
-                self.plan = self.plan_path(
-                    self.top_map.map, self.current_node, self.goal
-                )
-                self.local_goal = self.plan[1]
-                self.set_local_goal(self.top_map.meng[self.local_goal])
-                self.get_logger().info("Localized Robot in Map!")
-                return
-        self.get_logger().warning("Failed to Localize Robot in Map!")
+                close_nodes.append((node, prob))
+        if len(close_nodes) == 1:
+            self.current_node = close_nodes[0][0]
+            self.plan = self.plan_path(
+                self.top_map.map, self.current_node, self.goal
+            )
+            self.local_goal = self.plan[1]
+            self.set_local_goal(self.top_map.meng[self.local_goal])
+            self.get_logger().info("Localized Robot in Map!")
+        elif len(close_nodes) == 0:
+            self.get_logger().warning("Failed to Localize Robot in Map!")
+        else:
+            self.get_logger().warning("Multiple Possible Local Nodes Detected!")
+            self.get_logger().warning(str(close_nodes))
+            #Choose node with highest prob of similarity
+            best_node = max(close_nodes, key=itemgetter(1))
+            self.current_node = best_node[0]
+            self.plan = self.plan_path(
+                self.top_map.map, self.current_node, self.goal
+            )
+            self.local_goal = self.plan[1]
+            self.set_local_goal(self.top_map.meng[self.local_goal])
 
 
 def main(args=None):
