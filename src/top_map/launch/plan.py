@@ -11,7 +11,7 @@ def generate_launch_description():
         node_executable="planner",
         output='screen',
         parameters=[
-            {"topological_map_pkl": "./test/testing_resources/test_top_map.pkl"}
+            {"topological_map_pkl": "./top_map.pkl"}
         ],
     )
     waypoint_node = Node(

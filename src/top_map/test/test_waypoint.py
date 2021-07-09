@@ -6,8 +6,8 @@ from multiprocessing import Process
 
 import cv2
 import rclpy
+from geometry_msgs.msg import TwistStamped
 from rclpy.task import Future
-
 from top_map.util import play_rosbag
 from top_map.waypoint import WaypointPublisher
 
@@ -17,6 +17,20 @@ class WaypointPublisherTester(WaypointPublisher):
         super().__init__()
         self.future = future
         self.timer = self.create_timer(timeout, self.timer_callback)
+        self.sub_ = self.create_subscription(TwistStamped,
+                                             "/terrasentia/cmd_vel",
+                                             self.twistcallback, 2)
+
+    def twistcallback(self, msg):
+        x = msg.twist.linear.x
+        y = msg.twist.linear.y
+        z = msg.twist.linear.z
+        a = msg.twist.angular.x
+        b = msg.twist.angular.y
+        c = msg.twist.angular.z
+        if x != 0.0 or y != 0.0 or z != 0.0 or a != 0.0 or b != 0.0 or c != 0.0:
+            print(x, y, z, a, b, c)
+            self.twistflag = True
 
     def timer_callback(self):
         self.future.set_result("Timeout")
@@ -62,9 +76,8 @@ def test_meng_wp_video():
     rclpy.spin_until_future_complete(waypointPublisher, future)
     waypointPublisher.destroy_node()
     kill_testbag_cmd = (
-        "export PYTHONPATH= && . /opt/ros/melodic/setup.sh && rosnode list "
-        + "| grep play | xargs rosnode kill"
-    )
+        "export PYTHONPATH= && . /opt/ros/melodic/setup.sh && rosnode list " +
+        "| grep play | xargs rosnode kill")
     subprocess.Popen(
         kill_testbag_cmd,
         stdout=subprocess.DEVNULL,
@@ -74,3 +87,4 @@ def test_meng_wp_video():
     os.kill(p.pid, signal.SIGKILL)
 
     assert len(glob.glob("./test/results/wp/*")) != 0
+    assert waypointPublisher.twistflag

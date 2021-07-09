@@ -1,12 +1,12 @@
-import pickle
-import rclpy
 import os
+import pickle
 import time
 from copy import deepcopy
 
 import cv2
 import networkx as nx
 import numpy as np
+import rclpy
 from cv_bridge import CvBridge
 from nav_msgs.msg import Odometry
 from rclpy.node import Node
@@ -73,7 +73,15 @@ class TopologicalMap(Node):
         self.meng_buffer_after = {}
         self.ekf_pose = {}
         self.debug_counter = 0
+        self.timer = self.create_timer(20, self.timer_callback)
         self.get_logger().info("Topological Map is Ready")
+
+    def timer_callback(self):
+        self.get_logger().info("SAVING! Number of nodes " +
+                               str(len(self.map.nodes)))
+        self.get_logger().info("SAVING! Number of edges " +
+                               str(len(self.map.edges)))
+        self.save()
 
     def ekf_callback(self, msg):
         self.position = msg.pose.pose.position
@@ -142,17 +150,14 @@ class TopologicalMap(Node):
         # output
         # All nodes that are close via pose estimate
 
-    def get_all_close_nodes(
-        self, reference_position, pose_dict, top_map, threshold_distance
-    ):
+    def get_all_close_nodes(self, reference_position, pose_dict, top_map,
+                            threshold_distance):
         ret = []
         for node in top_map.nodes:
             node_position = pose_dict[node]["position"]
-            distance = np.sqrt(
-                (node_position.x - reference_position.x) ** 2
-                + (node_position.y - reference_position.y) ** 2
-                + (node_position.z - reference_position.z) ** 2
-            )
+            distance = np.sqrt((node_position.x - reference_position.x)**2 +
+                               (node_position.y - reference_position.y)**2 +
+                               (node_position.z - reference_position.z)**2)
             if distance < threshold_distance:
                 ret.append(node)
         return ret
@@ -170,26 +175,24 @@ class TopologicalMap(Node):
         self.meng_buffer.pop(0)
         self.meng_buffer.append(cv2.resize(image1, (64, 64)))
         self.meng_buffer_after = self.update_meng_after_dict(
-            image1, self.meng_buffer_after
-        )
+            image1, self.meng_buffer_after)
         if self.use_pose_estimate:
             if self.position is not None:
                 start = time.time()
-                close_nodes = self.get_all_close_nodes(
-                    self.position, self.ekf_pose, self.map, self.close_distance
-                )
-                self.get_logger().info(
-                    "Time to run close_nodes=" + str(time.time() - start)
-                )
+                close_nodes = self.get_all_close_nodes(self.position,
+                                                       self.ekf_pose, self.map,
+                                                       self.close_distance)
+                self.get_logger().info("Time to run close_nodes=" +
+                                       str(time.time() - start))
                 start = time.time()
                 self.update_map(close_nodes, image1_embedding, image1)
-                self.get_logger().info(
-                    "Time to run update map=" + str(time.time() - start)
-                )
+                self.get_logger().info("Time to run update map=" +
+                                       str(time.time() - start))
         else:
             start = time.time()
             self.update_map(self.map.nodes, image1_embedding, image1)
-            self.get_logger().info("Time to run update map=" + str(time.time() - start))
+            self.get_logger().info("Time to run update map=" +
+                                   str(time.time() - start))
 
     def update_map(self, nodes_to_it_over, image1_embedding, image1):
         # If not using use_pose_estimate compare to every other image
@@ -197,8 +200,7 @@ class TopologicalMap(Node):
         for node in nodes_to_it_over:
             image2_embedding = self.embedding_dict[node]
             closeness_indicator = self.similarityService.get_similarity_embedding(
-                image1_embedding, image2_embedding, self.confidence
-            )
+                image1_embedding, image2_embedding, self.confidence)
             if closeness_indicator:
                 self.current_node = node
                 self.get_logger().info("Embeddings are close...")
@@ -232,21 +234,19 @@ class TopologicalMap(Node):
             if node not in self.map.nodes:
                 continue
             node_position = self.ekf_pose[node]["position"]
-            close_nodes = self.get_all_close_nodes(
-                node_position, self.ekf_pose, self.map, self.close_distance
-            )
+            close_nodes = self.get_all_close_nodes(node_position,
+                                                   self.ekf_pose, self.map,
+                                                   self.close_distance)
             for neighboring_node in close_nodes:
                 if neighboring_node == node:
                     continue
                 image1_embedding = self.embedding_dict[node]
                 image2_embedding = self.embedding_dict[neighboring_node]
                 closeness_indicator = self.similarityService.get_similarity_embedding(
-                    image1_embedding, image2_embedding, self.confidence
-                )
+                    image1_embedding, image2_embedding, self.confidence)
                 if closeness_indicator:
-                    self.get_logger().info(
-                        "Mergin nodes " + str(node) + " and " + str(neighboring_node)
-                    )
+                    self.get_logger().info("Mergin nodes " + str(node) +
+                                           " and " + str(neighboring_node))
                     # Move all edges from neighboring node to node
                     # First incoming edges
                     incoming_edges = graph.in_edges(neighboring_node)

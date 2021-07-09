@@ -1,13 +1,14 @@
 # Planner should be to localize and plan over the topological map
-from operator import itemgetter
-import rclpy
-from top_map.topological_map import TopologicalMap
 import random
+from operator import itemgetter
 
 import networkx as nx
 import numpy as np
+import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image
+
+from top_map.topological_map import TopologicalMap
 
 
 class Planner(Node):
@@ -17,13 +18,11 @@ class Planner(Node):
     def __init__(self, update_rate=None, confidence=0.85, seed=0):
         random.seed(seed)
         super().__init__("Planner")
-        self.declare_parameter(
-            "topological_map_pkl", "./test/testing_resources/test_top_map.pkl"
-        )
+        self.declare_parameter("topological_map_pkl",
+                               "./test/testing_resources/test_top_map.pkl")
         topological_map_pkl = self.get_parameter("topological_map_pkl").value
         self.subscription = self.create_subscription(
-            Image, "/terrasentia/usb_cam_node/image_raw", self.image_callback
-        )
+            Image, "/terrasentia/usb_cam_node/image_raw", self.image_callback)
         self.publisher = self.create_publisher(
             Image,
             "/top_map/local_goal",
@@ -45,7 +44,8 @@ class Planner(Node):
         return random.choice(nodes)
 
     def plan_path(self, graph, start, goal):
-        path = nx.algorithms.shortest_paths.weighted.dijkstra_path(graph, start, goal)
+        path = nx.algorithms.shortest_paths.weighted.dijkstra_path(
+            graph, start, goal)
         assert len(path) > 0
         return path
 
@@ -57,19 +57,17 @@ class Planner(Node):
             self.localize(image1_embedding)
         else:
             local_goal_embedding = self.top_map.embedding_dict[self.local_goal]
-            closeness_indicator = (
+            closeness_indicator, prob = (
                 self.top_map.similarityService.get_similarity_embedding(
-                    image1_embedding, local_goal_embedding, self.confidence
-                )
-            )
+                    image1_embedding, local_goal_embedding, self.confidence))
             if closeness_indicator:
                 # Advance local goal to next node in path
-                self.get_logger().info("Updating Robot Location!")
+                self.get_logger().info(
+                    "Updating Robot Location! Confidence = " + str(prob))
                 index = self.plan.index(self.local_goal)
                 if index + 1 >= len(self.plan):
                     self.get_logger().warn(
-                        "Tried updating plan, but no more path left!"
-                    )
+                        "Tried updating plan, but no more path left!")
                 else:
                     self.local_goal = self.plan[index + 1]
                     self.set_local_goal(self.top_map.meng[self.local_goal])
@@ -93,30 +91,27 @@ class Planner(Node):
             image2_embedding = self.top_map.embedding_dict[node]
             closeness_indicator, prob = (
                 self.top_map.similarityService.get_similarity_embedding(
-                    image1_embedding, image2_embedding, self.confidence
-                )
-            )
+                    image1_embedding, image2_embedding, self.confidence))
             if closeness_indicator:
                 close_nodes.append((node, prob))
         if len(close_nodes) == 1:
             self.current_node = close_nodes[0][0]
-            self.plan = self.plan_path(
-                self.top_map.map, self.current_node, self.goal
-            )
+            self.plan = self.plan_path(self.top_map.map, self.current_node,
+                                       self.goal)
             self.local_goal = self.plan[1]
             self.set_local_goal(self.top_map.meng[self.local_goal])
             self.get_logger().info("Localized Robot in Map!")
         elif len(close_nodes) == 0:
             self.get_logger().warning("Failed to Localize Robot in Map!")
         else:
-            self.get_logger().warning("Multiple Possible Local Nodes Detected!")
+            self.get_logger().warning(
+                "Multiple Possible Local Nodes Detected!")
             self.get_logger().warning(str(close_nodes))
-            #Choose node with highest prob of similarity
+            # Choose node with highest prob of similarity
             best_node = max(close_nodes, key=itemgetter(1))
             self.current_node = best_node[0]
-            self.plan = self.plan_path(
-                self.top_map.map, self.current_node, self.goal
-            )
+            self.plan = self.plan_path(self.top_map.map, self.current_node,
+                                       self.goal)
             self.local_goal = self.plan[1]
             self.set_local_goal(self.top_map.meng[self.local_goal])
 

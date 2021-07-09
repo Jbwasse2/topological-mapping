@@ -1,6 +1,8 @@
 #
+
 #
 *.pdf
+*.pkl
 *.bag
 src/top_map/test/testing_resources
 configs/ORBvoc.txt

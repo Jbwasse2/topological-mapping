@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 # This node takes the model trianed in the similarity directory in order to facilitate
 # similarity detection for building the topological map
-from top_map.top_data.indoorData.results.similarity.best_model.model import Siamese
 import cv2
 import rclpy
 import torch
 import torch.nn.functional as F
 import torchvision.transforms as transforms
 from torch import nn
+
+from top_map.top_data.indoorData.results.similarity.best_model.model import \
+    Siamese
 
 
 class EmbeddingGetter(Siamese):
@@ -18,7 +20,8 @@ class EmbeddingGetter(Siamese):
     def get_model(self):
         model = Siamese()
         weight_path = "./data/indoorData/results/similarity/best_model/saved_model.pth"
-        model.load_state_dict(torch.load(weight_path, map_location=torch.device("cpu")))
+        model.load_state_dict(
+            torch.load(weight_path, map_location=torch.device("cpu")))
         model.eval()
         return model
 
@@ -57,7 +60,8 @@ class SimilarityService:
     def get_model(self):
         model = Siamese()
         weight_path = "./data/indoorData/results/similarity/best_model/saved_model.pth"
-        model.load_state_dict(torch.load(weight_path, map_location=torch.device("cpu")))
+        model.load_state_dict(
+            torch.load(weight_path, map_location=torch.device("cpu")))
         model.eval()
         return model
 
@@ -90,14 +94,11 @@ class SimilarityService:
 
     def prepare_data(self, image):
         image = cv2.resize(image, (224, 224)) / 255
-        transform = transforms.Compose(
-            [
-                transforms.ToTensor(),
-                transforms.Normalize(
-                    mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-                ),
-            ]
-        )
+        transform = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                 std=[0.229, 0.224, 0.225]),
+        ])
         image = transform(image)
         return image.unsqueeze(0).float()
 
