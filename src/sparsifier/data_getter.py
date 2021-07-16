@@ -1,4 +1,5 @@
 import glob
+import os
 import gzip
 import random
 from pathlib import Path
@@ -49,9 +50,11 @@ class GibsonDataset(Dataset):
         samples=10000,
         ignore_0=False,
         debug=False,
+        context=10,
         give_distance=False,
     ):
         random.seed(seed)
+        self.context = context
         self.give_distance = give_distance
         self.debug = debug
         self.ignore_0 = ignore_0
@@ -69,7 +72,6 @@ class GibsonDataset(Dataset):
         split = 0.85
         self.train_env = self.env_names[0 : int(len(self.env_names) * split)]
         self.test_env = self.env_names[int(len(self.env_names) * split) :]
-        pu.db
         if visualize:
             d = get_dict(self.train_env[0])
             self.visualize_dict(d[0])
@@ -79,12 +81,7 @@ class GibsonDataset(Dataset):
         elif split_type == "test":
             self.labels = self.get_labels_dicts(self.test_env)
             self.dataset = self.get_dataset(self.test_env)
-        self.dataset = self.balance_dataset(samples)
-        if self.ignore_0:
-            self.dataset.pop(0, None)
-        self.dataset = self.flatten_dataset()
 
-    #        self.verify_dataset()
 
     def get_labels_dicts(self, envs):
         if self.debug:
@@ -155,73 +152,96 @@ class GibsonDataset(Dataset):
         random.shuffle(ret)
         return ret
 
-    def balance_dataset(self, max_number_of_examples=2000):
-        min_size = np.inf
-        if self.ignore_0:
-            dist_range = range(1, self.max_distance)
-        else:
-            dist_range = range(self.max_distance)
-        for i in dist_range:
-            min_size = min(min_size, len(self.dataset[i]))
-        min_size = min(min_size, max_number_of_examples)
-        far_away_keys = range(self.max_distance, max(self.dataset.keys()))
-        ret = {}
-        far_away_dataset = []
-        for i in dist_range:
-            weight = 1.0
-            ret[i] = random.sample(self.dataset[i], int(min_size * weight))
-        # last entrie is gonna be far away examples
-        ret[self.max_distance] = []
-        for i in range(min_size):
-            random_far_away = random.choice(far_away_keys)
-            ret[self.max_distance].append(random.choice(self.dataset[random_far_away]))
-        return ret
 
     # Don't forget map/trajectory is directed.
-    def get_dataset(self, envs):
-        ret = {}
-        retries = 10
+    # diff_traj_split controls what percent of negative samples are in
+    def get_dataset(self, envs, diff_traj_split=0.5):
         if self.debug:
             envs = envs[0:3]
-        for distance in tqdm(range(400)):
-            for sample in range(self.samples):
-                # Keep trying to find sample that satisfies requirements...
-                for _ in range(retries):
-                    # Choose a random env
-                    env = random.choice(envs)
-                    # Choose random episode in env
-                    episode = random.choice(range(len(self.labels[env])))
-                    # Get all pairs of i,j that satisfy distance
-                    path_length = len(self.labels[env][episode]["shortest_paths"][0][0])
-                    possible_ij = []
-                    # Get images in the forward direction
-                    if distance < 0:
-                        for i, j in zip(
-                            range(-distance, path_length), range(path_length)
-                        ):
-                            possible_ij.append((i, j))
-                    else:
-                        for i, j in zip(
-                            range(path_length), range(distance, path_length)
-                        ):
-                            possible_ij.append((i, j))
-                    # If sample is found, break
-                    if len(possible_ij) != 0:
-                        i, j = random.choice(possible_ij)
-                        key = j - i
-                        if key not in ret:
-                            ret[key] = []
-                        # Ignore if distance between nodes is 0, this causes problems...
-                        pos1 = self.labels[env][episode]["shortest_paths"][0][0][i][
-                            "position"
-                        ]
-                        pos2 = self.labels[env][episode]["shortest_paths"][0][0][j][
-                            "position"
-                        ]
-                        if (pos1 != pos2 and i != j) or i == j:
-                            ret[key].append((env, episode, i, j))
-                            break
-        return ret
+        # Get number of images in envs for each episode
+        number_of_images_in_envs = {}
+        for env in envs:
+            number_of_images_in_envs[env] = {}
+            for e in range(self.episodes):
+                number_of_images_in_envs[env][e] = len(glob.glob(self.image_data_path + env + "/episodeRGB" + str(e) + "*.jpg"))
+        # This dataset does start from 0 unlike other code, but context creates an offset.
+        image_offset_in_envs = {}
+        for env in envs:
+            image_offset_in_envs[env] = self.context
+        # Would like to get a dataset that is equally weighted between
+        # All possible lengths in max_distance. So for example if max_dist=10
+        # and samples = 1000, we'd want 500 total samples <= 10 dist with 50 samples
+        # in 0...10.
+        # As per the ViNG paper, the last 500 samples should be a mix of same traj
+        # and other traj. Let's try 50% 50%? This is called the diff_traj_split
+
+        # Get positive samples
+        label = 1
+        dataset = []
+        positive_samples_per_distance = int(
+            (self.samples / 2) / (self.max_distance + 1)
+        )
+        for distance in tqdm(range(self.max_distance + 1)):
+            for _ in range(positive_samples_per_distance):
+                # Choose random env uniformly
+                env = random.choice(envs)
+                episode = random.choice(range(self.episodes))
+                traj_local_start = random.choice(
+                    range(
+                        image_offset_in_envs[env],
+                        -image_offset_in_envs[env]
+                        + number_of_images_in_envs[env][episode]
+                        - distance,
+                    )
+                )
+                traj_local_end = traj_local_start + distance
+                dataset.append((env, env, traj_local_start, traj_local_end, label, episode, episode))
+
+        # Get negative samples in same trajectory
+        label = 0
+        neg_samples_in_same_traj = int((self.samples / 2) * (1 - diff_traj_split))
+        for _ in tqdm(range(neg_samples_in_same_traj)):
+            # We need to make sure randomly selected data is not accidently positive
+            while 1:
+                env = random.choice(envs)
+                episode = random.choice(range(self.episodes))
+                location_1, location_2 = random.sample(
+                    range(
+                        image_offset_in_envs[env],
+                        -image_offset_in_envs[env] + number_of_images_in_envs[env][episode],
+                    ),
+                    2,
+                )
+                start = min(location_1, location_2)
+                end = max(location_1, location_2)
+                if np.abs(start - end) > self.max_distance:
+                    dataset.append((env, env, start, end, label, episode, episode))
+                    break
+
+        # Get negative samples in different trajectories
+        neg_samples_in_diff_traj = int((self.samples / 2) * (diff_traj_split))
+        for _ in tqdm(range(neg_samples_in_diff_traj)):
+            if len(envs) > 2:
+                env1, env2 = random.sample(envs, 2)
+            else:
+                env1 = envs[0]
+                env2 = envs[0]
+            episode1 = random.choice(range(self.episodes))
+            episode2 = random.choice(range(self.episodes))
+            start = random.choice(
+                range(
+                    image_offset_in_envs[env1],
+                    -image_offset_in_envs[env1] + number_of_images_in_envs[env1][episode1],
+                )
+            )
+            end = random.choice(
+                range(
+                    image_offset_in_envs[env2],
+                    -image_offset_in_envs[env2] + number_of_images_in_envs[env2][episode2],
+                )
+            )
+            dataset.append((env1, env2, start, end, label, episode1, episode2))
+        return dataset
 
     def get_env_names(self):
         paths = glob.glob(self.dict_path + "*")
@@ -244,25 +264,28 @@ class GibsonDataset(Dataset):
     def __len__(self):
         return len(self.dataset)
 
-    def get_image(self, env, episode, location):
-        image = plt.imread(
-            self.image_data_path
-            + env
-            + "/"
-            + "episodeRGB"
-            + str(episode)
-            + "_"
-            + str(location).zfill(5)
-            + ".jpg"
-        )
-        image = cv2.resize(image, (224, 224)) / 255
-        return image
+    def get_images(self, env, episode, location):
+        ret = []
+        for loc in range(location - self.context, location):
+            image = plt.imread(
+                self.image_data_path
+                + env
+                + "/"
+                + "episodeRGB"
+                + str(episode)
+                + "_"
+                + str(loc).zfill(5)
+                + ".jpg"
+            )
+            image = cv2.resize(image, (224, 224)) / 255
+            ret.append(image)
+        return ret
 
     # Images are offset by self.max_distance, because this should also detect going backwards which the robot can not do.
     def __getitem__(self, idx):
-        env, episode, l1, l2 = self.dataset[idx]
-        image1 = self.get_image(env, episode, l1)
-        image2 = self.get_image(env, episode, l2)
+        env1, env2, l1, l2, y, ep1, ep2 = self.dataset[idx]
+        seq1 = self.get_images(env1, ep1, l1)
+        seq2 = self.get_images(env1, ep2, l2)
         transform = transforms.Compose(
             [
                 transforms.ToTensor(),
@@ -271,10 +294,14 @@ class GibsonDataset(Dataset):
                 ),
             ]
         )
-        image1 = transform(image1)
-        image2 = transform(image2)
+        for count, image in enumerate(seq1):
+            seq1[count] = transform(image)
+        for count, image in enumerate(seq2):
+            seq2[count] = transform(image)
+        seq1 = np.stack(seq1)
+        seq2 = np.stack(seq2)
 
-        x = (image1, image2)
+        x = (seq1, seq2)
         y = l2 - l1
         if y >= int(self.max_distance / 2) or y < 0:
             y = 0
@@ -288,12 +315,14 @@ class GibsonDataset(Dataset):
 if __name__ == "__main__":
     dataset = GibsonDataset(
         "train",
-        samples=10,
+        samples=1000,
         seed=0,
-        max_distance=60,
+        max_distance=30,
+
         ignore_0=False,
         debug=True,
         episodes=20,
+        context=10,
         give_distance=True
     )
     max_angle = 0
@@ -301,7 +330,6 @@ if __name__ == "__main__":
     displacements = []
     angles = []
     ys = []
-    pu.db
     for batch in tqdm(dataset):
         (
             x,
