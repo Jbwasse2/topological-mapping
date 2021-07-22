@@ -1,8 +1,24 @@
 import torch
+import numpy as np
 import torch.nn.functional as F
 import torchvision.models as models
 from torch import nn
 
+#https://github.com/ChiWeiHsiao/DeepVO-pytorch/blob/master/model.py
+def conv(batchNorm, in_planes, out_planes, kernel_size=3, stride=1, dropout=0):
+    if batchNorm:
+        return nn.Sequential(
+            nn.Conv2d(in_planes, out_planes, kernel_size=kernel_size, stride=stride, padding=(kernel_size-1)//2, bias=False),
+            nn.BatchNorm2d(out_planes),
+            nn.LeakyReLU(0.1, inplace=True),
+            nn.Dropout(dropout)#, inplace=True)
+        )
+    else:
+        return nn.Sequential(
+            nn.Conv2d(in_planes, out_planes, kernel_size=kernel_size, stride=stride, padding=(kernel_size-1)//2, bias=True),
+            nn.LeakyReLU(0.1, inplace=True),
+            nn.Dropout(dropout)#, inplace=True)
+        )
 
 class Siamese(nn.Module):
     def get_Resnet(self):
@@ -17,55 +33,82 @@ class Siamese(nn.Module):
         )
         return model
 
-    def __init__(self):
+    def __init__(self, context=10):
         super(Siamese, self).__init__()
+        self.context = 10
+        self.hidden = None
         self.encoder = self.get_Resnet()
-        self.conv1 = nn.Conv2d(512, 32, 1)
-        self.fc1 = nn.Linear(512, 256)
-        self.fc2 = nn.Linear(256, 128)
-        self.relu0 = nn.ReLU()
-        self.relu1 = nn.ReLU()
-        self.relu2 = nn.ReLU()
-        self.out1 = nn.Linear(256, 128)
-        self.relu3 = nn.ReLU()
-        self.drop1 = nn.Dropout(p=0.5)
-        self.drop2 = nn.Dropout(p=0.5)
-        self.drop3 = nn.Dropout(p=0.5)
-        self.out2 = nn.Linear(128, 2)
-        self.batch1 = nn.BatchNorm2d(32)
-        self.batch2 = nn.BatchNorm1d(256)
-        self.batch3 = nn.BatchNorm1d(128)
-        self.batch4 = nn.BatchNorm1d(128)
-        # New arch
-        self.conv1 = nn.Conv2d(in_channels=1024, out_channels=256, kernel_size=1)
-        self.conv2 = nn.Conv2d(in_channels=256, out_channels=256, kernel_size=3)
-        self.conv3 = nn.Conv2d(in_channels=256, out_channels=64, kernel_size=3)
-        self.dropout1 = nn.Dropout(0.5)
-        self.dropout2 = nn.Dropout(0.5)
-        self.fc1 = nn.Linear(64 * 3 * 3, 128)
-        self.fc2 = nn.Linear(128, 2)
+        #New arch v2
+        self.lstm_num_layers = 2
+        self.hidden_size = 128
+        self.lstm1 = nn.LSTM(input_size=3136, hidden_size=self.hidden_size, batch_first=True, num_layers=self.lstm_num_layers, dropout=0.0)
+        self.conv1 = conv(True, 1024, 256, kernel_size=1, stride=1, dropout=0.0)
+        self.conv2 = conv(True, 256, 128, kernel_size=3, stride=1, dropout=0.0)
+        self.conv3 = conv(True, 128, 64, kernel_size=3, stride=1, dropout=0.0)
 
-    def encode(self, im):
-        x = self.encoder(im)
-        # x = x.reshape(x.shape[0], x.shape[1] * x.shape[2] * x.shape[3])
+        self.fc3 = nn.Linear(1284, 1024)
+        self.fc4 = nn.Linear(1024, 128)
+        self.fc5 = nn.Linear(128, 2)
+        #Pose
+        self.fc3_pose = nn.Linear(1280, 1024)
+        self.fc4_pose = nn.Linear(1024, 128)
+        self.fc5_pose = nn.Linear(128, 4)
+
+    def init_hidden(self, batch_size, hidden_size, device):
+        #Just use default of all 0.
+        h0 = np.zeros((self.lstm_num_layers,batch_size,hidden_size))
+        h1 = np.zeros((self.lstm_num_layers,batch_size,hidden_size))
+        h0 = torch.from_numpy(h0).float()
+        h1 = torch.from_numpy(h1).float()
+        h0 = h0.to(device)
+        h1 = h1.to(device)
+        return (h0, h1)
+
+    def imageEncode(self, im):
+        images = im.permute(1,0,2,3,4)
+        ret = []
+        for image in images:
+            ret.append(self.encoder(image))
+        ret = torch.stack(ret)
+        ret = ret.permute(1,0,2,3,4)
+        #Merge embedding dimension 512 * 7 * 7 -> 25088
+#        ret = ret.view(-1, ret.shape[1], ret.shape[2] * ret.shape[3] * ret.shape[4])
+        return ret
+
+    def encode(self,embedding):
+        x = embedding.view(embedding.shape[0] * self.context, embedding.shape[2], embedding.shape[3], embedding.shape[4])
+        x = self.conv1(x)
+        x = self.conv2(x)
+        x = self.conv3(x)
+        x = x.view(embedding.shape[0], self.context, x.shape[1]*x.shape[2]*x.shape[3])
         return x
+
+        
 
     def forward(self, x1, x2):
-        # x1 = nnf.interpolate(x1, size=(128,128))
-        # x2 = nnf.interpolate(x2, size=(128,128))
         self.encoder.eval()
-        out1 = self.encode(x1)
-        out2 = self.encode(x2)
-        out = torch.cat((out1, out2), 1)
-        x = self.conv1(out)
+        out1 = self.imageEncode(x1)
+        out2 = self.imageEncode(x2)
+        x = torch.cat((out1, out2), 2)
+        x = self.encode(x)
+        x, hidden = self.lstm1(x, self.hidden)
+        self.hidden = hidden
+        x = x.reshape(x.shape[0], x.shape[1] * x.shape[2])
+        x1 = self.fc3_pose(x)
+        x1 = F.relu(x1)
+        x1 = self.fc4_pose(x1)
+        x1 = F.relu(x1)
+        pose = self.fc5_pose(x1)
+#        x1 = self.fc2(x)
+#        x1 = F.relu(x1)
+#        pose = self.fc3(x1)
+        #Should we use embedding or prediction?
+        #Prediction for now
+        x = torch.cat( (x,pose), 1)
+        x = self.fc3(x)
         x = F.relu(x)
-        x = self.conv2(x)
+        x = self.fc4(x)
         x = F.relu(x)
-        x = self.conv3(x)
-        x = F.relu(x)
-        x = x.view(x.size(0), -1)
-        x = self.fc1(x)
-        x = F.relu(x)
-        x = self.dropout1(x)
-        x = self.fc2(x)
-        return x
+        x = self.fc5(x)
+        return x, pose
+

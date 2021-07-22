@@ -1,4 +1,5 @@
 import glob
+import time
 import os
 import gzip
 import random
@@ -20,6 +21,7 @@ from torchvision.transforms import ToTensor
 from tqdm import tqdm
 
 from rich.progress import track
+from habitat.utils.geometry_utils import angle_between_quaternions
 
 matplotlib.use("Agg")
 
@@ -73,15 +75,29 @@ class GibsonDataset(Dataset):
         self.train_env = self.env_names[0 : int(len(self.env_names) * split)]
         self.test_env = self.env_names[int(len(self.env_names) * split) :]
         if visualize:
-            d = get_dict(self.train_env[0])
+            d = get_dict(self.train_env[-1])
             self.visualize_dict(d[0])
         if split_type == "train":
             self.labels = self.get_labels_dicts(self.train_env)
+            self.number_of_images_in_envs = self.get_sequence_lengths(self.train_env)
             self.dataset = self.get_dataset(self.train_env)
         elif split_type == "test":
             self.labels = self.get_labels_dicts(self.test_env)
+            self.number_of_images_in_envs = self.get_sequence_lengths(self.test_env)
             self.dataset = self.get_dataset(self.test_env)
 
+    def get_sequence_lengths(self,envs):
+        # Get number of images in envs for each episode
+        if self.debug:
+            envs = envs[0:3]
+        number_of_images_in_envs = {}
+        start = time.clock() 
+        for env in tqdm(envs):
+            number_of_images_in_envs[env] = {}
+            for e in range(self.episodes):
+                number_of_images_in_envs[env][e] = len(glob.glob(self.image_data_path + env + "/episodeRGB" + str(e) + "_*.jpg"))
+        # This dataset does start from 0 unlike other code, but context creates an offset.
+        return number_of_images_in_envs
 
     def get_labels_dicts(self, envs):
         if self.debug:
@@ -158,13 +174,6 @@ class GibsonDataset(Dataset):
     def get_dataset(self, envs, diff_traj_split=0.5):
         if self.debug:
             envs = envs[0:3]
-        # Get number of images in envs for each episode
-        number_of_images_in_envs = {}
-        for env in envs:
-            number_of_images_in_envs[env] = {}
-            for e in range(self.episodes):
-                number_of_images_in_envs[env][e] = len(glob.glob(self.image_data_path + env + "/episodeRGB" + str(e) + "*.jpg"))
-        # This dataset does start from 0 unlike other code, but context creates an offset.
         image_offset_in_envs = {}
         for env in envs:
             image_offset_in_envs[env] = self.context
@@ -186,14 +195,15 @@ class GibsonDataset(Dataset):
                 # Choose random env uniformly
                 env = random.choice(envs)
                 episode = random.choice(range(self.episodes))
-                traj_local_start = random.choice(
-                    range(
+                sample_range = range(
                         image_offset_in_envs[env],
                         -image_offset_in_envs[env]
-                        + number_of_images_in_envs[env][episode]
+                        + self.number_of_images_in_envs[env][episode]
                         - distance,
                     )
-                )
+                if len(sample_range) == 0:
+                    continue
+                traj_local_start = random.choice(sample_range)
                 traj_local_end = traj_local_start + distance
                 dataset.append((env, env, traj_local_start, traj_local_end, label, episode, episode))
 
@@ -205,13 +215,13 @@ class GibsonDataset(Dataset):
             while 1:
                 env = random.choice(envs)
                 episode = random.choice(range(self.episodes))
-                location_1, location_2 = random.sample(
-                    range(
+                sample_range = range(
                         image_offset_in_envs[env],
-                        -image_offset_in_envs[env] + number_of_images_in_envs[env][episode],
-                    ),
-                    2,
-                )
+                        -image_offset_in_envs[env] + self.number_of_images_in_envs[env][episode],
+                    )
+                if len(sample_range) == 0:
+                    continue
+                location_1, location_2 = random.sample(sample_range, 2)
                 start = min(location_1, location_2)
                 end = max(location_1, location_2)
                 if np.abs(start - end) > self.max_distance:
@@ -228,18 +238,20 @@ class GibsonDataset(Dataset):
                 env2 = envs[0]
             episode1 = random.choice(range(self.episodes))
             episode2 = random.choice(range(self.episodes))
-            start = random.choice(
-                range(
+            start_range =  range(
                     image_offset_in_envs[env1],
-                    -image_offset_in_envs[env1] + number_of_images_in_envs[env1][episode1],
+                    -image_offset_in_envs[env1] + self.number_of_images_in_envs[env1][episode1],
                 )
-            )
-            end = random.choice(
-                range(
+            if len(start_range) == 0:
+                continue
+            start = random.choice(start_range)
+            end_range = range(
                     image_offset_in_envs[env2],
-                    -image_offset_in_envs[env2] + number_of_images_in_envs[env2][episode2],
+                    -image_offset_in_envs[env2] + self.number_of_images_in_envs[env2][episode2],
                 )
-            )
+            if len(end_range) == 0:
+                continue
+            end = random.choice(end_range)
             dataset.append((env1, env2, start, end, label, episode1, episode2))
         return dataset
 
@@ -267,16 +279,15 @@ class GibsonDataset(Dataset):
     def get_images(self, env, episode, location):
         ret = []
         for loc in range(location - self.context, location):
-            image = plt.imread(
-                self.image_data_path
+            location = (self.image_data_path
                 + env
                 + "/"
                 + "episodeRGB"
                 + str(episode)
                 + "_"
                 + str(loc).zfill(5)
-                + ".jpg"
-            )
+                + ".jpg")
+            image = plt.imread(location)
             image = cv2.resize(image, (224, 224)) / 255
             ret.append(image)
         return ret
@@ -285,7 +296,14 @@ class GibsonDataset(Dataset):
     def __getitem__(self, idx):
         env1, env2, l1, l2, y, ep1, ep2 = self.dataset[idx]
         seq1 = self.get_images(env1, ep1, l1)
-        seq2 = self.get_images(env1, ep2, l2)
+        seq2 = self.get_images(env2, ep2, l2)
+        pose1 = self.labels[env1][ep1]['shortest_paths'][0][0][l1]
+        pose2 = self.labels[env2][ep2]['shortest_paths'][0][0][l2]
+        positionDiff = (np.array(pose1['position']) - np.array(pose2['position']))
+        rotDiff = angle_between_quaternions(np.quaternion(*pose1['rotation']), np.quaternion(*pose2['rotation']))
+        poseDiff = np.append(positionDiff, rotDiff)
+        pose1 = pose1['position'] + pose1['rotation']
+        pose2 = pose2['position'] + pose2['rotation']
         transform = transforms.Compose(
             [
                 transforms.ToTensor(),
@@ -309,36 +327,32 @@ class GibsonDataset(Dataset):
             y = 1
         if self.give_distance:
             return (x, y, l2 - l1)
-        return (x, y)
+        return (x, y, poseDiff)
 
 
 if __name__ == "__main__":
-    dataset = GibsonDataset(
+    train_dataset = GibsonDataset(
         "train",
-        samples=1000,
-        seed=0,
+        0,
+        samples=200,
         max_distance=30,
-
+        episodes=20,
         ignore_0=False,
         debug=True,
-        episodes=20,
-        context=10,
-        give_distance=True
     )
     max_angle = 0
     max_displacement = 0
     displacements = []
     angles = []
     ys = []
-    for batch in tqdm(dataset):
+    for batch in tqdm(train_dataset):
         (
             x,
-            y,
-            d
+            y1,
+            y2
         ) = batch
+        pu.db
         #        dataset.visualize_sample(x, y, episode, l1, l2)
-        im1, im2 = x
-        ys.append(d)
         # im = np.hstack([im1, im2])
         # plt.text(50, 25, str(y))
         # plt.imshow(im)
