@@ -326,7 +326,10 @@ class GibsonDataset(Dataset):
         else:
             y = 1
         if self.give_distance:
-            return (x, y, l2 - l1)
+            ys = l2 - l1
+            if env1 != env2:
+                ys = -1
+            return (x, y, ys, poseDiff)
         return (x, y, poseDiff)
 
 
