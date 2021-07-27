@@ -54,7 +54,6 @@ def generate_image_dataset(scene):
             rotation = pose["rotation"]
             results = sim.get_observations_at(position, rotation)
             image = results["rgb"]
-            depth = results["depth"]
             matplotlib.image.imsave(
                 image_path
                 + "episodeRGB"
@@ -63,16 +62,6 @@ def generate_image_dataset(scene):
                 + str(counter).zfill(5)
                 + ".jpg",
                 image,
-            )
-            np.save(
-                image_path
-                + "episodeDepth"
-                + str(collection)
-                + "_"
-                + str(counter).zfill(5)
-                + ".npy",
-                depth,
-                allow_pickle=True,
             )
             counter += 1
 

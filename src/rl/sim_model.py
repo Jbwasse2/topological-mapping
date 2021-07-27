@@ -16,7 +16,7 @@ from quaternion import as_euler_angles, quaternion
 from tqdm import tqdm
 
 import habitat
-from data.results.localization.forward_best_model.model import Siamese
+from data.results.sparsifier.best_model.model import Siamese
 from habitat import Config, logger
 from habitat.tasks.utils import cartesian_to_polar
 from habitat.utils.geometry_utils import (
@@ -36,7 +36,7 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 def get_dict(fname):
     f = gzip.open(
-        "../../data/datasets/pointnav/gibson/v5/train_large/content/"
+        "../../data/datasets/pointnav/gibson/v4/train_large/content/"
         + fname
         + ".json.gz"
     )
@@ -139,14 +139,14 @@ def try_to_reach(
         path = nx.dijkstra_path(G, start_node, end_node)
     except nx.exception.NetworkXNoPath as e:
         return 3
-    if len(path) <= 10:
+    if len(path) <= 3:
         return 4
     print("NEW PATH")
     current_node = path[0]
     local_goal = path[1]
     # Move robot to starting position/heading
     agent_state = sim.agents[0].get_state()
-    ground_truth_d = get_dict("Poyen")
+    ground_truth_d = get_dict("Browntown")
     pos, rot = get_node_pose(current_node, ground_truth_d)
     agent_state.position = pos
     agent_state.rotation = rot
@@ -174,8 +174,12 @@ def try_to_reach(
         video.release()
     # Check to see if agent made it
     agent_pos = sim.agents[0].get_state().position
-    ground_truth_d = get_dict("Poyen")
-    (episode, frame) = end_node
+    ground_truth_d = get_dict("Browntown")
+    try:
+        (episode, frame, local_pose, global_pose) = end_node
+    except Exception as e:
+        print(e)
+        pu.db
     goal_pos = ground_truth_d[episode]["shortest_paths"][0][0][frame]["position"]
     distance = np.linalg.norm(agent_pos - goal_pos)
     if distance >= 0.2:
@@ -186,7 +190,7 @@ def try_to_reach(
 
 def get_node_depth(node, scene_name):
     image_location = (
-        "../../data/datasets/pointnav/gibson/v5/train_large/images/"
+        "../../data/datasets/pointnav/gibson/v4/train_large/images/"
         + scene_name
         + "/"
         + "episodeDepth"
@@ -200,7 +204,7 @@ def get_node_depth(node, scene_name):
 
 def get_node_image(node, scene_name):
     image_location = (
-        "../../data/datasets/pointnav/gibson/v5/train_large/images/"
+        "../../data/datasets/pointnav/gibson/v4/train_large/images/"
         + scene_name
         + "/"
         + "episodeRGB"
@@ -224,7 +228,7 @@ def try_to_reach_local(
     device,
     video,
 ):
-    MAX_NUMBER_OF_STEPS = 30
+    MAX_NUMBER_OF_STEPS = 200
     prev_action = torch.zeros(1, 1).to(device)
     not_done_masks = torch.zeros(1, 1).to(device)
     not_done_masks += 1
@@ -344,15 +348,16 @@ def get_two_nodes(G):
 def get_localization_model(device):
     model = Siamese().to(device)
     model.load_state_dict(
-        torch.load("./data/results/localization/forward_best_model/saved_model.pth")
+        torch.load("./data/results/sparsifier/best_model/saved_model.pth")
     )
     model.eval()
     return model
 
 
 def main():
-    G = nx.read_gpickle("./data/map/mapWormClean502_Poyen.gpickle")
-    seed = 4
+    env = "Browntown"
+    G = nx.read_gpickle("./data/map/mapWorm20NewArch_" + env + "0.8.gpickle")
+    seed = 0
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -363,11 +368,11 @@ def main():
         else torch.device("cpu")
     )
     localization_model = get_localization_model(device)
-    scene = create_sim("Poyen")
+    scene = create_sim(env)
     ddppo_model, hidden_state = get_ddppo_model(config, device)
     # example_forward(model, hidden_state, scene, device)
     # d = np.load("../data/map/d_slam.npy", allow_pickle=True).item()
-    d = get_dict("Poyen")
+    d = get_dict(env)
     results = run_experiment(
         G, d, ddppo_model, localization_model, hidden_state, scene, device
     )

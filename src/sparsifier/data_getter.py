@@ -337,7 +337,7 @@ if __name__ == "__main__":
     train_dataset = GibsonDataset(
         "train",
         0,
-        samples=200,
+        samples=2000,
         max_distance=30,
         episodes=20,
         ignore_0=False,
@@ -354,8 +354,8 @@ if __name__ == "__main__":
             y1,
             y2
         ) = batch
-        pu.db
         #        dataset.visualize_sample(x, y, episode, l1, l2)
+        ys.append(y2[3])
         # im = np.hstack([im1, im2])
         # plt.text(50, 25, str(y))
         # plt.imshow(im)

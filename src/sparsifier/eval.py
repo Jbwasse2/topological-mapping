@@ -12,54 +12,60 @@ from best_model.model import Siamese
 
 sns.color_palette("flare", as_cmap=True)
 
-dataset = GibsonDataset(
-    "test",
-    seed=0,
-    samples=5000,
-    max_distance=50,
-    episodes=20,
-    ignore_0=False,
-    debug=False,
-    give_distance=True,
-)
-test_dataloader = data.DataLoader(
-    dataset,
-    batch_size=64,
-    shuffle=True,
-    num_workers=10,
-)
-mse = nn.MSELoss()
-device = torch.device("cuda:0")
-test_envs = np.load("./best_model/test_env.npy")
-sparsifier = Siamese().to(device)
-sparsifier.load_state_dict(torch.load("./best_model/saved_model.pth"))
-sparsifier.eval()
-results = np.zeros((72, 2))
-results_pose = {}
-for i in range(72):
-    results_pose[i] = []
-for i, batch in enumerate(tqdm(test_dataloader)):
-    (x, y, d, poseGT) = batch
-    d[torch.where(d>=71)] = 70
-    d[torch.where(d==-1)] = 71
-    poseGT = poseGT.to(device)
-    hidden = sparsifier.init_hidden(y.shape[0], sparsifier.hidden_size, device)
-    sparsifier.hidden = hidden
-    image1, image2 = x
-    image1 = image1.to(device).float()
-    image2 = image2.to(device).float()
-    similarity, pose = sparsifier(image1, image2)
-    #Handle distance estimation stuff
-    for di, pGT, p in zip(d,poseGT, pose):
-        results_pose[di.item()].append(torch.sqrt(mse(p, pGT)).detach().cpu().item())
-    #Handle classifcaiton stuff
-    result = torch.argmax(similarity, axis=1).detach().cpu()
-    for di, r in zip(d, result):
-        results[di][r] += 1
-np.save("results.npy", results)
+#dataset = GibsonDataset(
+#    "test",
+#    seed=0,
+#    samples=10000,
+#    max_distance=50,
+#    episodes=20,
+#    ignore_0=False,
+#    debug=False,
+#    give_distance=True,
+#)
+#test_dataloader = data.DataLoader(
+#    dataset,
+#    batch_size=64,
+#    shuffle=True,
+#    num_workers=10,
+#)
+#mse = nn.MSELoss()
+#device = torch.device("cuda:0")
+#test_envs = np.load("./best_model/test_env.npy")
+#sparsifier = Siamese().to(device)
+#sparsifier.load_state_dict(torch.load("./best_model/saved_model.pth"))
+#sparsifier.eval()
+#results = np.zeros((72, 2))
+#results_pose_T = {}
+#results_pose_R = {}
+#for i in range(72):
+#    results_pose_T[i] = []
+#    results_pose_R[i] = []
+#for i, batch in enumerate(tqdm(test_dataloader)):
+#    (x, y, d, poseGT) = batch
+#    d[torch.where(d>=71)] = 70
+#    d[torch.where(d==-1)] = 71
+#    poseGT = poseGT.to(device)
+#    hidden = sparsifier.init_hidden(y.shape[0], sparsifier.hidden_size, device)
+#    sparsifier.hidden = hidden
+#    image1, image2 = x
+#    image1 = image1.to(device).float()
+#    image2 = image2.to(device).float()
+#    similarity, pose = sparsifier(image1, image2)
+#    #Handle distance estimation stuff
+#    for di, pGT, p in zip(d,poseGT, pose):
+#        results_pose_T[di.item()].append(torch.sqrt(mse(p[:3], pGT[:3])).detach().cpu().item())
+#        results_pose_R[di.item()].append(torch.sqrt(mse(p[3], pGT[3])).detach().cpu().item())
+#    #Handle classifcaiton stuff
+#    result = torch.argmax(similarity, axis=1).detach().cpu()
+#    for di, r in zip(d, result):
+#        results[di][r] += 1
+#np.save("results.npy", results)
+#np.save("resultsPoseR.npy", results_pose_R, allow_pickle=True)
+#np.save("resultsPoseT.npy", results_pose_T, allow_pickle=True)
 results = np.load("./results.npy")
-np.save("resultsPose.npy", results_pose, allow_pickle=True)
-results_pose = np.load("./resultsPose.npy", allow_pickle=True).item()
+results_pose_T = np.load("./resultsPoseT.npy", allow_pickle=True).item()
+results_pose_R = np.load("./resultsPoseR.npy", allow_pickle=True).item()
+pu.db
 true = 0
 total = 0
 for i, row in enumerate(results):
@@ -78,15 +84,23 @@ ax = sns.heatmap(results, linewidths=0.1, annot=True)
 
 fig = ax.get_figure()
 fig.savefig("plotSim.png")
-results = np.zeros((72,1))
+results_T = np.zeros((72,1))
+results_R = np.zeros((72,1))
 plt.clf()
-for row, key in results_pose.items():
+for row, key in results_pose_T.items():
     if len(key) > 0:
-        results[row] = np.mean(key)
+        results_T[row] = np.mean(key)
     else:
-        results[row] = -1
+        results_T[row] = -1
+for row, key in results_pose_R.items():
+    if len(key) > 0:
+        results_R[row] = np.mean(key)
+    else:
+        results_R[row] = -1
 plt.title("Average RMSE Pose error vs Distance")
-plt.plot(results)
+plt.plot(results_T, label="Translation")
+plt.plot(results_R, label="Rotation")
+plt.legend()
 
 fig = ax.get_figure()
 fig.savefig("plotPose.png")
