@@ -1,4 +1,5 @@
 import habitat
+import slam_agents
 from pathlib import Path
 import matplotlib.pyplot as plt
 from habitat.utils.visualizations.maps import get_topdown_map
@@ -6,6 +7,7 @@ import gzip
 import numpy as np
 import torch
 from slam_agents import (
+    AgentMono,
     ORBSLAM2MonoAgent,
     ORBSLAM2Agent,
     get_config,
@@ -15,40 +17,29 @@ from slam_agents import (
 import argparse
 import os
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
-
-def create_agent(scene):
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--agent-type",
-        default="orbslam2-rgbd",
-        choices=["blind", "orbslam2-rgbd", "orbslam2-rgb-monod", "mono"],
-    )
-    parser.add_argument("--task-config", type=str, default="tasks/pointnav_rgbd.yaml")
-    args = parser.parse_args()
-
+def create_agent(scene, agent_type):
     config = habitat.get_config("./configs/tasks/pointnav_rgbd.yaml")
     agent_config = cfg_baseline()
     agent_config.defrost()
     config.defrost()
     config.ORBSLAM2 = agent_config.ORBSLAM2
-    config.ORBSLAM2.SLAM_VOCAB_PATH = "./data/ORBvoc.txt"
-    config.ORBSLAM2.SLAM_SETTINGS_PATH = "./data/mp3d3_small1k.yaml"
+    config.ORBSLAM2.SLAM_VOCAB_PATH = "../data/ORBvoc.txt"
+    config.ORBSLAM2.SLAM_SETTINGS_PATH = "../data/mp3d3_small1k.yaml"
     # config.ORBSLAM2.SLAM_SETTINGS_PATH = "./data/mono.yaml"
     config.SIMULATOR.SCENE = "../../data/scene_datasets/gibson/" + scene + ".glb"
     make_good_config_for_orbslam2(config)
 
-    if args.agent_type == "blind":
+    if agent_type == "blind":
         agent = BlindAgent(config.ORBSLAM2)
-    elif args.agent_type == "orbslam2-rgbd":
+    elif agent_type == "orbslam2-rgbd":
         agent = ORBSLAM2Agent(config.ORBSLAM2)
-    elif args.agent_type == "orbslam2-rgb-monod":
+    elif agent_type == "orbslam2-rgb-monod":
         agent = ORBSLAM2MonodepthAgent(config.ORBSLAM2)
-    elif args.agent_type == "mono":
-        agent = ORBSLAM2MonoAgent(config.ORBSLAM2)
+    elif agent_type == "mono":
+        agent = AgentMono(config.ORBSLAM2)
     else:
-        raise ValueError(args.agent_type, "is unknown type of agent")
+        raise ValueError(agent_type, "is unknown type of agent")
     return agent, config
 
 
@@ -62,7 +53,7 @@ def create_sim(scene, cfg):
 
 def get_dict(fname):
     f = gzip.open(
-        "../../data/datasets/pointnav/gibson/v5/train_large/content/"
+        "../../data/datasets/pointnav/gibson/v4/train_large/content/"
         + fname
         + ".json.gz"
     )
@@ -73,18 +64,18 @@ def get_dict(fname):
     return content["episodes"]
 
 
-def add_traj_to_SLAM(agent, scene_name):
+# Note to self, try save directory with name that corresponds to the agent type.
+def add_traj_to_SLAM(agent, scene_name, number_of_trajs, save_directory=None):
     d = get_dict(scene_name)
     foo = []
-    NUMBER_OF_TRAJECTORIES_COLLECTED = 100
     counter = 0
     start = (0, 0)
     skips = 0
-    for i in range(NUMBER_OF_TRAJECTORIES_COLLECTED):
+    for i in range(number_of_trajs):
         print("Traj= ", i)
         for j in range(len(d[i]["shortest_paths"][0][0])):
             image_location = (
-                "../../data/datasets/pointnav/gibson/v5/train_large/images/"
+                "../../data/datasets/pointnav/gibson/v4/train_large/images/"
                 + scene_name
                 + "/"
                 + "episodeRGB"
@@ -94,35 +85,32 @@ def add_traj_to_SLAM(agent, scene_name):
                 + ".jpg"
             )
             rgb = plt.imread(image_location)
-            depth_location = (
-                "../../data/datasets/pointnav/gibson/v5/train_large/images/"
-                + scene_name
-                + "/"
-                + "episodeDepth"
-                + str(i)
-                + "_"
-                + str(j).zfill(5)
-                + ".npy"
-            )
-            depth = np.load(depth_location)
             observation = {}
             observation["rgb"] = rgb
-            observation["depth"] = depth
+            if type(agent) == slam_agents.ORBSLAM2Agent:
+                depth_location = (
+                    "../../data/datasets/pointnav/gibson/v4/train_large/images/"
+                    + scene_name
+                    + "/"
+                    + "episodeDepth"
+                    + str(i)
+                    + "_"
+                    + str(j).zfill(5)
+                    + ".npy"
+                )
+                depth = np.load(depth_location)
+                observation["depth"] = depth
             if agent.update_internal_state(observation) == False:
                 skips += 1
-
-            #            plt.imsave(
-            #                "./out/map2D_" + str(counter).zfill(5) + ".png",
-            #                agent.map2DObstacles.detach().cpu().numpy().squeeze(),
-            #            )
             counter += 1
-    print(skips)
-    data_dir = "../data/results/slam/" + scene_name + "/"
-    Path(data_dir).mkdir(parents=True, exist_ok=True)
-    torch.save(agent.trajectory_history, data_dir + "traj.pt")
-    torch.save(start, data_dir + "start.pt")
-    torch.save(agent.map2DObstacles, data_dir + "map2D.pt")
-    torch.save(agent.current_obstacles, data_dir + "obstacles.pt")
+    if save_directory is not None:
+        data_dir = save_directory + "/" + scene_name + "/"
+        Path(data_dir).mkdir(parents=True, exist_ok=True)
+        torch.save(agent.trajectory_history, data_dir + "traj.pt")
+    #    torch.save(start, data_dir + "start.pt")
+    #    torch.save(agent.map2DObstacles, data_dir + "map2D.pt")
+    #    torch.save(agent.current_obstacles, data_dir + "obstacles.pt")
+    return agent.trajectory_history
 
 
 def get_actual_top_down(sim, env):
@@ -132,13 +120,17 @@ def get_actual_top_down(sim, env):
     )
 
 
-def main(env):
-    agent, config = create_agent(env)
+# agent = mono, blind, orbslam2-rgbd, orbslam2-rgb-monod
+def get_slam_pose_labels(env, number_of_trajs, agent):
+    agent, config = create_agent(env, agent)
     sim = create_sim(env, config)
     get_actual_top_down(sim, env)
-    add_traj_to_SLAM(agent, env)
+    pose = add_traj_to_SLAM(agent, env, number_of_trajs)
+    return pose
 
 
 if __name__ == "__main__":
-    scene = "Poyen"
-    main(scene)
+    scene = "Ackermanville"
+    # mono, blind, orbslam2-rgbd (works), orbslam2-rgb-monod
+    get_slam_pose_labels(scene, 20, agent="mono")
+#    get_slam_pose_labels(scene, 20, agent="orbslam2-rgbd")

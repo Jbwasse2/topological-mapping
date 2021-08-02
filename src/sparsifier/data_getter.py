@@ -86,16 +86,20 @@ class GibsonDataset(Dataset):
             self.number_of_images_in_envs = self.get_sequence_lengths(self.test_env)
             self.dataset = self.get_dataset(self.test_env)
 
-    def get_sequence_lengths(self,envs):
+    def get_sequence_lengths(self, envs):
         # Get number of images in envs for each episode
         if self.debug:
             envs = envs[0:3]
         number_of_images_in_envs = {}
-        start = time.clock() 
+        start = time.clock()
         for env in tqdm(envs):
             number_of_images_in_envs[env] = {}
             for e in range(self.episodes):
-                number_of_images_in_envs[env][e] = len(glob.glob(self.image_data_path + env + "/episodeRGB" + str(e) + "_*.jpg"))
+                number_of_images_in_envs[env][e] = len(
+                    glob.glob(
+                        self.image_data_path + env + "/episodeRGB" + str(e) + "_*.jpg"
+                    )
+                )
         # This dataset does start from 0 unlike other code, but context creates an offset.
         return number_of_images_in_envs
 
@@ -168,9 +172,9 @@ class GibsonDataset(Dataset):
         random.shuffle(ret)
         return ret
 
-
     # Don't forget map/trajectory is directed.
     # diff_traj_split controls what percent of negative samples are in
+
     def get_dataset(self, envs, diff_traj_split=0.5):
         if self.debug:
             envs = envs[0:3]
@@ -196,16 +200,26 @@ class GibsonDataset(Dataset):
                 env = random.choice(envs)
                 episode = random.choice(range(self.episodes))
                 sample_range = range(
-                        image_offset_in_envs[env],
-                        -image_offset_in_envs[env]
-                        + self.number_of_images_in_envs[env][episode]
-                        - distance,
-                    )
+                    image_offset_in_envs[env],
+                    -image_offset_in_envs[env]
+                    + self.number_of_images_in_envs[env][episode]
+                    - distance,
+                )
                 if len(sample_range) == 0:
                     continue
                 traj_local_start = random.choice(sample_range)
                 traj_local_end = traj_local_start + distance
-                dataset.append((env, env, traj_local_start, traj_local_end, label, episode, episode))
+                dataset.append(
+                    (
+                        env,
+                        env,
+                        traj_local_start,
+                        traj_local_end,
+                        label,
+                        episode,
+                        episode,
+                    )
+                )
 
         # Get negative samples in same trajectory
         label = 0
@@ -227,7 +241,7 @@ class GibsonDataset(Dataset):
                 if np.abs(start - end) > self.max_distance:
                     dataset.append((env, env, start, end, label, episode, episode))
                     break
-
+        
         # Get negative samples in different trajectories
         neg_samples_in_diff_traj = int((self.samples / 2) * (diff_traj_split))
         for _ in tqdm(range(neg_samples_in_diff_traj)):
@@ -279,14 +293,16 @@ class GibsonDataset(Dataset):
     def get_images(self, env, episode, location):
         ret = []
         for loc in range(location - self.context, location):
-            location = (self.image_data_path
+            location = (
+                self.image_data_path
                 + env
                 + "/"
                 + "episodeRGB"
                 + str(episode)
                 + "_"
                 + str(loc).zfill(5)
-                + ".jpg")
+                + ".jpg"
+            )
             image = plt.imread(location)
             image = cv2.resize(image, (224, 224)) / 255
             ret.append(image)
@@ -297,13 +313,15 @@ class GibsonDataset(Dataset):
         env1, env2, l1, l2, y, ep1, ep2 = self.dataset[idx]
         seq1 = self.get_images(env1, ep1, l1)
         seq2 = self.get_images(env2, ep2, l2)
-        pose1 = self.labels[env1][ep1]['shortest_paths'][0][0][l1]
-        pose2 = self.labels[env2][ep2]['shortest_paths'][0][0][l2]
-        positionDiff = (np.array(pose1['position']) - np.array(pose2['position']))
-        rotDiff = angle_between_quaternions(np.quaternion(*pose1['rotation']), np.quaternion(*pose2['rotation']))
+        pose1 = self.labels[env1][ep1]["shortest_paths"][0][0][l1]
+        pose2 = self.labels[env2][ep2]["shortest_paths"][0][0][l2]
+        positionDiff = np.array(pose1["position"]) - np.array(pose2["position"])
+        rotDiff = angle_between_quaternions(
+            np.quaternion(*pose1["rotation"]), np.quaternion(*pose2["rotation"])
+        )
         poseDiff = np.append(positionDiff, rotDiff)
-        pose1 = pose1['position'] + pose1['rotation']
-        pose2 = pose2['position'] + pose2['rotation']
+        pose1 = pose1["position"] + pose1["rotation"]
+        pose2 = pose2["position"] + pose2["rotation"]
         transform = transforms.Compose(
             [
                 transforms.ToTensor(),
@@ -321,7 +339,7 @@ class GibsonDataset(Dataset):
 
         x = (seq1, seq2)
         y = l2 - l1
-        if y >= int(self.max_distance / 2) or y < 0:
+        if y > int(self.max_distance) or y < 0:
             y = 0
         else:
             y = 1
@@ -335,30 +353,52 @@ class GibsonDataset(Dataset):
 
 if __name__ == "__main__":
     train_dataset = GibsonDataset(
-        "train",
-        0,
+        "test",
+        seed=0,
         samples=2000,
-        max_distance=30,
+        max_distance=50,
         episodes=20,
         ignore_0=False,
-        debug=True,
+        debug=False,
+        give_distance=True,
     )
     max_angle = 0
     max_displacement = 0
-    displacements = []
-    angles = []
+    displacements = {}
+    angles = {}
     ys = []
+    for i in range(72):
+        angles[i] = []
+        displacements[i] = []
     for batch in tqdm(train_dataset):
-        (
-            x,
-            y1,
-            y2
-        ) = batch
+        (x, y, ys, poseDiff) = batch
         #        dataset.visualize_sample(x, y, episode, l1, l2)
-        ys.append(y2[3])
-        # im = np.hstack([im1, im2])
-        # plt.text(50, 25, str(y))
-        # plt.imshow(im)
-        # plt.show()
-    plt.hist(ys, bins=1000)
-    plt.savefig("histogram_y.jpg")
+        pu.db
+        t = np.linalg.norm(poseDiff[0:3])
+        r = poseDiff[3]
+        if ys >= 71:
+            ys = 70
+        if ys == -1:
+            ys = 71
+        angles[ys].append(r)
+        displacements[ys].append(t)
+    results_T = np.zeros((72, 1))
+    results_R = np.zeros((72, 1))
+    plt.clf()
+    for row, key in displacements.items():
+        if len(key) > 0:
+            results_T[row] = np.mean(key)
+        else:
+            results_T[row] = -1
+    for row, key in angles.items():
+        if len(key) > 0:
+            results_R[row] = np.mean(key)
+        else:
+            results_R[row] = -1
+    plt.title("Average RMSE Pose error vs Distance")
+    plt.ylim(0, 2)
+    plt.plot(results_T, label="Translation")
+    plt.plot(results_R, label="Rotation")
+    plt.legend()
+
+    plt.savefig("plotPoseTRUE.png")

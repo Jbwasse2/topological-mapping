@@ -1,4 +1,6 @@
 import gzip
+import torch.nn.functional as F
+from glob import glob
 import os
 import random
 import time
@@ -31,7 +33,49 @@ from habitat_baselines.rl.ppo.ppo_trainer import PPOTrainer
 from habitat_baselines.utils.common import poll_checkpoint_folder
 from habitat_baselines.utils.env_utils import construct_envs
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+def get_node_image_sequence(node, scene, max_lengths, transform=False, context=10):
+    ret = []
+    trnsform = transforms.Compose(
+        [
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        ]
+    )
+    #Probably wanna cache this later...
+    if node[0] not in max_lengths:
+        max_length = len(glob(
+                 (
+                "../../data/datasets/pointnav/gibson/v4/train_large/images/"
+                + scene
+                + "/"
+                + "episodeRGB"
+                + str(node[0])
+                + "_*.jpg"
+            )))
+        max_lengths[node[0]] = max_length
+    else:
+        max_length = max_lengths[node[0]]
+    for i in range(node[1] - context, node[1]):
+        i = max(i, 0)
+        i = min(i, max_length)
+        image_location = (
+            "../../data/datasets/pointnav/gibson/v4/train_large/images/"
+            + scene
+            + "/"
+            + "episodeRGB"
+            + str(node[0])
+            + "_"
+            + str(i).zfill(5)
+            + ".jpg"
+        )
+        image = plt.imread(image_location)
+        image = cv2.resize(image, (224, 224)) / 255
+        if transform:
+            ret.append(trnsform(image))
+        else:
+            ret.append(image)
+    return torch.stack(ret), max_lengths
 
 
 def get_dict(fname):
@@ -146,13 +190,14 @@ def try_to_reach(
     local_goal = path[1]
     # Move robot to starting position/heading
     agent_state = sim.agents[0].get_state()
-    ground_truth_d = get_dict("Browntown")
+    ground_truth_d = get_dict("Poyen")
     pos, rot = get_node_pose(current_node, ground_truth_d)
     agent_state.position = pos
     agent_state.rotation = rot
     sim.agents[0].set_state(agent_state)
     # Start experiments!
     for current_node, local_goal in zip(path, path[1:]):
+        pu.db
         success = try_to_reach_local(
             current_node,
             local_goal,
@@ -174,12 +219,8 @@ def try_to_reach(
         video.release()
     # Check to see if agent made it
     agent_pos = sim.agents[0].get_state().position
-    ground_truth_d = get_dict("Browntown")
-    try:
-        (episode, frame, local_pose, global_pose) = end_node
-    except Exception as e:
-        print(e)
-        pu.db
+    ground_truth_d = get_dict("Poyen")
+    (episode, frame, local_pose, global_pose) = end_node
     goal_pos = ground_truth_d[episode]["shortest_paths"][0][0][frame]["position"]
     distance = np.linalg.norm(agent_pos - goal_pos)
     if distance >= 0.2:
@@ -227,6 +268,7 @@ def try_to_reach_local(
     sim,
     device,
     video,
+    context=9
 ):
     MAX_NUMBER_OF_STEPS = 200
     prev_action = torch.zeros(1, 1).to(device)
@@ -238,16 +280,20 @@ def try_to_reach_local(
     # goal_image is for video/visualization
     # goal_image_model is for torch model for predicting distance/heading
     scene_name = os.path.splitext(os.path.basename(sim.config.sim_cfg.scene.id))[0]
+    max_lengths = {}
+    local_images_buffer, max_lengths = get_node_image_sequence(start_node, "Poyen", max_lengths, transform=True)
+    goal_images_buffer, max_lengths = get_node_image_sequence(local_goal_node, "Poyen", max_lengths, transform=True)
     if video is not None:
         scene_name = os.path.splitext(os.path.basename(sim.config.sim_cfg.scene.id))[0]
 
-        #        start_image = cv2.resize(get_node_image(start_node, scene_name), (256, 256))
         goal_image = cv2.resize(get_node_image(local_goal_node, scene_name), (256, 256))
 
     for i in range(MAX_NUMBER_OF_STEPS):
         displacement = torch.from_numpy(
-            get_displacement_local_goal(sim, local_goal_node, d)
+            get_displacement_local_goal(local_images_buffer, goal_images_buffer, localization_model, device)
         ).type(torch.float32)
+        pu.db
+        displacement_gt = get_displacement_local_goal_oracle(sim, local_goal_node, d)
 
         if video is not None:
             image = np.hstack([ob["rgb"], goal_image])
@@ -273,14 +319,26 @@ def try_to_reach_local(
         if action[0].item() == 0:  # This is stop action
             print("STOP ACTION")
             return 1
-        if displacement[0] < 0.2:
-            print("STOP GT")
-            return 1
         ob = sim.step(action[0].item())
+        pu.db
+        
     return 0
 
+def get_displacement_local_goal(local_images_buffer, goal_images_buffer, model, device):
+    local_images_buffer = local_images_buffer.to(device).float()
+    goal_images_buffer = goal_images_buffer.to(device).float()
+    if len(local_images_buffer.shape) == 4:
+        local_images_buffer = local_images_buffer.unsqueeze(0)
+    if len(goal_images_buffer.shape) == 4:
+        goal_images_buffer = goal_images_buffer.unsqueeze(0)
+    prob, pose = model(local_images_buffer, goal_images_buffer)
+    pose = pose.detach().cpu().numpy()[0]
+    prob = F.softmax(prob)
+    rho = np.linalg.norm(pose[0:3])
+    phi = pose[3]
+    return np.array([rho, phi])
 
-def get_displacement_local_goal(sim, local_goal, d):
+def get_displacement_local_goal_oracle(sim, local_goal, d):
     # See https://github.com/facebookresearch/habitat-lab/blob/b7a93bc493f7fb89e5bf30b40be204ff7b5570d7/habitat/tasks/nav/nav.py
     # for more information
     pos_goal, rot_goal = get_node_pose(local_goal, d)
@@ -335,6 +393,8 @@ def run_experiment(
                 scene,
                 device,
             )
+        if results == 2:
+            pu.db
         return_codes[results] += 1
 
     return return_codes
@@ -356,7 +416,8 @@ def get_localization_model(device):
 
 def main():
     env = "Browntown"
-    G = nx.read_gpickle("./data/map/mapWorm20NewArch_" + env + "0.8.gpickle")
+    map_type = "VO"
+    G = nx.read_gpickle("./data/map/" + map_type + "/mapWorm20NewArch_" + env + "0.8.gpickle")
     seed = 0
     random.seed(seed)
     np.random.seed(seed)

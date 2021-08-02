@@ -1,4 +1,6 @@
 import math
+from pathlib import Path
+import pandas as pd
 import pickle
 from glob import glob
 import os
@@ -17,14 +19,22 @@ from tqdm import tqdm
 
 import habitat
 from habitat.utils.geometry_utils import angle_between_quaternions
-from make_map import (create_sim, get_dict, get_node_image, get_trajectory_env,
-                      get_true_label, se3_to_habitat, sparsify_trajectories)
+from make_map import (
+    create_sim,
+    get_dict,
+    get_node_image,
+    get_trajectory_env,
+    get_true_label,
+    se3_to_habitat,
+    sparsify_trajectories,
+)
 from test_data import GibsonMapDataset
 from worm_model.model import Siamese
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 matplotlib.rcParams["font.family"] = "Helvetica"
 font = {"weight": "bold"}
+
 
 def get_node_image_sequence(node, scene, max_lengths, transform=False, context=10):
     ret = []
@@ -34,17 +44,20 @@ def get_node_image_sequence(node, scene, max_lengths, transform=False, context=1
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
         ]
     )
-    #Probably wanna cache this later...
+    # Probably wanna cache this later...
     if node[0] not in max_lengths:
-        max_length = len(glob(
-                 (
-                "../../data/datasets/pointnav/gibson/v4/train_large/images/"
-                + scene
-                + "/"
-                + "episodeRGB"
-                + str(node[0])
-                + "_*.jpg"
-            )))
+        max_length = len(
+            glob(
+                (
+                    "../../data/datasets/pointnav/gibson/v4/train_large/images/"
+                    + scene
+                    + "/"
+                    + "episodeRGB"
+                    + str(node[0])
+                    + "_*.jpg"
+                )
+            )
+        )
         max_lengths[node[0]] = max_length
     else:
         max_length = max_lengths[node[0]]
@@ -71,27 +84,35 @@ def get_node_image_sequence(node, scene, max_lengths, transform=False, context=1
 
 
 def estimate_edge_len_wormhole(model, edges, sim, device, max_lengths, buffer_size):
-    # Get images for edges
     if edges == []:
-        return []
+        return [], [], max_lengths
+    # Pre make the images or else for some reason pytorch allocates too much mem...
     images1 = torch.zeros(buffer_size, 10, 3, 224, 224)
     images2 = torch.zeros(buffer_size, 10, 3, 224, 224)
     for count, edge in enumerate(edges):
         scene = os.path.basename(sim.config.sim_cfg.scene.id).split(".")[0]
-        images1[count], max_lengths = get_node_image_sequence(edge[0], scene, transform=True, max_lengths=max_lengths)
-        images2[count], max_lengths = get_node_image_sequence(edge[1], scene, transform=True, max_lengths=max_lengths)
+        images1[count], max_lengths = get_node_image_sequence(
+            edge[0], scene, transform=True, max_lengths=max_lengths
+        )
+        images2[count], max_lengths = get_node_image_sequence(
+            edge[1], scene, transform=True, max_lengths=max_lengths
+        )
     images1 = (images1).float().to(device)
     images2 = (images2).float().to(device)
+    images1 = images1[0 : len(edges)]
+    images2 = images2[0 : len(edges)]
     if len(images1.shape) == 4:
         images1 = images1.unsqueeze(0)
         images2 = images2.unsqueeze(0)
     hidden = model.init_hidden(images1.shape[0], model.hidden_size, device)
     model.hidden = hidden
     similarity, pose = model(images1, images2)
-    similarity = similarity[0:len(edges)]
-    pose = pose[0:len(edges)]
     similarity = F.softmax(similarity)
-    return similarity[:, 1].detach().cpu().numpy(), pose.detach().cpu().numpy(), max_lengths
+    return (
+        similarity[:, 1].detach().cpu().numpy(),
+        pose.detach().cpu().numpy(),
+        max_lengths,
+    )
 
 
 def estimate_edge_len_pose(d, edges):
@@ -127,11 +148,14 @@ def estimate_edge_len_pose(d, edges):
 
 
 # If a node in the graph is already similiar to the node being proposed, use the ndoe in graph isntead. This will just return 1 node that is close
-def find_close_node(model, edges, sim, device, similarity, map_type, max_lengths, buffer_size):
-    pu.db
+def find_close_node(
+    model, edges, sim, device, similarity, map_type, max_lengths, buffer_size
+):
     return_node = None
     if map_type == "topological":
-        results, pose, max_lengths = estimate_edge_len_wormhole(model, edges, sim, device, max_lengths, buffer_size)
+        results, pose, max_lengths = estimate_edge_len_wormhole(
+            model, edges, sim, device, max_lengths, buffer_size
+        )
         for counter, result in enumerate(results):
             if result >= similarity:
                 return_node = counter
@@ -144,17 +168,17 @@ def find_close_node(model, edges, sim, device, similarity, map_type, max_lengths
 
 
 # This will return all nodes that are close
-def find_close_nodes(model, edges, sim, device, similarity, map_type, max_lengths, buffer_size):
-    if map_type == "topological":
-        results, pose, max_lengths = estimate_edge_len_wormhole(model, edges, sim, device, max_lengths, buffer_size)
-        return_edges = []
-        for counter, result in enumerate(results):
-            if result >= similarity:
-                return_edges.append(counter)
-        return return_edges, max_lengths
-    elif map_type == "pose":
-        results = estimate_edge_len_pose(d, edges)[1]
-        return [i for i, x in enumerate(results) if x == 1]
+def find_close_nodes(
+    model, edges, sim, device, similarity, map_type, max_lengths, buffer_size
+):
+    results, pose, max_lengths = estimate_edge_len_wormhole(
+        model, edges, sim, device, max_lengths, buffer_size
+    )
+    return_edges = []
+    for counter, result in enumerate(results):
+        if result >= similarity:
+            return_edges.append(counter)
+    return return_edges, max_lengths
 
 
 def add_trajs_to_graph_wormhole(
@@ -171,6 +195,8 @@ def add_trajs_to_graph_wormhole(
 ):
     max_lengths = {}
     tail_node = None
+    if map_type == "orbslamRGB":
+        slam_labels = None
     for trajectory_count, (trajectory_count_episode, trajectory) in tqdm(
         enumerate(zip(episodes, trajectories))
     ):
@@ -180,20 +206,167 @@ def add_trajs_to_graph_wormhole(
             current_node = (trajectory_count_episode, true_label)
             nodes = list(G.nodes)
             edges = []
-            if frame_count % 30 == 0:
+            if frame_count % 50 == 0:
                 if tail_node != None:
-                    edges.append((tail_node, current_node) )
-                    prob_similar, pose, max_lengths = estimate_edge_len_wormhole(model, edges, sim, device, max_lengths, buffer_size=len(edges))
-                    pose = pose[0]
-                    tail_node_global = tail_node[3]
-                    global_pose = (pose[0] + tail_node_global[0], pose[1] + tail_node_global[1], pose[2] + tail_node_global[2], (pose[3] + tail_node_global[3] % np.pi))
-                    current_node = (current_node[0], current_node[1], tuple(pose), global_pose)
-                    G.add_node(current_node)
-                    G.add_edge(tail_node, current_node)
+                    if map_type != "similarity":
+                        edges.append((tail_node, current_node))
+                        if map_type == "orbslamRGB":
+                            pass
+                        else:
+                            (
+                                prob_similar,
+                                pose,
+                                max_lengths,
+                            ) = estimate_edge_len_wormhole(
+                                model,
+                                edges,
+                                sim,
+                                device,
+                                max_lengths,
+                                buffer_size=len(edges),
+                            )
+                            pose = pose[0]
+                        tail_node_global = tail_node[3]
+                        global_pose = (
+                            pose[0] + tail_node_global[0],
+                            pose[1] + tail_node_global[1],
+                            pose[2] + tail_node_global[2],
+                            (pose[3] + tail_node_global[3] % np.pi),
+                        )
+                        current_node = (
+                            current_node[0],
+                            current_node[1],
+                            tuple(pose),
+                            global_pose,
+                        )
+                        G.add_node(current_node)
+                        G.add_edge(tail_node, current_node)
+                    elif map_type == "similarity":
+                        pose = (0, 0, 0, 0)
+                        global_pose = (0, 0, 0, 0)
+                        current_node = (
+                            current_node[0],
+                            current_node[1],
+                            tuple(pose),
+                            global_pose,
+                        )
+                        G.add_node(current_node)
+                        G.add_edge(tail_node, current_node)
+
                 else:
-                    current_node = (current_node[0], current_node[1], (0.0,0.0,0.0,0.0), (0.0,0.0,0.0,0.0))
+                    current_node = (
+                        current_node[0],
+                        current_node[1],
+                        (0.0, 0.0, 0.0, 0.0),
+                        (0.0, 0.0, 0.0, 0.0),
+                    )
                     G.add_node(current_node)
                 tail_node = current_node
+    return G
+
+
+# This function attempts to merge nodes together while putting them in the graph
+# Overall I found this does not improve speed, but I am keeping this here for now...
+
+
+def add_trajs_to_graph_wormhole_attempt2(
+    G,
+    trajectories,
+    traj_ind,
+    model,
+    device,
+    similarity,
+    episodes,
+    sim,
+    buffer_size=200,
+    map_type="topological",
+):
+    max_lengths = {}
+    pruned_nodes = {}
+    for i in range(len(trajectories)):
+        pruned_nodes[i] = 0
+    for trajectory_count, (trajectory_count_episode, trajectory) in tqdm(
+        enumerate(zip(episodes, trajectories))
+    ):
+        tail_node = None
+        for frame_count, frame in tqdm(enumerate(trajectory)):
+            # we want to keep track of what the actual frame is from in the trajectory
+            true_label = get_true_label(trajectory_count, frame_count, traj_ind)
+            current_node = (trajectory_count_episode, true_label)
+            nodes = list(G.nodes)
+            edges = []
+            dont_add_flag = False
+            for i in range(len(nodes)):
+                node = nodes[i]
+                if node != tail_node:
+                    edge = (current_node, node)
+                    edges.append(edge)
+                # We use a list of edges to feed into the NN because batching is faster.
+                # Check to see if there is already a similar enough edge in the graph
+                if (
+                    len(edges) >= buffer_size or i == len(nodes) - 1
+                ):  # -2 because range is over n-1 and then one node should be tail node
+                    results, max_lengths = find_close_node(
+                        model,
+                        edges,
+                        sim,
+                        device,
+                        similarity,
+                        map_type,
+                        max_lengths,
+                        buffer_size=buffer_size,
+                    )
+                    if results == None:
+                        pass
+                    else:
+                        current_node = edges[results][1]
+                        pruned_nodes[trajectory_count] += 1
+                        dont_add_flag = True
+                        break
+                    edges = []
+            # If
+            if tail_node is not None and not dont_add_flag:
+                edges = []
+                edges.append((tail_node, current_node))
+                prob_similar, pose, max_lengths = estimate_edge_len_wormhole(
+                    model, edges, sim, device, max_lengths, buffer_size=len(edges)
+                )
+                pose = pose[0]
+                tail_node_global = tail_node[3]
+                global_pose = (
+                    pose[0] + tail_node_global[0],
+                    pose[1] + tail_node_global[1],
+                    pose[2] + tail_node_global[2],
+                    (pose[3] + tail_node_global[3] % np.pi),
+                )
+                current_node = (
+                    current_node[0],
+                    current_node[1],
+                    tuple(pose),
+                    global_pose,
+                )
+                G.add_node(current_node)
+                G.add_edge(tail_node, current_node)
+            elif tail_node is not None and dont_add_flag:
+                G.add_edge(tail_node, current_node)
+                dont_add_flag = False
+            else:
+                current_node = (
+                    current_node[0],
+                    current_node[1],
+                    (0.0, 0.0, 0.0, 0.0),
+                    (0.0, 0.0, 0.0, 0.0),
+                )
+                G.add_node(current_node)
+            tail_node = current_node
+        nx.write_gpickle(
+            G,
+            "./results/save_model/mapWorm20NewArch_"
+            + str(trajectory_count)
+            + ".gpickle",
+        )
+    print("Number of nodes pruned = ")
+    print(pruned_nodes)
     return G
 
 
@@ -224,6 +397,7 @@ def create_topological_map_wormhole(
         sim=sim,
         map_type=map_type,
     )
+    pu.db
     G = connect_graph_trajectories_wormholes(
         G,
         model,
@@ -237,41 +411,61 @@ def create_topological_map_wormhole(
 
 
 def connect_graph_trajectories_wormholes(
-    G, model, device, similarity, sim=None, buffer_size=200, map_type="topological", closeness = 5.0
+    G,
+    model,
+    device,
+    similarity,
+    sim=None,
+    buffer_size=200,
+    map_type="topological",
+    closeness=5.0,
 ):
     counter = 0
     nodes = list(G.nodes)
     max_lengths = {}
+    distance_constraint_map_types = ["topological", "VO"]
+    visual_constraint_map_types = ["similarity", "topological"]
     for node_i in tqdm(nodes):
         edges = []
         for i, node_j in enumerate(list(G.nodes)):
-            #Only add nodes to edges if the predicted pose is close...
-            distance = np.linalg.norm(np.array(node_i[3]) - np.array(node_j[3]))
-            if distance >= closeness or node_i == node_j:
-                continue
-            edge = (node_i, node_j)
-            edges.append(edge)
-            if (
-                len(edges) >= buffer_size or i == len(nodes) - 1
-            ):  # -2 because range is over n-1 and then one node should be tail node
-                if len(edges) >= buffer_size:
-                    pu.db
-                print(len(edges))
-                try:
-                    pu.db
-                    results, max_lengths = find_close_nodes(
-                        model, edges, sim, device, similarity, map_type=map_type, max_lengths=max_lengths, buffer_size=buffer_size
-                    )
-                except Exception as e:
+            # Only add nodes to edges if the predicted pose is close...
+            # All of the map types we will be testing except similarity will be using pose
+            if map_type in visual_constraint_map_types:
+                if map_type in distance_constraint_map_types:
+                    distance = np.linalg.norm(np.array(node_i[3]) - np.array(node_j[3]))
+                    if distance <= closeness and node_i != node_j:
+                        edge = (node_i, node_j)
+                        edges.append(edge)
+                else:
+                    edge = (node_i, node_j)
+                    edges.append(edge)
+                if (
+                    len(edges) >= buffer_size or i == len(nodes) - 1
+                ):  # -2 because range is over n-1 and then one node should be tail node
                     print(len(edges))
-                    print(e)
-                    pu.db
-                for result in results:
-                    edge = edges[result]
-                    if edge[0] == edge[1]:
-                        continue
-                    G.add_edge(edge[0], edge[1])
-                edges = []
+                    results, max_lengths = find_close_nodes(
+                        model,
+                        edges,
+                        sim,
+                        device,
+                        similarity,
+                        map_type=map_type,
+                        max_lengths=max_lengths,
+                        buffer_size=buffer_size,
+                    )
+                    for result in results:
+                        edge = edges[result]
+                        if edge[0] == edge[1]:
+                            continue
+                        G.add_edge(edge[0], edge[1])
+                    edges = []
+            if (
+                map_type in distance_constraint_map_types
+                and map_type not in visual_constraint_map_types
+            ):
+                distance = np.linalg.norm(np.array(node_i[3]) - np.array(node_j[3]))
+                if distance <= closeness and node_i != node_j:
+                    G.add_edge(node_i, node_j)
     return G
 
 
@@ -282,17 +476,21 @@ def main(env, similarityNodes=0.99, similarityEdges=0.80, map_type="topological"
     sparsifier_model = Siamese().to(device)
     sparsifier_model.load_state_dict(torch.load("./worm_model/saved_model.pth"))
     sparsifier_model.eval()
-    data = GibsonMapDataset(test_envs)
+    # data = GibsonMapDataset(test_envs)
     # trajs is the trajectory of the 224x224 dataset, not sparsified
-    trajs = get_trajectory_env(data, env, number_of_trajectories=20)
-    # traj_new is sparsified trajectory with the traj_visual dataset
-    # traj_ind says which indices where used
-    traj_new, traj_ind = sparsify_trajectories(
-        trajs,
-        device,
-        sim,
-        sparsity=1,
-    )
+    #    trajs = get_trajectory_env(data, env, number_of_trajectories=20)
+    #    # traj_new is sparsified trajectory with the traj_visual dataset
+    #    # traj_ind says which indices where used
+    #    traj_new, traj_ind = sparsify_trajectories(
+    #        trajs,
+    #        device,
+    #        sim,
+    #        sparsity=1,
+    #    )
+    fp = open("traj_new.pkl", "rb")
+    traj_new = pickle.load(fp)
+    fp = open("traj_ind.pkl", "rb")
+    traj_ind = pickle.load(fp)
     episodes = list(range(len(traj_new)))
     G = create_topological_map_wormhole(
         traj_new,
@@ -306,35 +504,66 @@ def main(env, similarityNodes=0.99, similarityEdges=0.80, map_type="topological"
         device=device,
         map_type=map_type,
     )
-    if map_type == "topological":
-        nx.write_gpickle(
-            G,
-            "../../data/map/mapWorm20NewArch_" + str(env) + str(similarityEdges) + ".gpickle",
-        )
-    elif map_type == "pose":
-        nx.write_gpickle(
-            G,
-            "../../data/map/mapWormPose50_"
-            + str(env)
-            + str(similarityEdges)
-            + ".gpickle",
-        )
+    Path("../../data/map/" + str(map_type)).mkdir(parents=True, exist_ok=True)
+    nx.write_gpickle(
+        G,
+        "../../data/map/"
+        + str(map_type)
+        + "/mapWorm20NewArch_"
+        + str(env)
+        + str(similarityEdges)
+        + ".gpickle",
+    )
     return G
 
 
 def find_wormholes(G, d, wormhole_distance=5.0):
     wormholes = []
+    distances = {
+        "gt_x": [],
+        "gt_y": [],
+        "gt_z": [],
+        "gt_r": [],
+        "pred_x": [],
+        "pred_y": [],
+        "pred_z": [],
+        "pred_r": [],
+    }
     for edge in list(G.edges()):
         node1, node2 = edge[0], edge[1]
-        if node1 == (1,60) and node2 == (16,45):
-            pu.db
-        position1 = d[node1[0]]["shortest_paths"][0][0][node1[1]]["position"]
-        position2 = d[node2[0]]["shortest_paths"][0][0][node2[1]]["position"]
+        pose1 = d[node1[0]]["shortest_paths"][0][0][node1[1]]
+        pose2 = d[node2[0]]["shortest_paths"][0][0][node2[1]]
+        position1 = pose1["position"]
+        position2 = pose2["position"]
+        rotDiff = angle_between_quaternions(
+            np.quaternion(*pose1["rotation"]), np.quaternion(*pose2["rotation"])
+        )
         distance = np.linalg.norm(np.array(position1) - np.array(position2))
-        if (
-           distance > wormhole_distance
-        ):
-            wormholes.append((edge,distance))
+        dist_vector_gt = tuple(np.array(position2) - np.array(position1))
+        dist_vector_pred = node2[2]
+        distances["gt_x"].append(dist_vector_gt[0])
+        distances["gt_y"].append(dist_vector_gt[1])
+        distances["gt_z"].append(dist_vector_gt[2])
+        distances["gt_r"].append(rotDiff)
+        distances["pred_x"].append(dist_vector_pred[0])
+        distances["pred_y"].append(dist_vector_pred[1])
+        distances["pred_z"].append(dist_vector_pred[2])
+        distances["pred_r"].append(dist_vector_pred[3])
+        if distance > wormhole_distance:
+            wormholes.append((edge, distance))
+    df = pd.DataFrame(distances)
+    dfx = df[["gt_x", "pred_x"]]
+    dfx.plot.bar()
+    plt.savefig("./debugx.png")
+    dfy = df[["gt_y", "pred_y"]]
+    dfy.plot.bar()
+    plt.savefig("./debugy.png")
+    dfz = df[["gt_z", "pred_z"]]
+    dfz.plot.bar()
+    plt.savefig("./debugz.png")
+    dfr = df[["gt_r", "pred_r"]]
+    dfr.plot.bar()
+    plt.savefig("./debugr.png")
     return wormholes
 
 
@@ -343,17 +572,16 @@ if __name__ == "__main__":
     # Options for main map_type are
     # topological
     # pose
-    G = main(env, map_type="topological")
-#    pu.db
-    d = get_dict(env)
-    path = "../data/map/mapWorm20NewArch_" + env + "0.8.gpickle"
-    G = nx.read_gpickle(path)
-    print(len(list(G.nodes())))
-    print(len(list(G.edges())))
-    wormholes = find_wormholes(G, d, 0.80)
+    G = main(env, map_type="orbRGB")
+#    d = get_dict(env)
+#    path = "../data/map/mapWorm20NewArch_" + env + "0.8.gpickle"
+#    G = nx.read_gpickle(path)
+#    print(len(list(G.nodes())))
+#    print(len(list(G.edges())))
+#    wormholes = find_wormholes(G, d, 0.80)
 #    print(wormholes)
-    sorted_by_second = sorted(wormholes, key=lambda tup: tup[1])
-    print(sorted_by_second[-1])
+#    sorted_by_second = sorted(wormholes, key=lambda tup: tup[1])
+#    print(sorted_by_second[-1])
 #    neighbors = list(G.neighbors((1,60)))
 #    print(neighbors)
 #    slam_labels = torch.load("../data/results/slam/" + env + "/traj.pt")

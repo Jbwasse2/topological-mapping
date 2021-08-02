@@ -46,13 +46,13 @@ class Siamese(nn.Module):
         self.conv2 = conv(True, 256, 128, kernel_size=3, stride=1, dropout=0.0)
         self.conv3 = conv(True, 128, 64, kernel_size=3, stride=1, dropout=0.0)
 
-        self.fc3 = nn.Linear(1284, 1024)
+        self.fc3 = nn.Linear(1282, 1024)
         self.fc4 = nn.Linear(1024, 128)
         self.fc5 = nn.Linear(128, 2)
         #Pose
         self.fc3_pose = nn.Linear(1280, 1024)
         self.fc4_pose = nn.Linear(1024, 128)
-        self.fc5_pose = nn.Linear(128, 4)
+        self.fc5_pose = nn.Linear(128, 2)
 
     def init_hidden(self, batch_size, hidden_size, device):
         #Just use default of all 0.
@@ -110,5 +110,5 @@ class Siamese(nn.Module):
         x = self.fc4(x)
         x = F.relu(x)
         x = self.fc5(x)
-        return x, pose
+        return pose, x
 

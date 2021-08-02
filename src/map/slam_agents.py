@@ -587,8 +587,7 @@ class ORBSLAM2MonoAgent(ORBSLAM2Agent):
         config,
         device=torch.device("cuda:0"),  # noqa: B008
     ):
-        pu.db
-        #        super(ORBSLAM2MonoAgent, self).__init__(config)
+        super(ORBSLAM2MonoAgent, self).__init__(config)
         self.num_actions = config.NUM_ACTIONS
         self.dist_threshold_to_stop = config.DIST_TO_STOP
         self.slam_vocab_path = config.SLAM_VOCAB_PATH
@@ -600,7 +599,6 @@ class ORBSLAM2MonoAgent(ORBSLAM2Agent):
         )
         self.slam.set_use_viewer(False)
         self.slam.initialize()
-        pu.db
         self.device = device
         self.map_size_meters = config.MAP_SIZE
         self.map_cell_size = config.MAP_CELL_SIZE
@@ -688,36 +686,62 @@ class ORBSLAM2MonoAgent(ORBSLAM2Agent):
         return True
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--agent-type",
-        default="orbslam2-rgbd",
-        choices=["blind", "orbslam2-rgbd", "orbslam2-rgb-monod"],
-    )
-    parser.add_argument("--task-config", type=str, default="tasks/pointnav_rgbd.yaml")
-    args = parser.parse_args()
+# This code comes from my ROS code see
+# https://github.com/Jbwasse2/topological-mapping/blob/ros2/src/top_map/top_map/pose.py
+class AgentMono:
+    def __init__(self, config, device=torch.device("cuda:0")):  # noqa: B008
+        self.device = device
+        self.slam_vocab_path = config.SLAM_VOCAB_PATH
+        assert os.path.isfile(self.slam_vocab_path)
+        self.slam_settings_path = config.SLAM_SETTINGS_PATH
+        assert os.path.isfile(self.slam_settings_path)
+        self.slam = orbslam2.System(
+            self.slam_vocab_path, self.slam_settings_path, orbslam2.Sensor.MONOCULAR
+        )
+        VISUALIZE = False
+        self.slam.set_use_viewer(VISUALIZE)
+        self.trajectory_history = []
+        self.slam.initialize()
+        self.slam.reset()
+        self.timestep = 1 / 30
+        self.cur_time = 0
 
-    config = get_config()
-    agent_config = cfg_baseline()
-    agent_config.defrost()
-    config.defrost()
-    config.ORBSLAM2 = agent_config.ORBSLAM2
-    make_good_config_for_orbslam2(config)
+    #        self.start_time = self.get_clock().now().to_msg()
 
-    if args.agent_type == "blind":
-        agent = BlindAgent(config.ORBSLAM2)
-    elif args.agent_type == "orbslam2-rgbd":
-        agent = ORBSLAM2Agent(config.ORBSLAM2)
-    elif args.agent_type == "orbslam2-rgb-monod":
-        agent = ORBSLAM2MonodepthAgent(config.ORBSLAM2)
-    else:
-        raise ValueError(args.agent_type, "is unknown type of agent")
-    benchmark = habitat.Benchmark(args.task_config)
-    metrics = benchmark.evaluate(agent)
-    for k, v in metrics.items():
-        habitat.logger.info("{}: {:.3f}".format(k, v))
+    # Takes in image as RGB and returns mono gray image to be added to orbslam2
+    def mono_from_observation(self, observation):
+        return np.dot(observation[..., :3], [0.2989, 0.5870, 0.1140])
 
+    # Takes 13 pt trajectory_point from orbslam2 wrapper and converts them into pose
+    # Format is as follows where Rwc is SE3 rotation and twc is position offset
+    # Time
+    # Rwc.at<float>(0,0),
+    # Rwc.at<float>(0,1),
+    # Rwc.at<float>(0,2),
+    # twc.at<float>(0),
+    # Rwc.at<float>(1,0),
+    # Rwc.at<float>(1,1),
+    # Rwc.at<float>(1,2),
+    # twc.at<float>(1),
+    # Rwc.at<float>(2,0),
+    # Rwc.at<float>(2,1),
+    # Rwc.at<float>(2,2),
+    # twc.at<float>(2)
+    def trajectory_point_to_pose(self, trajectory_point):
+        trajectory_point = np.array(trajectory_point[1:]).reshape(3, 4)
+        position = trajectory_point[:, 3]
+        rot_se3 = trajectory_point[0:3, 0:3]
+        rot_quat = quaternion.from_rotation_matrix(rot_se3)
+        return position, rot_quat
 
-if __name__ == "__main__":
-    main()
+    def update_internal_state(self, habitat_observation):
+        self.cur_time += self.timestep
+        # Check if camera data is empty, if it is then skip this frame
+        image = self.mono_from_observation(habitat_observation["rgb"])
+        self.slam.process_image_mono(image, self.cur_time)
+        print(self.slam.get_tracking_state())
+        if not str(self.slam.get_tracking_state()) == "OK":
+            self.trajectory_history.append(None)
+        else:
+            pu.db
+            pose = self.trajectory_point_to_pose(self.slam.get_trajectory_points()[-1])

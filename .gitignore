@@ -2,6 +2,7 @@
 #
 src/map/results/
 habitat-lab
+*.pkl
 *.pt
 src/slam/out/
 src/slam/top_down/
