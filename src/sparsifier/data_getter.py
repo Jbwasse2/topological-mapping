@@ -21,9 +21,9 @@ from torchvision.transforms import ToTensor
 from tqdm import tqdm
 
 from rich.progress import track
-from habitat.utils.geometry_utils import angle_between_quaternions
+from habitat.utils.geometry_utils import angle_between_quaternions, quaternion_rotate_vector
+from habitat.tasks.utils import cartesian_to_polar
 
-matplotlib.use("Agg")
 
 
 def get_dict(fname):
@@ -315,13 +315,15 @@ class GibsonDataset(Dataset):
         seq2 = self.get_images(env2, ep2, l2)
         pose1 = self.labels[env1][ep1]["shortest_paths"][0][0][l1]
         pose2 = self.labels[env2][ep2]["shortest_paths"][0][0][l2]
-        positionDiff = np.array(pose1["position"]) - np.array(pose2["position"])
-        rotDiff = angle_between_quaternions(
-            np.quaternion(*pose1["rotation"]), np.quaternion(*pose2["rotation"])
+        pos_goal = np.array(pose2["position"])
+        pos_agent = np.array(pose1["position"])
+        rot_agent = np.quaternion(*pose1["rotation"])
+        direction_vector = pos_goal - pos_agent
+        direction_vector_agent = quaternion_rotate_vector(
+            rot_agent.inverse(), direction_vector
         )
-        poseDiff = np.append(positionDiff, rotDiff)
-        pose1 = pose1["position"] + pose1["rotation"]
-        pose2 = pose2["position"] + pose2["rotation"]
+        rho, phi = cartesian_to_polar(-direction_vector_agent[2], direction_vector_agent[0])
+        poseDiff = np.append(direction_vector, phi)
         transform = transforms.Compose(
             [
                 transforms.ToTensor(),
@@ -359,7 +361,7 @@ if __name__ == "__main__":
         max_distance=50,
         episodes=20,
         ignore_0=False,
-        debug=False,
+        debug=True,
         give_distance=True,
     )
     max_angle = 0
@@ -367,21 +369,28 @@ if __name__ == "__main__":
     displacements = {}
     angles = {}
     ys = []
+    angles_l = []
+    dist_l = []
     for i in range(72):
         angles[i] = []
         displacements[i] = []
     for batch in tqdm(train_dataset):
         (x, y, ys, poseDiff) = batch
         #        dataset.visualize_sample(x, y, episode, l1, l2)
-        pu.db
         t = np.linalg.norm(poseDiff[0:3])
-        r = poseDiff[3]
+        r = poseDiff[1]
         if ys >= 71:
             ys = 70
         if ys == -1:
             ys = 71
         angles[ys].append(r)
         displacements[ys].append(t)
+        angles_l.append(r)
+        dist_l.append(t)
+    plt.hist(dist_l)
+    plt.show()
+    plt.hist(angles_l)
+    plt.show()
     results_T = np.zeros((72, 1))
     results_R = np.zeros((72, 1))
     plt.clf()
@@ -395,6 +404,7 @@ if __name__ == "__main__":
             results_R[row] = np.mean(key)
         else:
             results_R[row] = -1
+    pu.db
     plt.title("Average RMSE Pose error vs Distance")
     plt.ylim(0, 2)
     plt.plot(results_T, label="Translation")

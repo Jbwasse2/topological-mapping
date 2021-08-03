@@ -8,7 +8,8 @@ import numpy as np
 import pudb
 from tqdm import tqdm
 from torch.utils import data
-from best_model.model import Siamese
+#from best_model.model import Siamese
+from translation.model import Siamese
 import os
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
@@ -32,9 +33,9 @@ test_dataloader = data.DataLoader(
 )
 mse = nn.MSELoss()
 device = torch.device("cuda:0")
-test_envs = np.load("./best_model/test_env.npy")
+test_envs = np.load("./translation/test_env.npy")
 sparsifier = Siamese().to(device)
-sparsifier.load_state_dict(torch.load("./best_model/saved_model.pth"))
+sparsifier.load_state_dict(torch.load("./translation/saved_model.pth"))
 sparsifier.eval()
 results = np.zeros((72, 2))
 results_pose_T = {}
@@ -53,40 +54,40 @@ for i, batch in enumerate(tqdm(test_dataloader)):
     image1 = image1.to(device).float()
     image2 = image2.to(device).float()
     pose, similarity = sparsifier(image1, image2)
+    T = torch.norm(poseGT[:,0:3], dim=1)
     #Handle distance estimation stuff
-    for di, pGT, p in zip(d,poseGT, pose):
-        T_GT = torch.norm(pGT[0:3])
-        results_pose_T[di.item()].append(torch.sqrt(mse(p[0], T_GT)).detach().cpu().item())
-        results_pose_R[di.item()].append(torch.sqrt(mse(p[1], pGT[3])).detach().cpu().item())
+    for di, pGT, p in zip(d,T, pose):
+        results_pose_T[di.item()].append(torch.sqrt(mse(p, pGT)).detach().cpu().item())
+#        results_pose_R[di.item()].append(torch.sqrt(mse(p[3], pGT[3])).detach().cpu().item())
     #Handle classifcaiton stuff
-    result = torch.argmax(similarity, axis=1).detach().cpu()
-    for di, r in zip(d, result):
-        results[di][r] += 1
+    #result = torch.argmax(similarity, axis=1).detach().cpu()
+#    for di, r in zip(d, result):
+#        results[di][r] += 1
 np.save("results.npy", results)
-np.save("resultsPoseR.npy", results_pose_R, allow_pickle=True)
+#np.save("resultsPoseR.npy", results_pose_R, allow_pickle=True)
 np.save("resultsPoseT.npy", results_pose_T, allow_pickle=True)
 results = np.load("./results.npy")
 results_pose_T = np.load("./resultsPoseT.npy", allow_pickle=True).item()
-results_pose_R = np.load("./resultsPoseR.npy", allow_pickle=True).item()
+#results_pose_R = np.load("./resultsPoseR.npy", allow_pickle=True).item()
 ys = []
-true = 0
-total = 0
-for i, row in enumerate(results):
-    total += np.sum(row)
-    if i >= 50:
-        true += row[0]
-    else:
-        true += row[1]
-print(true / total)
-#Normalize by row
-for counter, row in enumerate(results):
-    s = np.sum(row)
-    if s >= 0:
-        results[counter] = row/s
-ax = sns.heatmap(results, linewidths=0.1)
-
-fig = ax.get_figure()
-fig.savefig("plotSim.png")
+#true = 0
+#total = 0
+#for i, row in enumerate(results):
+#    total += np.sum(row)
+#    if i >= 50:
+#        true += row[0]
+#    else:
+#        true += row[1]
+#print(true / total)
+##Normalize by row
+#for counter, row in enumerate(results):
+#    s = np.sum(row)
+#    if s >= 0:
+#        results[counter] = row/s
+#ax = sns.heatmap(results, linewidths=0.1)
+#
+#fig = ax.get_figure()
+#fig.savefig("plotSim.png")
 results_T = np.zeros((72,1))
 results_R = np.zeros((72,1))
 plt.clf()
@@ -95,14 +96,14 @@ for row, key in results_pose_T.items():
         results_T[row] = np.mean(key)
     else:
         results_T[row] = -1
-for row, key in results_pose_R.items():
-    if len(key) > 0:
-        results_R[row] = np.mean(key)
-    else:
-        results_R[row] = -1
+#for row, key in results_pose_R.items():
+#    if len(key) > 0:
+#        results_R[row] = np.mean(key)
+#    else:
+#        results_R[row] = -1
 plt.title("Average RMSE Pose error vs Distance")
 plt.plot(results_T, label="Translation")
-plt.plot(results_R, label="Rotation")
+#plt.plot(results_R, label="Rotation")
 plt.legend()
 
 #fig = ax.get_figure()

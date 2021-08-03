@@ -226,6 +226,16 @@ def add_trajs_to_graph_wormhole(
                                 buffer_size=len(edges),
                             )
                             pose = pose[0]
+                            pu.db
+                            r = pose[0]
+                            th = pose[1]
+                            x = r * np.cos(th)
+                            y = r * np.sin(th)
+                            # In habitat, position is given by vector
+                            # [y, z, -x]
+                            # here it will be [y,z,-x,rot]
+                            # Need to verify that theta works as I think it does...
+                            pose = [y, 0.0, -x, th]
                         tail_node_global = tail_node[3]
                         global_pose = (
                             pose[0] + tail_node_global[0],
@@ -470,7 +480,8 @@ def connect_graph_trajectories_wormholes(
 
 
 def main(env, similarityNodes=0.99, similarityEdges=0.80, map_type="topological"):
-    device = torch.device("cuda:0")
+    #device = torch.device("cuda:0")
+    device = torch.device('cpu')
     test_envs = np.load("./worm_model/test_env.npy")
     sim = create_sim(env)
     sparsifier_model = Siamese().to(device)
@@ -569,19 +580,20 @@ def find_wormholes(G, d, wormhole_distance=5.0):
 
 if __name__ == "__main__":
     env = "Browntown"
+    map_type = "topological"
     # Options for main map_type are
     # topological
     # pose
-    G = main(env, map_type="orbRGB")
-#    d = get_dict(env)
-#    path = "../data/map/mapWorm20NewArch_" + env + "0.8.gpickle"
-#    G = nx.read_gpickle(path)
-#    print(len(list(G.nodes())))
-#    print(len(list(G.edges())))
-#    wormholes = find_wormholes(G, d, 0.80)
-#    print(wormholes)
-#    sorted_by_second = sorted(wormholes, key=lambda tup: tup[1])
-#    print(sorted_by_second[-1])
+    G = main(env, map_type=map_type)
+    d = get_dict(env)
+    path = "../data/map/" + map_type + "/mapWorm20NewArch_" + env + "0.8.gpickle"
+    G = nx.read_gpickle(path)
+    print(len(list(G.nodes())))
+    print(len(list(G.edges())))
+    wormholes = find_wormholes(G, d, 0.80)
+    print(wormholes)
+    sorted_by_second = sorted(wormholes, key=lambda tup: tup[1])
+    print(sorted_by_second[-1])
 #    neighbors = list(G.neighbors((1,60)))
 #    print(neighbors)
 #    slam_labels = torch.load("../data/results/slam/" + env + "/traj.pt")

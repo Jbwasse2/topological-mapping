@@ -292,8 +292,8 @@ def try_to_reach_local(
         displacement = torch.from_numpy(
             get_displacement_local_goal(local_images_buffer, goal_images_buffer, localization_model, device)
         ).type(torch.float32)
-        pu.db
         displacement_gt = get_displacement_local_goal_oracle(sim, local_goal_node, d)
+        pu.db
 
         if video is not None:
             image = np.hstack([ob["rgb"], goal_image])
@@ -334,8 +334,8 @@ def get_displacement_local_goal(local_images_buffer, goal_images_buffer, model, 
     prob, pose = model(local_images_buffer, goal_images_buffer)
     pose = pose.detach().cpu().numpy()[0]
     prob = F.softmax(prob)
-    rho = np.linalg.norm(pose[0:3])
-    phi = pose[3]
+    rho = pose[0]
+    phi = pose[1]
     return np.array([rho, phi])
 
 def get_displacement_local_goal_oracle(sim, local_goal, d):
@@ -416,7 +416,7 @@ def get_localization_model(device):
 
 def main():
     env = "Browntown"
-    map_type = "VO"
+    map_type = "topological"
     G = nx.read_gpickle("./data/map/" + map_type + "/mapWorm20NewArch_" + env + "0.8.gpickle")
     seed = 0
     random.seed(seed)
