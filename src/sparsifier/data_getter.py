@@ -221,52 +221,52 @@ class GibsonDataset(Dataset):
                     )
                 )
 
-        # Get negative samples in same trajectory
-        label = 0
-        neg_samples_in_same_traj = int((self.samples / 2) * (1 - diff_traj_split))
-        for _ in tqdm(range(neg_samples_in_same_traj)):
-            # We need to make sure randomly selected data is not accidently positive
-            while 1:
-                env = random.choice(envs)
-                episode = random.choice(range(self.episodes))
-                sample_range = range(
-                        image_offset_in_envs[env],
-                        -image_offset_in_envs[env] + self.number_of_images_in_envs[env][episode],
-                    )
-                if len(sample_range) == 0:
-                    continue
-                location_1, location_2 = random.sample(sample_range, 2)
-                start = min(location_1, location_2)
-                end = max(location_1, location_2)
-                if np.abs(start - end) > self.max_distance:
-                    dataset.append((env, env, start, end, label, episode, episode))
-                    break
-        
-        # Get negative samples in different trajectories
-        neg_samples_in_diff_traj = int((self.samples / 2) * (diff_traj_split))
-        for _ in tqdm(range(neg_samples_in_diff_traj)):
-            if len(envs) > 2:
-                env1, env2 = random.sample(envs, 2)
-            else:
-                env1 = envs[0]
-                env2 = envs[0]
-            episode1 = random.choice(range(self.episodes))
-            episode2 = random.choice(range(self.episodes))
-            start_range =  range(
-                    image_offset_in_envs[env1],
-                    -image_offset_in_envs[env1] + self.number_of_images_in_envs[env1][episode1],
-                )
-            if len(start_range) == 0:
-                continue
-            start = random.choice(start_range)
-            end_range = range(
-                    image_offset_in_envs[env2],
-                    -image_offset_in_envs[env2] + self.number_of_images_in_envs[env2][episode2],
-                )
-            if len(end_range) == 0:
-                continue
-            end = random.choice(end_range)
-            dataset.append((env1, env2, start, end, label, episode1, episode2))
+#        # Get negative samples in same trajectory
+#        label = 0
+#        neg_samples_in_same_traj = int((self.samples / 2) * (1 - diff_traj_split))
+#        for _ in tqdm(range(neg_samples_in_same_traj)):
+#            # We need to make sure randomly selected data is not accidently positive
+#            while 1:
+#                env = random.choice(envs)
+#                episode = random.choice(range(self.episodes))
+#                sample_range = range(
+#                        image_offset_in_envs[env],
+#                        -image_offset_in_envs[env] + self.number_of_images_in_envs[env][episode],
+#                    )
+#                if len(sample_range) == 0:
+#                    continue
+#                location_1, location_2 = random.sample(sample_range, 2)
+#                start = min(location_1, location_2)
+#                end = max(location_1, location_2)
+#                if np.abs(start - end) > self.max_distance:
+#                    dataset.append((env, env, start, end, label, episode, episode))
+#                    break
+#        
+#        # Get negative samples in different trajectories
+#        neg_samples_in_diff_traj = int((self.samples / 2) * (diff_traj_split))
+#        for _ in tqdm(range(neg_samples_in_diff_traj)):
+#            if len(envs) > 2:
+#                env1, env2 = random.sample(envs, 2)
+#            else:
+#                env1 = envs[0]
+#                env2 = envs[0]
+#            episode1 = random.choice(range(self.episodes))
+#            episode2 = random.choice(range(self.episodes))
+#            start_range =  range(
+#                    image_offset_in_envs[env1],
+#                    -image_offset_in_envs[env1] + self.number_of_images_in_envs[env1][episode1],
+#                )
+#            if len(start_range) == 0:
+#                continue
+#            start = random.choice(start_range)
+#            end_range = range(
+#                    image_offset_in_envs[env2],
+#                    -image_offset_in_envs[env2] + self.number_of_images_in_envs[env2][episode2],
+#                )
+#            if len(end_range) == 0:
+#                continue
+#            end = random.choice(end_range)
+#            dataset.append((env1, env2, start, end, label, episode1, episode2))
         return dataset
 
     def get_env_names(self):
@@ -340,24 +340,25 @@ class GibsonDataset(Dataset):
         seq2 = np.stack(seq2)
 
         x = (seq1, seq2)
-        y = l2 - l1
-        if y > int(self.max_distance) or y < 0:
-            y = 0
-        else:
-            y = 1
         if self.give_distance:
             ys = l2 - l1
-            if env1 != env2:
+            if y == 0:
                 ys = -1
             return (x, y, ys, poseDiff)
         return (x, y, poseDiff)
 
 
+#Need to turn off transforms first...
+def vis_image_seq(x):
+    x = x.reshape(224*10, 224, 3)
+    plt.imshow(x)
+    plt.show()
+
 if __name__ == "__main__":
     train_dataset = GibsonDataset(
         "test",
         seed=0,
-        samples=2000,
+        samples=200,
         max_distance=50,
         episodes=20,
         ignore_0=False,
@@ -371,12 +372,13 @@ if __name__ == "__main__":
     ys = []
     angles_l = []
     dist_l = []
+    labels = []
     for i in range(72):
         angles[i] = []
         displacements[i] = []
     for batch in tqdm(train_dataset):
         (x, y, ys, poseDiff) = batch
-        #        dataset.visualize_sample(x, y, episode, l1, l2)
+        seq1, seq2 = x
         t = np.linalg.norm(poseDiff[0:3])
         r = poseDiff[1]
         if ys >= 71:
@@ -385,12 +387,13 @@ if __name__ == "__main__":
             ys = 71
         angles[ys].append(r)
         displacements[ys].append(t)
-        angles_l.append(r)
-        dist_l.append(t)
-    plt.hist(dist_l)
-    plt.show()
-    plt.hist(angles_l)
-    plt.show()
+        labels.append(y)
+        pu.db
+        if ys != 70 and ys != 71:
+            angles_l.append(r)
+            dist_l.append(t)
+    print("Number of 0 labels = " + str(labels.count(0)))
+    print("Number of 1 labels = " + str(labels.count(1)))
     results_T = np.zeros((72, 1))
     results_R = np.zeros((72, 1))
     plt.clf()
@@ -404,11 +407,14 @@ if __name__ == "__main__":
             results_R[row] = np.mean(key)
         else:
             results_R[row] = -1
-    pu.db
     plt.title("Average RMSE Pose error vs Distance")
     plt.ylim(0, 2)
     plt.plot(results_T, label="Translation")
     plt.plot(results_R, label="Rotation")
+    plt.plot(results_R * 10 , label="Rotation 10")
+    plt.plot(results_R * 20 , label="Rotation 20")
+    plt.plot(results_R * 50 , label="Rotation 50")
+    plt.plot(results_R * 100 , label="Rotation 100")
     plt.legend()
 
     plt.savefig("plotPoseTRUE.png")

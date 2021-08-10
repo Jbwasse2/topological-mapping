@@ -1,4 +1,6 @@
 import math
+import quaternion
+import random
 from pathlib import Path
 import pandas as pd
 import pickle
@@ -6,7 +8,11 @@ from glob import glob
 import os
 import time
 
+import seaborn as sns
+from matplotlib import rc
+import matplotlib.patches as mpatches
 import matplotlib
+from scipy.spatial.transform import Rotation as R
 import matplotlib.pyplot as plt
 from torchvision import transforms as transforms
 import cv2
@@ -30,10 +36,12 @@ from make_map import (
 )
 from test_data import GibsonMapDataset
 from worm_model.model import Siamese
+from geoslam import get_slam_pose_labels
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-matplotlib.rcParams["font.family"] = "Helvetica"
-font = {"weight": "bold"}
+rc("font", **{"family": "serif", "serif": ["Computer Modern"]})
+#rc("text", usetex=True)
+sns.set(style="darkgrid", font_scale=1.9)
 
 
 def get_node_image_sequence(node, scene, max_lengths, transform=False, context=10):
@@ -61,7 +69,7 @@ def get_node_image_sequence(node, scene, max_lengths, transform=False, context=1
         max_lengths[node[0]] = max_length
     else:
         max_length = max_lengths[node[0]]
-    for i in range(node[1] - context, node[1]):
+    for i in range(node[1] - context + 1, node[1] + 1):
         i = max(i, 0)
         i = min(i, max_length)
         image_location = (
@@ -106,7 +114,7 @@ def estimate_edge_len_wormhole(model, edges, sim, device, max_lengths, buffer_si
         images2 = images2.unsqueeze(0)
     hidden = model.init_hidden(images1.shape[0], model.hidden_size, device)
     model.hidden = hidden
-    similarity, pose = model(images1, images2)
+    pose, similarity = model(images1, images2)
     similarity = F.softmax(similarity)
     return (
         similarity[:, 1].detach().cpu().numpy(),
@@ -190,13 +198,20 @@ def add_trajs_to_graph_wormhole(
     similarity,
     episodes,
     sim,
+    d,
     buffer_size=200,
     map_type="topological",
 ):
     max_lengths = {}
     tail_node = None
-    if map_type == "orbslamRGB":
-        slam_labels = None
+    if map_type == "orbslamRGB" or map_type == "similarity_orbslamRGB":
+        scene = os.path.basename(sim.config.sim_cfg.scene.id).split(".")[0]
+        slam_pose_labels = get_slam_pose_labels(scene, len(trajectories), "mono", sim)
+    elif map_type == "orbslamRGBD" or map_type == "similarity_orbslamRGBD":
+        scene = os.path.basename(sim.config.sim_cfg.scene.id).split(".")[0]
+        slam_pose_labels = get_slam_pose_labels(
+            scene, len(trajectories), "orbslam2-rgbd", sim
+        )
     for trajectory_count, (trajectory_count_episode, trajectory) in tqdm(
         enumerate(zip(episodes, trajectories))
     ):
@@ -206,42 +221,59 @@ def add_trajs_to_graph_wormhole(
             current_node = (trajectory_count_episode, true_label)
             nodes = list(G.nodes)
             edges = []
-            if frame_count % 50 == 0:
-                if tail_node != None:
+            gt_offset = None
+            if frame_count % 25 == 0:
+                if map_type == "orbslamRGB" or map_type == "orbslamRGBD" or map_type == "similarity_orbslamRGBD" or map_type == "similarity_orbslamRGB":
+                    # https://github.com/Jbwasse2/topological-mapping/blob/f155aa133568306d7c72fc296810c6e4ac207506/src/slam/visualize_map.py
+                    trajectory_point = slam_pose_labels[current_node]
+                    if trajectory_point is None:
+                        print("OH STAGAHSTS")
+                        tail_node = None
+                        current_node = None
+                        continue
+                    trajectory_point = np.array(trajectory_point[1:]).reshape(3, 4)
+                    position = trajectory_point[:, 3]
+                    rot_se3 = trajectory_point[0:3, 0:3]
+                    rot = R.from_matrix(rot_se3)
+                    _, _, heading = rot.as_euler("xyz")
+                    position = np.array([position[2], position[0], position[1]])
+                    pose = np.append(position, heading).tolist()
+                    current_node = (
+                        current_node[0],
+                        current_node[1],
+                        None,
+                        tuple(pose),
+                    )
+                    G.add_node(current_node)
+                    if tail_node is not None:
+                        G.add_edge(tail_node, current_node)
+
+                elif (
+                    tail_node != None
+                    and map_type != "orbslamRGB"
+                    and map_type != "orbslamRGBD"
+                ):
                     if map_type != "similarity":
                         edges.append((tail_node, current_node))
-                        if map_type == "orbslamRGB":
-                            pass
-                        else:
-                            (
-                                prob_similar,
-                                pose,
-                                max_lengths,
-                            ) = estimate_edge_len_wormhole(
-                                model,
-                                edges,
-                                sim,
-                                device,
-                                max_lengths,
-                                buffer_size=len(edges),
-                            )
-                            pose = pose[0]
-                            pu.db
-                            r = pose[0]
-                            th = pose[1]
-                            x = r * np.cos(th)
-                            y = r * np.sin(th)
-                            # In habitat, position is given by vector
-                            # [y, z, -x]
-                            # here it will be [y,z,-x,rot]
-                            # Need to verify that theta works as I think it does...
-                            pose = [y, 0.0, -x, th]
+                        (prob_similar, pose, max_lengths,) = estimate_edge_len_wormhole(
+                            model,
+                            edges,
+                            sim,
+                            device,
+                            max_lengths,
+                            buffer_size=len(edges),
+                        )
+                        pose = pose[0]
+                        r = pose[0]
+                        th = pose[1] 
                         tail_node_global = tail_node[3]
+                        theta_prev = tail_node_global[3]
+                        # http://motion.cs.illinois.edu/RoboticSystems/Kinematics.html
                         global_pose = (
-                            pose[0] + tail_node_global[0],
-                            pose[1] + tail_node_global[1],
-                            pose[2] + tail_node_global[2],
-                            (pose[3] + tail_node_global[3] % np.pi),
+                            -r * math.cos(theta_prev + th) + tail_node_global[0],
+                            r * math.sin(theta_prev + th) + tail_node_global[1],
+                            0,
+                            (th + tail_node_global[3]),
                         )
                         current_node = (
                             current_node[0],
@@ -406,8 +438,9 @@ def create_topological_map_wormhole(
         episodes,
         sim=sim,
         map_type=map_type,
+        d=d,
     )
-    pu.db
+    wormholes = find_wormholes(G, d, 5.0, visualize=True)
     G = connect_graph_trajectories_wormholes(
         G,
         model,
@@ -433,8 +466,20 @@ def connect_graph_trajectories_wormholes(
     counter = 0
     nodes = list(G.nodes)
     max_lengths = {}
-    distance_constraint_map_types = ["topological", "VO"]
-    visual_constraint_map_types = ["similarity", "topological"]
+    distance_constraint_map_types = [
+        "topological",
+        "VO",
+        "orbslamRGB",
+        "orbslamRGBD",
+        "similarity_orbslamRGB",
+        "similarity_orbslamRGBD",
+    ]
+    visual_constraint_map_types = [
+        "similarity",
+        "topological",
+        "similarity_orbslamRGB",
+        "similarity_orbslamRGBD",
+    ]
     for node_i in tqdm(nodes):
         edges = []
         for i, node_j in enumerate(list(G.nodes)):
@@ -469,9 +514,8 @@ def connect_graph_trajectories_wormholes(
                             continue
                         G.add_edge(edge[0], edge[1])
                     edges = []
-            if (
+            elif (
                 map_type in distance_constraint_map_types
-                and map_type not in visual_constraint_map_types
             ):
                 distance = np.linalg.norm(np.array(node_i[3]) - np.array(node_j[3]))
                 if distance <= closeness and node_i != node_j:
@@ -480,28 +524,36 @@ def connect_graph_trajectories_wormholes(
 
 
 def main(env, similarityNodes=0.99, similarityEdges=0.80, map_type="topological"):
-    #device = torch.device("cuda:0")
-    device = torch.device('cpu')
+    seed = 0
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    torch.cuda.manual_seed(seed)
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    random.seed(seed)
+    device = torch.device("cuda:0")
+    # device = torch.device("cpu")
     test_envs = np.load("./worm_model/test_env.npy")
     sim = create_sim(env)
     sparsifier_model = Siamese().to(device)
     sparsifier_model.load_state_dict(torch.load("./worm_model/saved_model.pth"))
     sparsifier_model.eval()
-    # data = GibsonMapDataset(test_envs)
+    data = GibsonMapDataset(test_envs)
     # trajs is the trajectory of the 224x224 dataset, not sparsified
-    #    trajs = get_trajectory_env(data, env, number_of_trajectories=20)
-    #    # traj_new is sparsified trajectory with the traj_visual dataset
-    #    # traj_ind says which indices where used
+    #    trajs = get_trajectory_env(data, env, number_of_trajectories=3)
+    # traj_new is sparsified trajectory with the traj_visual dataset
+    # traj_ind says which indices where used
     #    traj_new, traj_ind = sparsify_trajectories(
     #        trajs,
     #        device,
     #        sim,
     #        sparsity=1,
     #    )
+    print("DONT FORGET TO CLEAR TRAJ HERE")
     fp = open("traj_new.pkl", "rb")
     traj_new = pickle.load(fp)
     fp = open("traj_ind.pkl", "rb")
     traj_ind = pickle.load(fp)
+    print("DONT FORGET TO TURN OFF TRAJ")
     episodes = list(range(len(traj_new)))
     G = create_topological_map_wormhole(
         traj_new,
@@ -520,7 +572,7 @@ def main(env, similarityNodes=0.99, similarityEdges=0.80, map_type="topological"
         G,
         "../../data/map/"
         + str(map_type)
-        + "/mapWorm20NewArch_"
+        + "/mapWorm20NewArchDebug_"
         + str(env)
         + str(similarityEdges)
         + ".gpickle",
@@ -528,7 +580,62 @@ def main(env, similarityNodes=0.99, similarityEdges=0.80, map_type="topological"
     return G
 
 
-def find_wormholes(G, d, wormhole_distance=5.0):
+def visualize_map(G, d):
+    def plotLine(p1, p2, color):
+        x = (p1[0], p2[0])  # Extracting x's values of points
+        y = (p1[1], p2[1])  # Extracting y's values of points
+        plt.plot(x, y, "-o", color=color)  # Plotting points
+
+    def coordinates2tuple(x, y):
+        return (x, y)
+    color_palette = sns.color_palette("colorblind")
+    color1 = color_palette[3]
+    color2 = color_palette[0]
+    gt_offset = None
+    gt_rot_offset = None
+    for edge in list(G.edges()):
+        node1, node2 = edge[0], edge[1]
+        pose1 = d[node1[0]]["shortest_paths"][0][0][node1[1]]
+        pose2 = d[node2[0]]["shortest_paths"][0][0][node2[1]]
+        position1_gt = np.array(pose1["position"])
+        position2_gt = np.array(pose2["position"])
+        rot1_gt = quaternion.as_euler_angles(np.quaternion(*pose1["rotation"]))[1]
+        rot2_gt = quaternion.as_euler_angles(np.quaternion(*pose2["rotation"]))[1]
+        position1_pred = node1[3]
+        position2_pred = node2[3]
+        if gt_offset is None:
+            gt_offset = position1_gt
+            gt_rot_offset = -rot1_gt
+
+        p1 = coordinates2tuple(
+            (-position1_gt[2] + gt_offset[2]), position1_gt[0] - gt_offset[0]
+        )
+        p2 = coordinates2tuple(
+            (-position2_gt[2] + gt_offset[2]), position2_gt[0] - gt_offset[0]
+        )
+        p1 = rotate_2d_pt(p1, gt_rot_offset)
+        p2 = rotate_2d_pt(p2, gt_rot_offset)
+        plotLine(p1, p2, color=color1)
+        p1 = coordinates2tuple(position1_pred[0], position1_pred[1])
+        p2 = coordinates2tuple(position2_pred[0], position2_pred[1])
+        plotLine(p1, p2, color=color2)
+
+    fig = matplotlib.pyplot.gcf()
+    fig.set_size_inches(18.5, 10.5)
+    true_patch = mpatches.Patch(color = color1, label= 'Truth')
+    est_patch = mpatches.Patch(color = color2, label= 'Prediction')
+    plt.legend(handles=[true_patch, est_patch])
+    plt.savefig("./results/map_visualize.pdf", bbox_inches="tight", dpi=300)
+
+def rotate_2d_pt(pt, rot):
+    x = pt[0] * np.cos(rot) - pt[1] * np.sin(rot)
+    y = pt[0] * np.sin(rot) + pt[1] * np.cos(rot)
+    return (x,y)
+
+
+def find_wormholes(G, d, wormhole_distance=5.0, visualize=True):
+    if visualize:
+        visualize_map(G, d)
     wormholes = []
     distances = {
         "gt_x": [],
@@ -552,48 +659,56 @@ def find_wormholes(G, d, wormhole_distance=5.0):
         distance = np.linalg.norm(np.array(position1) - np.array(position2))
         dist_vector_gt = tuple(np.array(position2) - np.array(position1))
         dist_vector_pred = node2[2]
-        distances["gt_x"].append(dist_vector_gt[0])
-        distances["gt_y"].append(dist_vector_gt[1])
-        distances["gt_z"].append(dist_vector_gt[2])
-        distances["gt_r"].append(rotDiff)
-        distances["pred_x"].append(dist_vector_pred[0])
-        distances["pred_y"].append(dist_vector_pred[1])
-        distances["pred_z"].append(dist_vector_pred[2])
-        distances["pred_r"].append(dist_vector_pred[3])
+        #        distances["gt_x"].append(dist_vector_gt[0])
+        #        distances["gt_y"].append(dist_vector_gt[1])
+        #        distances["gt_r"].append(rotDiff)
+        #        distances["pred_x"].append(dist_vector_pred[0])
+        #        distances["pred_y"].append(dist_vector_pred[1])
+        #        distances["pred_r"].append(dist_vector_pred[3])
         if distance > wormhole_distance:
             wormholes.append((edge, distance))
-    df = pd.DataFrame(distances)
-    dfx = df[["gt_x", "pred_x"]]
-    dfx.plot.bar()
-    plt.savefig("./debugx.png")
-    dfy = df[["gt_y", "pred_y"]]
-    dfy.plot.bar()
-    plt.savefig("./debugy.png")
-    dfz = df[["gt_z", "pred_z"]]
-    dfz.plot.bar()
-    plt.savefig("./debugz.png")
-    dfr = df[["gt_r", "pred_r"]]
-    dfr.plot.bar()
-    plt.savefig("./debugr.png")
+    #    df = pd.DataFrame(distances)
+    #    dfx = df[["gt_x", "pred_x"]]
+    #    dfx.plot.bar()
+    #    plt.savefig("./results/debugx.png")
+    #    dfy = df[["gt_y", "pred_y"]]
+    #    dfy.plot.bar()
+    #    plt.savefig("./results/debugy.png")
+    #    dfr = df[["gt_r", "pred_r"]]
+    #    dfr.plot.bar()
+    #    plt.savefig("./results/debugr.png")
     return wormholes
 
 
 if __name__ == "__main__":
     env = "Browntown"
-    map_type = "topological"
+    map_type_test = 'orbslamRGBD'
     # Options for main map_type are
     # topological
-    # pose
-    G = main(env, map_type=map_type)
+    # similarity
+    # orbslamRGB
+    # orbslamRGBD
+    possible_map_types = [
+        "topological",
+        "VO",
+        "similarity",
+        "orbslamRGB",
+        "orbslamRGBD",
+        "similarity_orbslamRGB",
+        "similarity_orbslamRGBD",
+    ]
+    assert map_type_test in possible_map_types
+    G = main(env, map_type=map_type_test)
     d = get_dict(env)
-    path = "../data/map/" + map_type + "/mapWorm20NewArch_" + env + "0.8.gpickle"
+    path = "../data/map/" + map_type_test + "/mapWorm20NewArchDebug_" + env + "0.8.gpickle"
     G = nx.read_gpickle(path)
     print(len(list(G.nodes())))
     print(len(list(G.edges())))
-    wormholes = find_wormholes(G, d, 0.80)
+    wormholes = find_wormholes(G, d, 5.0, visualize=False)
     print(wormholes)
-    sorted_by_second = sorted(wormholes, key=lambda tup: tup[1])
-    print(sorted_by_second[-1])
+    print("Number of womrholes = " + str(len(wormholes)))
+#    sorted_by_second = sorted(wormholes, key=lambda tup: tup[1])
+#    print(sorted_by_second[-1])
 #    neighbors = list(G.neighbors((1,60)))
 #    print(neighbors)
 #    slam_labels = torch.load("../data/results/slam/" + env + "/traj.pt")

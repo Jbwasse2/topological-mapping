@@ -33,7 +33,21 @@ from habitat_baselines.rl.ppo.ppo_trainer import PPOTrainer
 from habitat_baselines.utils.common import poll_checkpoint_folder
 from habitat_baselines.utils.env_utils import construct_envs
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+
+
+def transform_image(image):
+    trnsform = transforms.Compose(
+        [
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        ]
+    )
+    image = cv2.resize(image, (224, 224)) / 255
+    image = trnsform(image)
+    return image
+
+
 def get_node_image_sequence(node, scene, max_lengths, transform=False, context=10):
     ret = []
     trnsform = transforms.Compose(
@@ -42,17 +56,20 @@ def get_node_image_sequence(node, scene, max_lengths, transform=False, context=1
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
         ]
     )
-    #Probably wanna cache this later...
+    # Probably wanna cache this later...
     if node[0] not in max_lengths:
-        max_length = len(glob(
-                 (
-                "../../data/datasets/pointnav/gibson/v4/train_large/images/"
-                + scene
-                + "/"
-                + "episodeRGB"
-                + str(node[0])
-                + "_*.jpg"
-            )))
+        max_length = len(
+            glob(
+                (
+                    "../../data/datasets/pointnav/gibson/v4/train_large/images/"
+                    + scene
+                    + "/"
+                    + "episodeRGB"
+                    + str(node[0])
+                    + "_*.jpg"
+                )
+            )
+        )
         max_lengths[node[0]] = max_length
     else:
         max_length = max_lengths[node[0]]
@@ -153,7 +170,6 @@ def get_node_pose(node, d):
         try:
             pose = d[node[0]]["shortest_paths"][0][0][node[1]]
         except Exception as e:
-            pu.db
             print("FUCK")
         position = pose["position"]
         rotation = pose["rotation"]
@@ -190,14 +206,14 @@ def try_to_reach(
     local_goal = path[1]
     # Move robot to starting position/heading
     agent_state = sim.agents[0].get_state()
-    ground_truth_d = get_dict("Poyen")
+    scene = os.path.basename(sim.config.sim_cfg.scene.id).split(".")[0]
+    ground_truth_d = get_dict(scene)
     pos, rot = get_node_pose(current_node, ground_truth_d)
     agent_state.position = pos
     agent_state.rotation = rot
     sim.agents[0].set_state(agent_state)
     # Start experiments!
     for current_node, local_goal in zip(path, path[1:]):
-        pu.db
         success = try_to_reach_local(
             current_node,
             local_goal,
@@ -219,7 +235,7 @@ def try_to_reach(
         video.release()
     # Check to see if agent made it
     agent_pos = sim.agents[0].get_state().position
-    ground_truth_d = get_dict("Poyen")
+    ground_truth_d = get_dict(scene)
     (episode, frame, local_pose, global_pose) = end_node
     goal_pos = ground_truth_d[episode]["shortest_paths"][0][0][frame]["position"]
     distance = np.linalg.norm(agent_pos - goal_pos)
@@ -268,32 +284,43 @@ def try_to_reach_local(
     sim,
     device,
     video,
-    context=9
+    context=9,
 ):
-    MAX_NUMBER_OF_STEPS = 200
+    MAX_NUMBER_OF_STEPS = 60
     prev_action = torch.zeros(1, 1).to(device)
     not_done_masks = torch.zeros(1, 1).to(device)
     not_done_masks += 1
     ob = sim.get_observations_at(sim.get_agent_state())
+    if np.sum(ob["rgb"]) == 0.0:
+        print("NO OBSERVATION")
+        return 1
     actions = []
     # Double check this is right RGB
     # goal_image is for video/visualization
     # goal_image_model is for torch model for predicting distance/heading
     scene_name = os.path.splitext(os.path.basename(sim.config.sim_cfg.scene.id))[0]
     max_lengths = {}
-    local_images_buffer, max_lengths = get_node_image_sequence(start_node, "Poyen", max_lengths, transform=True)
-    goal_images_buffer, max_lengths = get_node_image_sequence(local_goal_node, "Poyen", max_lengths, transform=True)
+    scene = os.path.basename(sim.config.sim_cfg.scene.id).split(".")[0]
+    local_images_buffer, max_lengths = get_node_image_sequence(
+        start_node, scene, max_lengths, transform=True
+    )
+    goal_images_buffer, max_lengths = get_node_image_sequence(
+        local_goal_node, scene, max_lengths, transform=True
+    )
     if video is not None:
         scene_name = os.path.splitext(os.path.basename(sim.config.sim_cfg.scene.id))[0]
 
         goal_image = cv2.resize(get_node_image(local_goal_node, scene_name), (256, 256))
 
     for i in range(MAX_NUMBER_OF_STEPS):
+        # displacement = torch.from_numpy(
+        #    get_displacement_local_goal(
+        #        local_images_buffer, goal_images_buffer, localization_model, device
+        #    )
+        # ).type(torch.float32)
         displacement = torch.from_numpy(
-            get_displacement_local_goal(local_images_buffer, goal_images_buffer, localization_model, device)
+            get_displacement_local_goal_oracle(sim, local_goal_node, d)
         ).type(torch.float32)
-        displacement_gt = get_displacement_local_goal_oracle(sim, local_goal_node, d)
-        pu.db
 
         if video is not None:
             image = np.hstack([ob["rgb"], goal_image])
@@ -312,17 +339,19 @@ def try_to_reach_local(
         ob["depth"] = torch.from_numpy(ob["depth"]).unsqueeze(0).to(device)
         with torch.no_grad():
             _, action, _, hidden_state = ddppo_model.act(
-                ob, hidden_state, prev_action, not_done_masks, deterministic=False
+                ob, hidden_state, prev_action, not_done_masks, deterministic=True
             )
         actions.append(action[0].item())
         prev_action = action
         if action[0].item() == 0:  # This is stop action
-            print("STOP ACTION")
             return 1
         ob = sim.step(action[0].item())
-        pu.db
-        
+        # add new observation to buffer
+        for i in range(context):
+            local_images_buffer[i] = local_images_buffer[i + 1]
+        local_images_buffer[context] = transform_image(ob["rgb"])
     return 0
+
 
 def get_displacement_local_goal(local_images_buffer, goal_images_buffer, model, device):
     local_images_buffer = local_images_buffer.to(device).float()
@@ -331,12 +360,16 @@ def get_displacement_local_goal(local_images_buffer, goal_images_buffer, model, 
         local_images_buffer = local_images_buffer.unsqueeze(0)
     if len(goal_images_buffer.shape) == 4:
         goal_images_buffer = goal_images_buffer.unsqueeze(0)
-    prob, pose = model(local_images_buffer, goal_images_buffer)
+    hidden = model.init_hidden(local_images_buffer.shape[0], model.hidden_size, device)
+    model.hidden = hidden
+    pose, prob = model(local_images_buffer, goal_images_buffer)
     pose = pose.detach().cpu().numpy()[0]
     prob = F.softmax(prob)
     rho = pose[0]
     phi = pose[1]
-    return np.array([rho, phi])
+    print(prob)
+    return np.array([np.abs(rho), phi])
+
 
 def get_displacement_local_goal_oracle(sim, local_goal, d):
     # See https://github.com/facebookresearch/habitat-lab/blob/b7a93bc493f7fb89e5bf30b40be204ff7b5570d7/habitat/tasks/nav/nav.py
@@ -378,6 +411,7 @@ def run_experiment(
     # 3 means topological map failed to find a path
     # 4 shouldn't be returned as an experiment result, its just used to say that the path in the map is trivially easy (few nodes to traverse between).
     return_codes = [0 for i in range(4)]
+    debug_nodes = []
     for _ in tqdm(range(experiments)):
         results = None
         while results == None or results == 4:
@@ -393,10 +427,7 @@ def run_experiment(
                 scene,
                 device,
             )
-        if results == 2:
-            pu.db
         return_codes[results] += 1
-
     return return_codes
 
 
@@ -416,12 +447,16 @@ def get_localization_model(device):
 
 def main():
     env = "Browntown"
-    map_type = "topological"
-    G = nx.read_gpickle("./data/map/" + map_type + "/mapWorm20NewArch_" + env + "0.8.gpickle")
+    map_type_test = 'topological'
+    G = nx.read_gpickle(
+        "./data/map/" + map_type_test + "/mapWorm20NewArchDebug_" + env + "0.8.gpickle"
+    )
     seed = 0
-    random.seed(seed)
-    np.random.seed(seed)
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    torch.cuda.manual_seed(seed)
     torch.manual_seed(seed)
+    np.random.seed(seed)
+    random.seed(seed)
     config = get_config("configs/baselines/ddppo_pointnav.yaml", [])
     device = (
         torch.device("cuda", config.TORCH_GPU_ID)

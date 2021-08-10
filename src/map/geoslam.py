@@ -68,6 +68,7 @@ def get_dict(fname):
 def add_traj_to_SLAM(agent, scene_name, number_of_trajs, save_directory=None):
     d = get_dict(scene_name)
     foo = []
+    ret = {}
     counter = 0
     start = (0, 0)
     skips = 0
@@ -103,6 +104,11 @@ def add_traj_to_SLAM(agent, scene_name, number_of_trajs, save_directory=None):
             if agent.update_internal_state(observation) == False:
                 skips += 1
             counter += 1
+            ret[(i, j)] = agent.trajectory_history[-1]
+    #            if agent.trajectory_history[-1] is not None:
+    #                ret[(i, j)] = agent.pose6D
+    #            else:
+    #                ret[(i, j)] = None
     if save_directory is not None:
         data_dir = save_directory + "/" + scene_name + "/"
         Path(data_dir).mkdir(parents=True, exist_ok=True)
@@ -110,7 +116,7 @@ def add_traj_to_SLAM(agent, scene_name, number_of_trajs, save_directory=None):
     #    torch.save(start, data_dir + "start.pt")
     #    torch.save(agent.map2DObstacles, data_dir + "map2D.pt")
     #    torch.save(agent.current_obstacles, data_dir + "obstacles.pt")
-    return agent.trajectory_history
+    return ret
 
 
 def get_actual_top_down(sim, env):
@@ -121,16 +127,17 @@ def get_actual_top_down(sim, env):
 
 
 # agent = mono, blind, orbslam2-rgbd, orbslam2-rgb-monod
-def get_slam_pose_labels(env, number_of_trajs, agent):
+def get_slam_pose_labels(env, number_of_trajs, agent, sim=None):
     agent, config = create_agent(env, agent)
-    sim = create_sim(env, config)
+    if sim == None:
+        sim = create_sim(env, config)
     get_actual_top_down(sim, env)
     pose = add_traj_to_SLAM(agent, env, number_of_trajs)
     return pose
 
 
 if __name__ == "__main__":
-    scene = "Ackermanville"
+    scene = "Browntown"
     # mono, blind, orbslam2-rgbd (works), orbslam2-rgb-monod
-    get_slam_pose_labels(scene, 20, agent="mono")
-#    get_slam_pose_labels(scene, 20, agent="orbslam2-rgbd")
+    #    get_slam_pose_labels(scene, 20, agent="mono")
+    print(get_slam_pose_labels(scene, 3, agent="orbslam2-rgbd"))

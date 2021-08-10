@@ -104,11 +104,11 @@ class Siamese(nn.Module):
 #        pose = self.fc3(x1)
         #Should we use embedding or prediction?
         #Prediction for now
-        x = torch.cat( (x,pose), 1)
-        x = self.fc3(x)
-        x = F.relu(x)
-        x = self.fc4(x)
-        x = F.relu(x)
-        x = self.fc5(x)
-        return pose, x
+#        x = torch.cat( (x,pose), 1)
+#        x = self.fc3(x)
+#        x = F.relu(x)
+#        x = self.fc4(x)
+#        x = F.relu(x)
+#        x = self.fc5(x)
+        return pose, None
 

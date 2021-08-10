@@ -17,14 +17,14 @@ from data_getter import GibsonDataset
 from model import Siamese
 from rich.progress import track
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 
 def soft_classification_loss(guess, truth):
     guess_class = guess.argmax(1)
     return torch.abs(guess_class - truth).sum().float()
 
-def custom_MSELoss(guesses, truthes, similarityLabels, k=5):
+def custom_MSELoss(guesses, truthes, similarityLabels, k=15):
     mse = nn.MSELoss()
     mask = similarityLabels.bool()
     guesses = guesses[mask,:]
@@ -40,13 +40,13 @@ def custom_MSELoss(guesses, truthes, similarityLabels, k=5):
         loss2 = mse(x,x)
     else:
         loss1 = mse(guesses[:,0].flatten(), T_GT)
-        loss2 = mse(guesses[:,1].flatten(), R_GT)
+        loss2 = mse(guesses[:,1].flatten(), R_GT) * k
     return loss1.float(), loss2.float()
 
 
 
 
-def train(model, device, epochs=225):
+def train(model, device, epochs=250):
     current_time = time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime())
     results_dir = "../../data/results/sparsifier/" + current_time + "/"
     os.mkdir(results_dir)
@@ -125,39 +125,39 @@ def train(model, device, epochs=225):
             pose, similarity = model(im1, im2)
             pose = pose.float()
             optimizer.zero_grad()
-            lossS = 1 * criterionSimilarity(similarity, similarityGT).float()
+#            lossS = 1 * criterionSimilarity(similarity, similarityGT).float()
             lossT, lossR = criterionPose(pose, poseGT,similarityGT)
-            loss = (lossS + lossT+ lossR).float()
+            loss = (lossT+ lossR).float()
             try:
                 loss.backward()
                 loss = loss.cpu().detach().numpy()
                 lossT = lossT.cpu().detach().numpy()
                 lossR = lossR.cpu().detach().numpy()
-                lossS = lossS.cpu().detach().numpy()
+#                lossS = lossS.cpu().detach().numpy()
                 losses.append(loss)
                 lossesT.append(lossT)
                 lossesR.append(lossR)
-                lossesS.append(lossS)
+#                lossesS.append(lossS)
                 optimizer.step()
             except Exception as e:
                 print(e)
-            choose = np.argmax(similarity.cpu().detach().numpy(), axis=1)
-            gt = similarityGT.cpu().detach().numpy()
-            accuracy.append(len(np.where(gt == choose)[0]) / len(gt))
+#            choose = np.argmax(similarity.cpu().detach().numpy(), axis=1)
+#            gt = similarityGT.cpu().detach().numpy()
+#            accuracy.append(len(np.where(gt == choose)[0]) / len(gt))
         losses_cumulative.append(np.mean(losses))
         lossesT_cumulative.append(np.mean(lossesT))
         lossesR_cumulative.append(np.mean(lossesR))
-        lossesS_cumulative.append(np.mean(lossesS))
-        accuracy_cumulative.append(np.mean(accuracy))
+#        lossesS_cumulative.append(np.mean(lossesS))
+#        accuracy_cumulative.append(np.mean(accuracy))
         print("train")
         print("T loss")
         print(lossesT_cumulative[-1])
         print("R loss")
         print(lossesR_cumulative[-1])
         print("S loss")
-        print(lossesS_cumulative[-1])
+#        print(lossesS_cumulative[-1])
         print("similarity acc")
-        print(accuracy_cumulative[-1])
+#        print(accuracy_cumulative[-1])
         lossesT = []
         lossesR = []
         lossesS = []
@@ -176,34 +176,34 @@ def train(model, device, epochs=225):
             im1 = im1.to(device).float()
             im2 = im2.to(device).float()
             pose, similarity = model(im1, im2)
-            lossS = 5 * criterionSimilarity(similarity, similarityGT).float()
+#            lossS = 1 * criterionSimilarity(similarity, similarityGT).float()
             lossT, lossR = criterionPose(pose, poseGT, similarityGT)
-            loss = (lossT + lossR + lossS).float()
+            loss = (lossT + lossR).float()
             loss = loss.cpu().detach().numpy()
             losses_v.append(loss)
             lossT = lossT.cpu().detach().numpy()
             lossR = lossR.cpu().detach().numpy()
-            lossS = lossS.cpu().detach().numpy()
+#            lossS = lossS.cpu().detach().numpy()
             lossesT.append(lossT)
             lossesR.append(lossR)
-            lossesS.append(lossS)
-            choose = np.argmax(similarity.cpu().detach().numpy(), axis=1)
-            gt = similarityGT.cpu().detach().numpy()
-            accuracy_v.append(len(np.where(gt == choose)[0]) / len(gt))
+#            lossesS.append(lossS)
+#            choose = np.argmax(similarity.cpu().detach().numpy(), axis=1)
+#            gt = similarityGT.cpu().detach().numpy()
+#            accuracy_v.append(len(np.where(gt == choose)[0]) / len(gt))
         losses_v_cumulative.append(np.mean(losses_v))
         lossesT_v_cumulative.append(np.mean(lossesT))
         lossesR_v_cumulative.append(np.mean(lossesR))
-        lossesS_v_cumulative.append(np.mean(lossesS))
-        accuracy_v_cumulative.append(np.mean(accuracy_v))
+#        lossesS_v_cumulative.append(np.mean(lossesS))
+#        accuracy_v_cumulative.append(np.mean(accuracy_v))
         print("Val")
         print("T loss")
         print(lossesT_v_cumulative[-1])
         print("R loss")
         print(lossesR_v_cumulative[-1])
         print("S loss")
-        print(lossesS_v_cumulative[-1])
+#        print(lossesS_v_cumulative[-1])
         print("similarity acc")
-        print(accuracy_v_cumulative[-1])
+#        print(accuracy_v_cumulative[-1])
         losses_v = []
         accuracy_v = []
         if losses_v_cumulative[-1] < best_val_loss:
@@ -213,14 +213,14 @@ def train(model, device, epochs=225):
         if epoch % 1 == 0:
             np.save(results_dir + "losses.npy", losses_cumulative)
             np.save(results_dir + "losses_v.npy", losses_v_cumulative)
-            np.save(results_dir + "accuracy.npy", accuracy_cumulative)
-            np.save(results_dir + "accuracy_v.npy", accuracy_v_cumulative)
+#            np.save(results_dir + "accuracy.npy", accuracy_cumulative)
+#            np.save(results_dir + "accuracy_v.npy", accuracy_v_cumulative)
             np.save(results_dir + "lossesR.npy", lossesR_cumulative)
             np.save(results_dir + "lossesR_v.npy", lossesR_v_cumulative)
             np.save(results_dir + "lossesT.npy", lossesT_cumulative)
             np.save(results_dir + "lossesT_v.npy", lossesT_v_cumulative)
-            np.save(results_dir + "lossesS.npy", lossesS_cumulative)
-            np.save(results_dir + "lossesS_v.npy", lossesS_v_cumulative)
+#            np.save(results_dir + "lossesS.npy", lossesS_cumulative)
+#            np.save(results_dir + "lossesS_v.npy", lossesS_v_cumulative)
             print(results_dir)
 
     return model
@@ -234,4 +234,5 @@ if __name__ == "__main__":
     model = Siamese(context=10).to(device)
     if args.network_location:
         model.load_state_dict(torch.load(args.network_location))
+        print("Loaded in model!")
     model = train(model, device)

@@ -64,15 +64,17 @@ def make_figure(results):
     plt.savefig("./nav_results_all.jpg", bbox_inches="tight")
 
 
-results = {}
-for env in glob.glob("./dirty/*"):
-    if "Mifflintown" in env or "McCloud" in env:
-        continue
-    result = get_dirty_results(env)
-    results[os.path.basename(env)] = [result]
-for env in glob.glob("./clean/*"):
-    if "Mifflintown" in env or "McCloud" in env:
-        continue
-    result = get_dirty_results(env)
-    results[os.path.basename(env)].append(result)
-make_figure(results)
+if __name__ == "__main__":
+    results = {}
+    for env in glob.glob("./dirty/*"):
+        if "Mifflintown" in env or "McCloud" in env:
+            continue
+        result = get_dirty_results(env)
+        results[os.path.basename(env)] = [result]
+    for env in glob.glob("./clean/*"):
+        if "Mifflintown" in env or "McCloud" in env:
+            continue
+        result = get_dirty_results(env)
+        results[os.path.basename(env)].append(result)
+    make_figure(results)
+
