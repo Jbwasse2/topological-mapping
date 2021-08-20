@@ -24,11 +24,14 @@ from tqdm import tqdm
 import habitat
 from habitat.datasets.utils import get_action_shortest_path
 from habitat.tasks.utils import cartesian_to_polar
-from habitat.utils.geometry_utils import (angle_between_quaternions,
-                                          quaternion_from_coeff,
-                                          quaternion_rotate_vector,
-                                          quaternion_to_list)
+from habitat.utils.geometry_utils import (
+    angle_between_quaternions,
+    quaternion_from_coeff,
+    quaternion_rotate_vector,
+    quaternion_to_list,
+)
 from habitat_baselines.slambased.reprojection import homogenize_p
+
 # from model.model import Siamese
 from test_data import GibsonMapDataset
 
@@ -620,8 +623,3 @@ def wormhole_experiment():
     print(len(G.nodes()))
     print(len(G.edges()))
     print(len(wormholes))
-
-
-if __name__ == "__main__":
-    #    main()
-    wormhole_experiment()

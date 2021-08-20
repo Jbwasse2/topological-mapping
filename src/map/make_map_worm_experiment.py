@@ -40,7 +40,7 @@ from geoslam import get_slam_pose_labels
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 rc("font", **{"family": "serif", "serif": ["Computer Modern"]})
-#rc("text", usetex=True)
+# rc("text", usetex=True)
 sns.set(style="darkgrid", font_scale=1.9)
 
 
@@ -201,7 +201,9 @@ def add_trajs_to_graph_wormhole(
     d,
     buffer_size=200,
     map_type="topological",
+    long_traj=True,
 ):
+    assert long_traj == False or long_traj == True
     max_lengths = {}
     tail_node = None
     if map_type == "orbslamRGB" or map_type == "similarity_orbslamRGB":
@@ -215,6 +217,8 @@ def add_trajs_to_graph_wormhole(
     for trajectory_count, (trajectory_count_episode, trajectory) in tqdm(
         enumerate(zip(episodes, trajectories))
     ):
+        if not long_traj:
+            tail_node = None
         for frame_count, frame in tqdm(enumerate(trajectory)):
             # we want to keep track of what the actual frame is from in the trajectory
             true_label = get_true_label(trajectory_count, frame_count, traj_ind)
@@ -223,7 +227,12 @@ def add_trajs_to_graph_wormhole(
             edges = []
             gt_offset = None
             if frame_count % 25 == 0:
-                if map_type == "orbslamRGB" or map_type == "orbslamRGBD" or map_type == "similarity_orbslamRGBD" or map_type == "similarity_orbslamRGB":
+                if (
+                    map_type == "orbslamRGB"
+                    or map_type == "orbslamRGBD"
+                    or map_type == "similarity_orbslamRGBD"
+                    or map_type == "similarity_orbslamRGB"
+                ):
                     # https://github.com/Jbwasse2/topological-mapping/blob/f155aa133568306d7c72fc296810c6e4ac207506/src/slam/visualize_map.py
                     trajectory_point = slam_pose_labels[current_node]
                     if trajectory_point is None:
@@ -265,7 +274,7 @@ def add_trajs_to_graph_wormhole(
                         )
                         pose = pose[0]
                         r = pose[0]
-                        th = pose[1] 
+                        th = pose[1]
                         tail_node_global = tail_node[3]
                         theta_prev = tail_node_global[3]
                         # http://motion.cs.illinois.edu/RoboticSystems/Kinematics.html
@@ -420,6 +429,7 @@ def create_topological_map_wormhole(
     episodes,
     similarityNodes,
     similarityEdges,
+    long_traj,
     sim=None,
     d=None,
     scene=None,
@@ -439,6 +449,7 @@ def create_topological_map_wormhole(
         sim=sim,
         map_type=map_type,
         d=d,
+        long_traj=long_traj,
     )
     wormholes = find_wormholes(G, d, 5.0, visualize=True)
     G = connect_graph_trajectories_wormholes(
@@ -446,6 +457,7 @@ def create_topological_map_wormhole(
         model,
         device,
         similarityEdges,
+        long_traj=long_traj,
         sim=sim,
         map_type=map_type,
     )
@@ -458,6 +470,7 @@ def connect_graph_trajectories_wormholes(
     model,
     device,
     similarity,
+    long_traj,
     sim=None,
     buffer_size=200,
     map_type="topological",
@@ -514,16 +527,20 @@ def connect_graph_trajectories_wormholes(
                             continue
                         G.add_edge(edge[0], edge[1])
                     edges = []
-            elif (
-                map_type in distance_constraint_map_types
-            ):
+            elif map_type in distance_constraint_map_types:
                 distance = np.linalg.norm(np.array(node_i[3]) - np.array(node_j[3]))
                 if distance <= closeness and node_i != node_j:
                     G.add_edge(node_i, node_j)
     return G
 
 
-def main(env, similarityNodes=0.99, similarityEdges=0.80, map_type="topological"):
+def main(
+    env,
+    similarityNodes=0.99,
+    similarityEdges=0.80,
+    map_type="topological",
+    long_traj=True,
+):
     seed = 0
     os.environ["PYTHONHASHSEED"] = str(seed)
     torch.cuda.manual_seed(seed)
@@ -539,15 +556,15 @@ def main(env, similarityNodes=0.99, similarityEdges=0.80, map_type="topological"
     sparsifier_model.eval()
     data = GibsonMapDataset(test_envs)
     # trajs is the trajectory of the 224x224 dataset, not sparsified
-    #    trajs = get_trajectory_env(data, env, number_of_trajectories=3)
+    # trajs = get_trajectory_env(data, env, number_of_trajectories=20)
     # traj_new is sparsified trajectory with the traj_visual dataset
     # traj_ind says which indices where used
-    #    traj_new, traj_ind = sparsify_trajectories(
-    #        trajs,
-    #        device,
-    #        sim,
-    #        sparsity=1,
-    #    )
+    # traj_new, traj_ind = sparsify_trajectories(
+    #    trajs,
+    #    device,
+    #    sim,
+    #    sparsity=1,
+    # )
     print("DONT FORGET TO CLEAR TRAJ HERE")
     fp = open("traj_new.pkl", "rb")
     traj_new = pickle.load(fp)
@@ -566,8 +583,10 @@ def main(env, similarityNodes=0.99, similarityEdges=0.80, map_type="topological"
         scene=env,
         device=device,
         map_type=map_type,
+        long_traj=long_traj,
     )
     Path("../../data/map/" + str(map_type)).mkdir(parents=True, exist_ok=True)
+    closeness = 5.0
     nx.write_gpickle(
         G,
         "../../data/map/"
@@ -575,6 +594,8 @@ def main(env, similarityNodes=0.99, similarityEdges=0.80, map_type="topological"
         + "/mapWorm20NewArchDebug_"
         + str(env)
         + str(similarityEdges)
+        + "_"
+        + str(closeness)
         + ".gpickle",
     )
     return G
@@ -588,6 +609,7 @@ def visualize_map(G, d):
 
     def coordinates2tuple(x, y):
         return (x, y)
+
     color_palette = sns.color_palette("colorblind")
     color1 = color_palette[3]
     color2 = color_palette[0]
@@ -622,15 +644,16 @@ def visualize_map(G, d):
 
     fig = matplotlib.pyplot.gcf()
     fig.set_size_inches(18.5, 10.5)
-    true_patch = mpatches.Patch(color = color1, label= 'Truth')
-    est_patch = mpatches.Patch(color = color2, label= 'Prediction')
+    true_patch = mpatches.Patch(color=color1, label="Truth")
+    est_patch = mpatches.Patch(color=color2, label="Prediction")
     plt.legend(handles=[true_patch, est_patch])
     plt.savefig("./results/map_visualize.pdf", bbox_inches="tight", dpi=300)
+
 
 def rotate_2d_pt(pt, rot):
     x = pt[0] * np.cos(rot) - pt[1] * np.sin(rot)
     y = pt[0] * np.sin(rot) + pt[1] * np.cos(rot)
-    return (x,y)
+    return (x, y)
 
 
 def find_wormholes(G, d, wormhole_distance=5.0, visualize=True):
@@ -682,7 +705,8 @@ def find_wormholes(G, d, wormhole_distance=5.0, visualize=True):
 
 if __name__ == "__main__":
     env = "Browntown"
-    map_type_test = 'orbslamRGBD'
+    map_type_test = "topological"
+    long_traj = False
     # Options for main map_type are
     # topological
     # similarity
@@ -698,12 +722,21 @@ if __name__ == "__main__":
         "similarity_orbslamRGBD",
     ]
     assert map_type_test in possible_map_types
-    G = main(env, map_type=map_type_test)
+    test_similarityEdges = 0.85
+    G = main(
+        env,
+        map_type=map_type_test,
+        similarityEdges=test_similarityEdges,
+        long_traj=long_traj,
+    )
     d = get_dict(env)
-    path = "../data/map/" + map_type_test + "/mapWorm20NewArchDebug_" + env + "0.8.gpickle"
-    G = nx.read_gpickle(path)
+    #    path = (
+    #        "../data/map/" + map_type_test + "/mapWorm20NewArchDebug_" + env + "0.8.gpickle"
+    #    )
+    #    G = nx.read_gpickle(path)
     print(len(list(G.nodes())))
     print(len(list(G.edges())))
+    closeness = 5.0
     wormholes = find_wormholes(G, d, 5.0, visualize=False)
     print(wormholes)
     print("Number of womrholes = " + str(len(wormholes)))

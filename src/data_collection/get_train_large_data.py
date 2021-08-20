@@ -17,7 +17,7 @@ import habitat
 
 def get_dict(fname):
     f = gzip.open(
-        "./data/datasets/pointnav/gibson/v5/train_large/content/" + fname + ".json.gz"
+        "./data/datasets/pointnav/gibson/v6/train_large/content/" + fname + ".json.gz"
     )
     content = f.read()
     content = content.decode()
@@ -42,11 +42,11 @@ def create_sim(scene):
 
 def generate_image_dataset(scene):
     sim = create_sim(scene)
-    pu.db
-    image_path = "./data/datasets/pointnav/gibson/v5/train_large/images/" + scene + "/"
+    image_path = "./data/datasets/pointnav/gibson/v6/train_large/images/" + scene + "/"
     Path(image_path).mkdir(parents=True, exist_ok=True)
     d = get_dict(scene)
-    for collection in range(len(d)):
+    # for collection in range(len(d)):
+    for collection in tqdm(range(20)):
         episdoe_dict = d[collection]
         counter = 0
         for pose in episdoe_dict["shortest_paths"][0][0]:
@@ -62,6 +62,16 @@ def generate_image_dataset(scene):
                 + str(counter).zfill(5)
                 + ".jpg",
                 image,
+            )
+            image_depth = results["depth"]
+            np.save(
+                image_path
+                + "episodeDepth"
+                + str(collection)
+                + "_"
+                + str(counter).zfill(5)
+                + ".npy",
+                image_depth,
             )
             counter += 1
 

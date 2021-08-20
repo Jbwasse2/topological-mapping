@@ -1,4 +1,5 @@
 import glob
+import pudb
 import gzip
 import random
 import re
@@ -83,6 +84,7 @@ class GibsonMapDataset(Dataset):
 
 if __name__ == "__main__":
     data = GibsonMapDataset(["Airport", "Azusa"])
+    pu.db
     data.set_env("Airport")
     print(len(data))
     data[0]

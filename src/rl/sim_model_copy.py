@@ -290,7 +290,7 @@ def try_to_reach_local(
     video,
     context=9,
 ):
-    MAX_NUMBER_OF_STEPS = 40
+    MAX_NUMBER_OF_STEPS = 50
     print(MAX_NUMBER_OF_STEPS)
     prev_action = torch.zeros(1, 1).to(device)
     not_done_masks = torch.zeros(1, 1).to(device)
@@ -452,30 +452,18 @@ def get_localization_model(device):
 def main():
     env = "Browntown"
     print(env)
-    map_type_test = "similarity"
+    map_type_test = "VO"
     print(map_type_test)
-    similarity_test = "0.7"
-    closeness = 4.0
-    if map_type_test is "topological":
-        G = nx.read_gpickle(
-            "./data/map/"
-            + str(map_type_test)
-            + "/mapWorm20NewArchDebug_"
-            + str(env)
-            + str(similarity_test)
-            + "_"
-            + str(closeness)
-            + ".gpickle",
-        )
-    elif map_type_test is "similarity":
-        G = nx.read_gpickle(
-            "./data/map/"
-            + str(map_type_test)
-            + "/mapWorm20NewArchDebug_"
-            + str(env)
-            + str(similarity_test)
-            + ".gpickle",
-        )
+    similarity_test = "0.99"
+    closeness = 5.0
+    G = nx.read_gpickle(
+        "./data/map/"
+        + str(map_type_test)
+        + "/mapWorm20NewArchDebug_"
+        + str(closeness)
+        + str(env)
+        + "0.8.gpickle",
+    )
     seed = 0
     os.environ["PYTHONHASHSEED"] = str(seed)
     torch.cuda.manual_seed(seed)

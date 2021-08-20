@@ -12,6 +12,7 @@ import numpy as np
 import pudb
 import quaternion
 import torch
+from torch.utils import data
 import torchvision.transforms as transforms
 from PIL import Image
 from torch.utils.data import DataLoader, Dataset
@@ -23,6 +24,7 @@ from tqdm import tqdm
 from rich.progress import track
 from habitat.utils.geometry_utils import angle_between_quaternions, quaternion_rotate_vector
 from habitat.tasks.utils import cartesian_to_polar
+
 
 
 
@@ -80,11 +82,11 @@ class GibsonDataset(Dataset):
         if split_type == "train":
             self.labels = self.get_labels_dicts(self.train_env)
             self.number_of_images_in_envs = self.get_sequence_lengths(self.train_env)
-            self.dataset = self.get_dataset(self.train_env)
+            self.dataset = self.get_dataset_balanced(self.train_env)
         elif split_type == "test":
             self.labels = self.get_labels_dicts(self.test_env)
             self.number_of_images_in_envs = self.get_sequence_lengths(self.test_env)
-            self.dataset = self.get_dataset(self.test_env)
+            self.dataset = self.get_dataset_balanced(self.test_env)
 
     def get_sequence_lengths(self, envs):
         # Get number of images in envs for each episode
@@ -172,10 +174,141 @@ class GibsonDataset(Dataset):
         random.shuffle(ret)
         return ret
 
+
+    def get_dataset_balanced(self, envs, diff_traj_split=0.5):
+        if self.debug:
+            envs = envs[0:3]
+        image_offset_in_envs = {}
+        for env in envs:
+            image_offset_in_envs[env] = self.context
+        # Would like to get a dataset that is equally weighted between
+        # All possible lengths in max_distance. So for example if max_dist=10
+        # and samples = 1000, we'd want 500 total samples <= 10 dist with 50 samples
+        # in 0...10.
+        # As per the ViNG paper, the last 500 samples should be a mix of same traj
+        # and other traj. Let's try 50% 50%? This is called the diff_traj_split
+
+        # Get positive samples
+        label = 1
+        dataset = []
+        rotation_granularity = 8
+        position_granularity = 8
+        positive_samples_per_distance = int(
+            (self.samples / 2) / (rotation_granularity * position_granularity)
+        )
+        position_max = 1.5
+        rotation_max = np.pi * 2
+        balanced_tracker = {}
+        for rot in range(rotation_granularity):
+            for pos in range(position_granularity):
+                balanced_tracker[(pos,rot)] = 0
+        while 1:
+            # Choose random env uniformly
+            env = random.choice(envs)
+            episode1 = random.choice(range(self.episodes))
+            episode2 = random.choice(range(self.episodes))
+            sample_range1 = range(
+                image_offset_in_envs[env],
+                self.number_of_images_in_envs[env][episode1]
+            )
+            sample_range2 = range(
+                image_offset_in_envs[env],
+                self.number_of_images_in_envs[env][episode2]
+            )
+            traj_local_start = random.choice(sample_range1)
+            traj_local_end = random.choice(sample_range2)
+            pose1 = self.labels[env][episode1]["shortest_paths"][0][0][traj_local_start]
+            pose2 = self.labels[env][episode2]["shortest_paths"][0][0][traj_local_end]
+            pos_goal = np.array(pose2["position"])
+            pos_agent = np.array(pose1["position"])
+            rot_agent = np.quaternion(*pose1["rotation"])
+            direction_vector = pos_goal - pos_agent
+            direction_vector_agent = quaternion_rotate_vector(
+                rot_agent.inverse(), direction_vector
+            )
+            rho, phi = cartesian_to_polar(-direction_vector_agent[2], direction_vector_agent[0])
+            if rho >= position_max or np.abs(pos_goal[1] - pos_agent[1]) > 0.1:
+                continue
+            position_int = int(rho / (position_max / position_granularity))
+            rotation_int = int((phi + np.pi) / (rotation_max / rotation_granularity))
+            if np.abs(phi) > np.pi or rho > position_max:
+                pu.db
+            if phi + np.pi == 2 * np.pi:
+                rotation_int = 3
+            if balanced_tracker[(position_int, rotation_int)] < positive_samples_per_distance :
+                dataset.append(
+                    (
+                        env,
+                        env,
+                        traj_local_start,
+                        traj_local_end,
+                        label,
+                        episode1,
+                        episode2,
+                    )
+                )
+                balanced_tracker[(position_int, rotation_int)] += 1
+            #Check if dict is filled up
+            flag = 1
+            for key, item in balanced_tracker.items():
+                if item < positive_samples_per_distance:
+                    flag = 0
+            if flag:
+                break
+
+
+        # Get negative samples in same trajectory
+        label = 0
+        neg_samples_in_same_traj = int((self.samples / 2) * (1 - diff_traj_split))
+        for _ in tqdm(range(neg_samples_in_same_traj)):
+            # We need to make sure randomly selected data is not accidently positive
+            while 1:
+                env = random.choice(envs)
+                episode = random.choice(range(self.episodes))
+                sample_range = range(
+                        image_offset_in_envs[env],
+                        -image_offset_in_envs[env] + self.number_of_images_in_envs[env][episode],
+                    )
+                if len(sample_range) == 0:
+                    continue
+                location_1, location_2 = random.sample(sample_range, 2)
+                start = min(location_1, location_2)
+                end = max(location_1, location_2)
+                if np.abs(start - end) > self.max_distance:
+                    dataset.append((env, env, start, end, label, episode, episode))
+                    break
+        
+        # Get negative samples in different trajectories
+        neg_samples_in_diff_traj = int((self.samples / 2) * (diff_traj_split))
+        for _ in tqdm(range(neg_samples_in_diff_traj)):
+            if len(envs) > 2:
+                env1, env2 = random.sample(envs, 2)
+            else:
+                env1 = envs[0]
+                env2 = envs[0]
+            episode1 = random.choice(range(self.episodes))
+            episode2 = random.choice(range(self.episodes))
+            start_range =  range(
+                    image_offset_in_envs[env1],
+                    -image_offset_in_envs[env1] + self.number_of_images_in_envs[env1][episode1],
+                )
+            if len(start_range) == 0:
+                continue
+            start = random.choice(start_range)
+            end_range = range(
+                    image_offset_in_envs[env2],
+                    -image_offset_in_envs[env2] + self.number_of_images_in_envs[env2][episode2],
+                )
+            if len(end_range) == 0:
+                continue
+            end = random.choice(end_range)
+            dataset.append((env1, env2, start, end, label, episode1, episode2))
+        return dataset
+
     # Don't forget map/trajectory is directed.
     # diff_traj_split controls what percent of negative samples are in
-
     def get_dataset(self, envs, diff_traj_split=0.5):
+        assert 1 == 0
         if self.debug:
             envs = envs[0:3]
         image_offset_in_envs = {}
@@ -221,52 +354,52 @@ class GibsonDataset(Dataset):
                     )
                 )
 
-#        # Get negative samples in same trajectory
-#        label = 0
-#        neg_samples_in_same_traj = int((self.samples / 2) * (1 - diff_traj_split))
-#        for _ in tqdm(range(neg_samples_in_same_traj)):
-#            # We need to make sure randomly selected data is not accidently positive
-#            while 1:
-#                env = random.choice(envs)
-#                episode = random.choice(range(self.episodes))
-#                sample_range = range(
-#                        image_offset_in_envs[env],
-#                        -image_offset_in_envs[env] + self.number_of_images_in_envs[env][episode],
-#                    )
-#                if len(sample_range) == 0:
-#                    continue
-#                location_1, location_2 = random.sample(sample_range, 2)
-#                start = min(location_1, location_2)
-#                end = max(location_1, location_2)
-#                if np.abs(start - end) > self.max_distance:
-#                    dataset.append((env, env, start, end, label, episode, episode))
-#                    break
-#        
-#        # Get negative samples in different trajectories
-#        neg_samples_in_diff_traj = int((self.samples / 2) * (diff_traj_split))
-#        for _ in tqdm(range(neg_samples_in_diff_traj)):
-#            if len(envs) > 2:
-#                env1, env2 = random.sample(envs, 2)
-#            else:
-#                env1 = envs[0]
-#                env2 = envs[0]
-#            episode1 = random.choice(range(self.episodes))
-#            episode2 = random.choice(range(self.episodes))
-#            start_range =  range(
-#                    image_offset_in_envs[env1],
-#                    -image_offset_in_envs[env1] + self.number_of_images_in_envs[env1][episode1],
-#                )
-#            if len(start_range) == 0:
-#                continue
-#            start = random.choice(start_range)
-#            end_range = range(
-#                    image_offset_in_envs[env2],
-#                    -image_offset_in_envs[env2] + self.number_of_images_in_envs[env2][episode2],
-#                )
-#            if len(end_range) == 0:
-#                continue
-#            end = random.choice(end_range)
-#            dataset.append((env1, env2, start, end, label, episode1, episode2))
+        # Get negative samples in same trajectory
+        label = 0
+        neg_samples_in_same_traj = int((self.samples / 2) * (1 - diff_traj_split))
+        for _ in tqdm(range(neg_samples_in_same_traj)):
+            # We need to make sure randomly selected data is not accidently positive
+            while 1:
+                env = random.choice(envs)
+                episode = random.choice(range(self.episodes))
+                sample_range = range(
+                        image_offset_in_envs[env],
+                        -image_offset_in_envs[env] + self.number_of_images_in_envs[env][episode],
+                    )
+                if len(sample_range) == 0:
+                    continue
+                location_1, location_2 = random.sample(sample_range, 2)
+                start = min(location_1, location_2)
+                end = max(location_1, location_2)
+                if np.abs(start - end) > self.max_distance:
+                    dataset.append((env, env, start, end, label, episode, episode))
+                    break
+        
+        # Get negative samples in different trajectories
+        neg_samples_in_diff_traj = int((self.samples / 2) * (diff_traj_split))
+        for _ in tqdm(range(neg_samples_in_diff_traj)):
+            if len(envs) > 2:
+                env1, env2 = random.sample(envs, 2)
+            else:
+                env1 = envs[0]
+                env2 = envs[0]
+            episode1 = random.choice(range(self.episodes))
+            episode2 = random.choice(range(self.episodes))
+            start_range =  range(
+                    image_offset_in_envs[env1],
+                    -image_offset_in_envs[env1] + self.number_of_images_in_envs[env1][episode1],
+                )
+            if len(start_range) == 0:
+                continue
+            start = random.choice(start_range)
+            end_range = range(
+                    image_offset_in_envs[env2],
+                    -image_offset_in_envs[env2] + self.number_of_images_in_envs[env2][episode2],
+                )
+            if len(end_range) == 0:
+                continue
+            end = random.choice(end_range)
+            dataset.append((env1, env2, start, end, label, episode1, episode2))
         return dataset
 
     def get_env_names(self):
@@ -329,7 +462,7 @@ class GibsonDataset(Dataset):
                 transforms.ToTensor(),
                 transforms.Normalize(
                     mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-                ),
+               ),
             ]
         )
         for count, image in enumerate(seq1):
@@ -358,12 +491,18 @@ if __name__ == "__main__":
     train_dataset = GibsonDataset(
         "test",
         seed=0,
-        samples=200,
+        samples=900,
         max_distance=50,
         episodes=20,
         ignore_0=False,
         debug=True,
         give_distance=True,
+    )
+    train_dataloader = data.DataLoader(
+        train_dataset,
+        batch_size=1,
+        shuffle=True,
+        num_workers=0,
     )
     max_angle = 0
     max_displacement = 0
@@ -373,25 +512,34 @@ if __name__ == "__main__":
     angles_l = []
     dist_l = []
     labels = []
-    for i in range(72):
-        angles[i] = []
-        displacements[i] = []
-    for batch in tqdm(train_dataset):
+    for i, batch in enumerate(tqdm(train_dataloader)):
         (x, y, ys, poseDiff) = batch
         seq1, seq2 = x
-        t = np.linalg.norm(poseDiff[0:3])
-        r = poseDiff[1]
-        if ys >= 71:
-            ys = 70
-        if ys == -1:
-            ys = 71
-        angles[ys].append(r)
-        displacements[ys].append(t)
-        labels.append(y)
-        pu.db
-        if ys != 70 and ys != 71:
-            angles_l.append(r)
-            dist_l.append(t)
+        for count,label in enumerate(y):
+            labels.append(label.item())
+            if label:
+                pose = poseDiff[count]
+                t = np.linalg.norm(pose[0:3])
+                if t >= 2.5:
+                    pu.db
+                r = pose[3].item()
+                print(r)
+                print(t)
+                image1 = seq1[count, 5, :, :, :]
+                image2 = seq2[count, 5, :, :, :]
+                image = np.hstack([image1,image2])
+                plt.imshow(image)
+                plt.show()
+                angles_l.append(r)
+                dist_l.append(t)
+    plt.hist(angles_l)
+    plt.title("angle histogram")
+    plt.savefig("./results/rotHist.png")
+    plt.clf()
+    plt.hist(dist_l)
+    plt.title("dist histogram")
+    plt.savefig("./results/distHist.png")
+
     print("Number of 0 labels = " + str(labels.count(0)))
     print("Number of 1 labels = " + str(labels.count(1)))
     results_T = np.zeros((72, 1))
@@ -417,4 +565,4 @@ if __name__ == "__main__":
     plt.plot(results_R * 100 , label="Rotation 100")
     plt.legend()
 
-    plt.savefig("plotPoseTRUE.png")
+    plt.savefig("./results/plotPoseTRUE.png")
