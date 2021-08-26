@@ -38,7 +38,7 @@ from test_data import GibsonMapDataset
 from worm_model.model import Siamese
 from geoslam import get_slam_pose_labels
 
-set_GPU = "0"
+set_GPU = '1'
 os.environ["CUDA_VISIBLE_DEVICES"] = set_GPU
 rc("font", **{"family": "serif", "serif": ["Computer Modern"]})
 # rc("text", usetex=True)
@@ -227,7 +227,7 @@ def add_trajs_to_graph_wormhole(
             nodes = list(G.nodes)
             edges = []
             gt_offset = None
-            if frame_count % 50 == 0:
+            if frame_count % 25 == 0:
                 if (
                     map_type == "orbslamRGB"
                     or map_type == "orbslamRGBD"
@@ -433,9 +433,9 @@ def create_topological_map_wormhole(
     long_traj,
     sim=None,
     d=None,
+    scene=None,
     closeness=None,
     map_type="topological",
-    scene=None,
 ):
     # Put all trajectories into graph
     G = nx.DiGraph()
@@ -599,7 +599,7 @@ def main(
         G,
         "../../data/map/"
         + str(map_type)
-        + "/map50Worm20NewArchTest_"
+        + "/mapWorm20NewArchTest_"
         + str(env)
         + str(similarityEdges)
         + "_"
@@ -713,8 +713,8 @@ def find_wormholes(G, d, wormhole_distance=5.0, visualize=True):
 
 if __name__ == "__main__":
     start_time = time.time()
-    env = "Browntown"
-    map_type_test = "topological"
+    env = 'Chireno'
+    map_type_test = 'similarity_orbslamRGB'
     long_traj = True
     possible_map_types = [
         "base",
@@ -733,22 +733,22 @@ if __name__ == "__main__":
         "similarity_orbslamRGBD",
     ]:
         test_similarityEdges = 0.90
-        test_closeness = 1.25
+        closeness = 1.25
     elif map_type_test in ["VO", "orbslamRGB", "orbslamRGBD"]:
         test_similarityEdges = None
-        test_closeness = 2.0
+        closeness = 1.75
     elif map_type_test in ["similarity"]:
         test_similarityEdges = 0.99
-        test_closeness = None
+        closeness = None
     elif map_type_test in ["base"]:
         test_similarityEdges = None
-        test_closeness = 0.0
+        closeness = 0.0
     else:
         assert 1 == 0
 
     G = main(
         env,
-        closeness=test_closeness,
+        closeness=closeness,
         map_type=map_type_test,
         similarityEdges=test_similarityEdges,
         long_traj=long_traj,
@@ -760,9 +760,9 @@ if __name__ == "__main__":
     #    G = nx.read_gpickle(path)
     print(len(list(G.nodes())))
     print(len(list(G.edges())))
-    #    if test_closeness == None or test_closeness == 0.0:
-    #        test_closeness = 5.0
-    wormholes = find_wormholes(G, d, 5.0, visualize=False)
+    if closeness == None or closeness == 0.0:
+        closeness = 5.0
+    wormholes = find_wormholes(G, d, closeness, visualize=False)
     print(wormholes)
     print("Number of womrholes = " + str(len(wormholes)))
     print("Time to run = " + str(time.time() - start_time))

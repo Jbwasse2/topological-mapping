@@ -1,8 +1,8 @@
 topological
 base
 VO
-similarity
 orbslamRGBD
 similarity_orbslamRGBD
 orbslamRGB
 similarity_orbslamRGB
+similarity

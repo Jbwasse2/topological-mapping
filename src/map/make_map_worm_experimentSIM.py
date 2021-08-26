@@ -38,7 +38,7 @@ from test_data import GibsonMapDataset
 from worm_model.model import Siamese
 from geoslam import get_slam_pose_labels
 
-set_GPU = "0"
+set_GPU = '1'
 os.environ["CUDA_VISIBLE_DEVICES"] = set_GPU
 rc("font", **{"family": "serif", "serif": ["Computer Modern"]})
 # rc("text", usetex=True)
@@ -713,8 +713,8 @@ def find_wormholes(G, d, wormhole_distance=5.0, visualize=True):
 
 if __name__ == "__main__":
     start_time = time.time()
-    env = "Browntown"
-    map_type_test = "topological"
+    env = 'Browntown'
+    map_type_test = 'similarity'
     long_traj = True
     possible_map_types = [
         "base",
@@ -732,16 +732,16 @@ if __name__ == "__main__":
         "similarity_orbslamRGB",
         "similarity_orbslamRGBD",
     ]:
-        test_similarityEdges = 0.90
+        test_similarityEdges = 0.99
         test_closeness = 1.25
     elif map_type_test in ["VO", "orbslamRGB", "orbslamRGBD"]:
-        test_similarityEdges = None
+        test_similarityEdges = 0.99
         test_closeness = 2.0
     elif map_type_test in ["similarity"]:
         test_similarityEdges = 0.99
         test_closeness = None
     elif map_type_test in ["base"]:
-        test_similarityEdges = None
+        test_similarityEdges = 0.99
         test_closeness = 0.0
     else:
         assert 1 == 0

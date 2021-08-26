@@ -33,7 +33,7 @@ from habitat_baselines.rl.ppo.ppo_trainer import PPOTrainer
 from habitat_baselines.utils.common import poll_checkpoint_folder
 from habitat_baselines.utils.env_utils import construct_envs
 
-set_GPU = "0"
+set_GPU = '0'
 os.environ["CUDA_VISIBLE_DEVICES"] = set_GPU
 
 
@@ -451,9 +451,9 @@ def get_localization_model(device):
 
 
 def main():
-    env = "Browntown"
+    env = 'Kankakee'
     print(env)
-    map_type_test = "base"
+    map_type_test = 'similarity_orbslamRGBD'
     print(map_type_test)
     if map_type_test in [
         "topological",

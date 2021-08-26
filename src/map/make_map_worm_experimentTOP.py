@@ -714,7 +714,7 @@ def find_wormholes(G, d, wormhole_distance=5.0, visualize=True):
 if __name__ == "__main__":
     start_time = time.time()
     env = "Browntown"
-    map_type_test = "topological"
+    map_type_test = 'topological'
     long_traj = True
     possible_map_types = [
         "base",
@@ -732,17 +732,17 @@ if __name__ == "__main__":
         "similarity_orbslamRGB",
         "similarity_orbslamRGBD",
     ]:
-        test_similarityEdges = 0.90
-        test_closeness = 1.25
+        test_similarityEdges = 0.8
+        test_closeness = 5.0
     elif map_type_test in ["VO", "orbslamRGB", "orbslamRGBD"]:
-        test_similarityEdges = None
-        test_closeness = 2.0
+        test_similarityEdges = 0.8
+        test_closeness = 5.0
     elif map_type_test in ["similarity"]:
-        test_similarityEdges = 0.99
-        test_closeness = None
+        test_similarityEdges = 0.8
+        test_closeness = 5.0
     elif map_type_test in ["base"]:
-        test_similarityEdges = None
-        test_closeness = 0.0
+        test_similarityEdges = 0.8
+        test_closeness = 5.0
     else:
         assert 1 == 0
 
@@ -760,7 +760,7 @@ if __name__ == "__main__":
     #    G = nx.read_gpickle(path)
     print(len(list(G.nodes())))
     print(len(list(G.edges())))
-    #    if test_closeness == None or test_closeness == 0.0:
+    #    if test_closeness = 5.0
     #        test_closeness = 5.0
     wormholes = find_wormholes(G, d, 5.0, visualize=False)
     print(wormholes)

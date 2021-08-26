@@ -33,7 +33,8 @@ from habitat_baselines.rl.ppo.ppo_trainer import PPOTrainer
 from habitat_baselines.utils.common import poll_checkpoint_folder
 from habitat_baselines.utils.env_utils import construct_envs
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+set_GPU = '0'
+os.environ["CUDA_VISIBLE_DEVICES"] = set_GPU
 
 
 def transform_image(image):
@@ -202,9 +203,7 @@ def try_to_reach(
     try:
         path = nx.dijkstra_path(G, start_node, end_node)
     except nx.exception.NetworkXNoPath as e:
-        return 3
-    if len(path) <= 3:
-        return 4
+        return 3, -1
     print("NEW PATH")
     current_node = path[0]
     local_goal = path[1]
@@ -233,7 +232,7 @@ def try_to_reach(
             if visualize:
                 cv2.destroyAllWindows()
                 video.release()
-            return 1
+            return 1, len(path)
     if visualize:
         cv2.destroyAllWindows()
         video.release()
@@ -245,8 +244,8 @@ def try_to_reach(
     distance = np.linalg.norm(agent_pos - goal_pos)
     if distance >= 0.2:
         print(distance)
-        return 2
-    return 0
+        return 2, len(path)
+    return 0, len(path)
 
 
 def get_node_depth(node, scene_name):
@@ -290,7 +289,7 @@ def try_to_reach_local(
     video,
     context=9,
 ):
-    MAX_NUMBER_OF_STEPS = 20
+    MAX_NUMBER_OF_STEPS = 30
     print(MAX_NUMBER_OF_STEPS)
     prev_action = torch.zeros(1, 1).to(device)
     not_done_masks = torch.zeros(1, 1).to(device)
@@ -413,25 +412,25 @@ def run_experiment(
     # 1 means failed at runtime
     # 2 means the system thought it finished the path, but was actually far away
     # 3 means topological map failed to find a path
-    # 4 shouldn't be returned as an experiment result, its just used to say that the path in the map is trivially easy (few nodes to traverse between).
     return_codes = [0 for i in range(4)]
-    debug_nodes = []
+    length_results = []
     for _ in tqdm(range(experiments)):
         results = None
-        while results == None or results == 4:
-            node1, node2 = get_two_nodes(G)
-            results = try_to_reach(
-                G,
-                node1,
-                node2,
-                d,
-                ddppo_model,
-                localization_model,
-                deepcopy(hidden_state),
-                scene,
-                device,
-            )
+        node1, node2 = get_two_nodes(G)
+        results, path_length = try_to_reach(
+            G,
+            node1,
+            node2,
+            d,
+            ddppo_model,
+            localization_model,
+            deepcopy(hidden_state),
+            scene,
+            device,
+        )
+        length_results.append((node1[0:2], node2[0:2], path_length, results))
         return_codes[results] += 1
+    print("Length Results = " + str(length_results))
     return return_codes
 
 
@@ -443,26 +442,47 @@ def get_two_nodes(G):
 def get_localization_model(device):
     model = Siamese().to(device)
     model.load_state_dict(
-        torch.load("./data/results/sparsifier/best_model/saved_model.pth")
+        torch.load(
+            "./data/results/sparsifier/best_model/saved_model.pth",
+        )
     )
     model.eval()
     return model
 
 
 def main():
-    env = "Browntown"
+    env = 'Checotah'
     print(env)
-    map_type_test = 'VO'
+    map_type_test = 'similarity_orbslamRGBD'
     print(map_type_test)
-    similarity_test = "0.99"
-    closeness = 1.0
+    if map_type_test in [
+        "topological",
+        "similarity_orbslamRGB",
+        "similarity_orbslamRGBD",
+    ]:
+        test_similarityEdges = 0.90
+        closeness = 1.25
+    elif map_type_test in ["VO", "orbslamRGB", "orbslamRGBD"]:
+        test_similarityEdges = None
+        closeness = 2.0
+    elif map_type_test in ["similarity"]:
+        test_similarityEdges = 0.99
+        closeness = None
+    elif map_type_test in ["base"]:
+        test_similarityEdges = None
+        closeness = 0.0
+    else:
+        assert 1 == 0
+
     G = nx.read_gpickle(
         "./data/map/"
         + str(map_type_test)
-        + "/mapWorm20NewArchDebug_"
-        + str(closeness)
+        + "/map50Worm20NewArchTest_"
         + str(env)
-        + "0.8.gpickle",
+        + str(test_similarityEdges)
+        + "_"
+        + str(closeness)
+        + ".gpickle",
     )
     seed = 0
     os.environ["PYTHONHASHSEED"] = str(seed)

@@ -14,10 +14,12 @@ from tqdm import tqdm
 
 import habitat
 
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+
 
 def get_dict(fname):
     f = gzip.open(
-        "./data/datasets/pointnav/gibson/v6/train_large/content/" + fname + ".json.gz"
+        "./data/datasets/pointnav/gibson/v2/train_large/content/" + fname + ".json.gz"
     )
     content = f.read()
     content = content.decode()
@@ -42,14 +44,14 @@ def create_sim(scene):
 
 def generate_image_dataset(scene):
     sim = create_sim(scene)
-    image_path = "./data/datasets/pointnav/gibson/v6/train_large/images/" + scene + "/"
+    image_path = "./data/datasets/pointnav/gibson/v2/train_large/images/" + scene + "/"
     Path(image_path).mkdir(parents=True, exist_ok=True)
     d = get_dict(scene)
     # for collection in range(len(d)):
     for collection in tqdm(range(20)):
         episdoe_dict = d[collection]
         counter = 0
-        for pose in episdoe_dict["shortest_paths"][0][0]:
+        for pose in episdoe_dict["shortest_paths"][0]:
             position = pose["position"]
             rotation = pose["rotation"]
             results = sim.get_observations_at(position, rotation)

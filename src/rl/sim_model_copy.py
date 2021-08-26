@@ -290,7 +290,7 @@ def try_to_reach_local(
     video,
     context=9,
 ):
-    MAX_NUMBER_OF_STEPS = 50
+    MAX_NUMBER_OF_STEPS = 30
     print(MAX_NUMBER_OF_STEPS)
     prev_action = torch.zeros(1, 1).to(device)
     not_done_masks = torch.zeros(1, 1).to(device)
@@ -455,7 +455,7 @@ def main():
     map_type_test = "VO"
     print(map_type_test)
     similarity_test = "0.99"
-    closeness = 5.0
+    closeness = 3.0
     G = nx.read_gpickle(
         "./data/map/"
         + str(map_type_test)
