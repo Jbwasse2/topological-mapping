@@ -33,7 +33,7 @@ from habitat_baselines.rl.ppo.ppo_trainer import PPOTrainer
 from habitat_baselines.utils.common import poll_checkpoint_folder
 from habitat_baselines.utils.env_utils import construct_envs
 
-set_GPU = "0"
+set_GPU = "1"
 os.environ["CUDA_VISIBLE_DEVICES"] = set_GPU
 
 
@@ -205,6 +205,10 @@ def try_to_reach(
     except nx.exception.NetworkXNoPath as e:
         return 3, -1
     print("NEW PATH")
+    MAX_NUMBER_OF_STEPS = 30
+    print("Length of Path is " + str(len(path)))
+    print(MAX_NUMBER_OF_STEPS)
+    number_of_steps_left = MAX_NUMBER_OF_STEPS * len(path)
     current_node = path[0]
     local_goal = path[1]
     # Move robot to starting position/heading
@@ -217,7 +221,7 @@ def try_to_reach(
     sim.agents[0].set_state(agent_state)
     # Start experiments!
     for current_node, local_goal in zip(path, path[1:]):
-        success = try_to_reach_local(
+        success, number_of_steps_left = try_to_reach_local(
             current_node,
             local_goal,
             d,
@@ -227,6 +231,7 @@ def try_to_reach(
             sim,
             device,
             video,
+            number_of_steps_left,
         )
         if success != 1:
             if visualize:
@@ -242,7 +247,7 @@ def try_to_reach(
     (episode, frame, local_pose, global_pose) = end_node
     goal_pos = ground_truth_d[episode]["shortest_paths"][0][0][frame]["position"]
     distance = np.linalg.norm(agent_pos - goal_pos)
-    if distance >= 0.2:
+    if distance >= 0.4:
         print(distance)
         return 2, len(path)
     return 0, len(path)
@@ -287,10 +292,10 @@ def try_to_reach_local(
     sim,
     device,
     video,
+    number_of_steps_left,
     context=9,
 ):
-    MAX_NUMBER_OF_STEPS = 30
-    print(MAX_NUMBER_OF_STEPS)
+    print(number_of_steps_left)
     prev_action = torch.zeros(1, 1).to(device)
     not_done_masks = torch.zeros(1, 1).to(device)
     not_done_masks += 1
@@ -316,7 +321,7 @@ def try_to_reach_local(
 
         goal_image = cv2.resize(get_node_image(local_goal_node, scene_name), (256, 256))
 
-    for i in range(MAX_NUMBER_OF_STEPS):
+    for i in range(number_of_steps_left):
         # displacement = torch.from_numpy(
         #    get_displacement_local_goal(
         #        local_images_buffer, goal_images_buffer, localization_model, device
@@ -348,13 +353,13 @@ def try_to_reach_local(
         actions.append(action[0].item())
         prev_action = action
         if action[0].item() == 0:  # This is stop action
-            return 1
+            return 1, number_of_steps_left - 1 - i
         ob = sim.step(action[0].item())
         # add new observation to buffer
         for i in range(context):
             local_images_buffer[i] = local_images_buffer[i + 1]
         local_images_buffer[context] = transform_image(ob["rgb"])
-    return 0
+    return 0, 0
 
 
 def get_displacement_local_goal(local_images_buffer, goal_images_buffer, model, device):
@@ -450,21 +455,140 @@ def get_localization_model(device):
     return model
 
 
+def ruin_map(G, percent_good):
+    G_edges = list(G.edges())
+    for node1 in tqdm(list(G.nodes())):
+        for node2 in list(G.nodes()):
+            if node1 == node2:
+                continue
+            edge = (node1, node2)
+            if np.random.uniform() > percent_good:
+                if edge in G_edges:
+                    if len(G.get_edge_data(*edge)) > 0:
+                        G.remove_edge(*edge)
+                else:
+                    G.add_edge(*edge)
+    return G
+
+
+def plot_G(G, G_og, fname, d):
+    fig = plt.figure(figsize=(8, 8))
+
+    def make_plot(G_l):
+        G_nodes = list(G_l.nodes())
+        G_edges = list(G_l.edges())
+        x = []
+        y = []
+        z = []
+        for node in tqdm(G_nodes):
+            pos, rot = get_node_pose(node, d)
+            x.append(pos[0])
+            y.append(pos[1])
+            z.append(pos[2])
+        ax.scatter(x, y, z, c=y, cmap="winter")
+        for edge in tqdm(G_edges):
+            node1, node2 = edge
+            pos1, rot = get_node_pose(node1, d)
+            pos2, rot = get_node_pose(node2, d)
+            plt.plot(
+                [pos1[0], pos2[0]],
+                [pos1[1], pos2[1]],
+                [pos1[2], pos2[2]],
+                color="Black",
+                alpha=0.01,
+            )
+
+    # First plot difference of graphs
+    ax = fig.add_subplot(1, 1, 1, projection="3d")
+    G_nodes = list(G.nodes())
+    G_edges = list(G.edges())
+    G_og_edges = list(G_og.edges())
+    x = []
+    y = []
+    z = []
+    for edge in tqdm(G_edges):
+        if edge not in G_og_edges:
+            node1, node2 = edge
+            pos1, rot = get_node_pose(node1, d)
+            pos2, rot = get_node_pose(node2, d)
+            plt.plot(
+                [pos1[0], pos2[0]],
+                [pos1[1], pos2[1]],
+                [pos1[2], pos2[2]],
+                color="red",
+                alpha=0.01,
+            )
+    for edge in tqdm(G_og_edges):
+        if edge not in G_edges:
+            node1, node2 = edge
+            pos1, rot = get_node_pose(node1, d)
+            pos2, rot = get_node_pose(node2, d)
+            plt.plot(
+                [pos1[0], pos2[0]],
+                [pos1[1], pos2[1]],
+                [pos1[2], pos2[2]],
+                color="yellow",
+                alpha=1.0,
+            )
+    for node in tqdm(G_nodes):
+        pos, rot = get_node_pose(node, d)
+        x.append(pos[0])
+        y.append(pos[1])
+        z.append(pos[2])
+    ax.scatter(x, y, z, c=y, cmap="winter")
+    plt.savefig(fname + "_diff.png")
+
+    # Now plot graphs
+    ax = fig.add_subplot(1, 1, 1, projection="3d")
+    make_plot(G_og)
+    plt.savefig(fname + "_OG.png")
+    ax = fig.add_subplot(1, 1, 1, projection="3d")
+    make_plot(G)
+    plt.savefig(fname + "_G.png")
+
+
+def get_prec_recall(G, G_og):
+    tp, fp, fn = 0, 0, 0
+    G_og_edges = list(G_og.edges())
+    G_edges = list(G.edges())
+    G_nodes = list(G.nodes())
+    for node1 in tqdm(G_nodes):
+        for node2 in G_nodes:
+            if node1 == node2:
+                continue
+            gt = (node1, node2) in G_og_edges
+            guess = (node1, node2) in G_edges
+            if gt is True and guess is True:
+                tp += 1
+            elif gt is False and guess is True:
+                fp += 1
+            elif gt is True and guess is False:
+                fn += 1
+    return tp / (tp + fp), tp / (tp + fn)
+
+
 def main():
-    env = "Browntown"
+    env = "Kremlin"
     print(env)
-    map_type_test = "base"
+    map_type_test = "perfect"
     print(map_type_test)
+    seed = 0
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    torch.cuda.manual_seed(seed)
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    random.seed(seed)
     if map_type_test in [
         "topological",
         "similarity_orbslamRGB",
         "similarity_orbslamRGBD",
     ]:
-        test_similarityEdges = 0.90
-        closeness = 1.25
-    elif map_type_test in ["VO", "orbslamRGB", "orbslamRGBD"]:
+        test_similarityEdges = 0.97
+        closeness = 1.0
+    elif map_type_test in ["perfect", "VO", "orbslamRGB", "orbslamRGBD"]:
         test_similarityEdges = None
-        closeness = 2.0
+        closeness = 1.0
+        percent_good = 1.0
     elif map_type_test in ["similarity"]:
         test_similarityEdges = 0.99
         closeness = None
@@ -473,7 +597,6 @@ def main():
         closeness = 0.0
     else:
         assert 1 == 0
-
     G = nx.read_gpickle(
         "./data/map/"
         + str(map_type_test)
@@ -484,12 +607,20 @@ def main():
         + str(closeness)
         + ".gpickle",
     )
-    seed = 0
-    os.environ["PYTHONHASHSEED"] = str(seed)
-    torch.cuda.manual_seed(seed)
-    torch.manual_seed(seed)
-    np.random.seed(seed)
-    random.seed(seed)
+    d = get_dict(env)
+    if map_type_test is "perfect":
+        G_og = deepcopy(G)
+        G = ruin_map(G, percent_good)
+        plot_G(
+            G,
+            G_og,
+            "./results/visualize_3d/" + map_type_test + env + str(percent_good),
+            d,
+        )
+        print("nodes = ", len(G.nodes()))
+        print("edges = ", len(G.edges()))
+        # print(get_prec_recall(G, G_og))
+        assert 1 == 0
     config = get_config("configs/baselines/ddppo_pointnav.yaml", [])
     device = (
         torch.device("cuda", config.TORCH_GPU_ID)
@@ -501,7 +632,6 @@ def main():
     ddppo_model, hidden_state = get_ddppo_model(config, device)
     # example_forward(model, hidden_state, scene, device)
     # d = np.load("../data/map/d_slam.npy", allow_pickle=True).item()
-    d = get_dict(env)
     results = run_experiment(
         G, d, ddppo_model, localization_model, hidden_state, scene, device
     )

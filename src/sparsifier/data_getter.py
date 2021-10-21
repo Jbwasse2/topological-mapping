@@ -22,10 +22,11 @@ from torchvision.transforms import ToTensor
 from tqdm import tqdm
 
 from rich.progress import track
-from habitat.utils.geometry_utils import angle_between_quaternions, quaternion_rotate_vector
+from habitat.utils.geometry_utils import (
+    angle_between_quaternions,
+    quaternion_rotate_vector,
+)
 from habitat.tasks.utils import cartesian_to_polar
-
-
 
 
 def get_dict(fname):
@@ -82,11 +83,13 @@ class GibsonDataset(Dataset):
         if split_type == "train":
             self.labels = self.get_labels_dicts(self.train_env)
             self.number_of_images_in_envs = self.get_sequence_lengths(self.train_env)
-            self.dataset = self.get_dataset_balanced(self.train_env)
+            self.dataset = self.get_dataset(self.train_env)
+            # self.dataset = self.get_dataset_balanced(self.train_env)
         elif split_type == "test":
             self.labels = self.get_labels_dicts(self.test_env)
             self.number_of_images_in_envs = self.get_sequence_lengths(self.test_env)
-            self.dataset = self.get_dataset_balanced(self.test_env)
+            self.dataset = self.get_dataset(self.test_env)
+            # self.dataset = self.get_dataset_balanced(self.test_env)
 
     def get_sequence_lengths(self, envs):
         # Get number of images in envs for each episode
@@ -174,7 +177,6 @@ class GibsonDataset(Dataset):
         random.shuffle(ret)
         return ret
 
-
     def get_dataset_balanced(self, envs, diff_traj_split=0.5):
         if self.debug:
             envs = envs[0:3]
@@ -201,19 +203,17 @@ class GibsonDataset(Dataset):
         balanced_tracker = {}
         for rot in range(rotation_granularity):
             for pos in range(position_granularity):
-                balanced_tracker[(pos,rot)] = 0
+                balanced_tracker[(pos, rot)] = 0
         while 1:
             # Choose random env uniformly
             env = random.choice(envs)
             episode1 = random.choice(range(self.episodes))
             episode2 = random.choice(range(self.episodes))
             sample_range1 = range(
-                image_offset_in_envs[env],
-                self.number_of_images_in_envs[env][episode1]
+                image_offset_in_envs[env], self.number_of_images_in_envs[env][episode1]
             )
             sample_range2 = range(
-                image_offset_in_envs[env],
-                self.number_of_images_in_envs[env][episode2]
+                image_offset_in_envs[env], self.number_of_images_in_envs[env][episode2]
             )
             traj_local_start = random.choice(sample_range1)
             traj_local_end = random.choice(sample_range2)
@@ -226,7 +226,9 @@ class GibsonDataset(Dataset):
             direction_vector_agent = quaternion_rotate_vector(
                 rot_agent.inverse(), direction_vector
             )
-            rho, phi = cartesian_to_polar(-direction_vector_agent[2], direction_vector_agent[0])
+            rho, phi = cartesian_to_polar(
+                -direction_vector_agent[2], direction_vector_agent[0]
+            )
             if rho >= position_max or np.abs(pos_goal[1] - pos_agent[1]) > 0.1:
                 continue
             position_int = int(rho / (position_max / position_granularity))
@@ -235,7 +237,10 @@ class GibsonDataset(Dataset):
                 pu.db
             if phi + np.pi == 2 * np.pi:
                 rotation_int = 3
-            if balanced_tracker[(position_int, rotation_int)] < positive_samples_per_distance :
+            if (
+                balanced_tracker[(position_int, rotation_int)]
+                < positive_samples_per_distance
+            ):
                 dataset.append(
                     (
                         env,
@@ -248,14 +253,13 @@ class GibsonDataset(Dataset):
                     )
                 )
                 balanced_tracker[(position_int, rotation_int)] += 1
-            #Check if dict is filled up
+            # Check if dict is filled up
             flag = 1
             for key, item in balanced_tracker.items():
                 if item < positive_samples_per_distance:
                     flag = 0
             if flag:
                 break
-
 
         # Get negative samples in same trajectory
         label = 0
@@ -266,9 +270,10 @@ class GibsonDataset(Dataset):
                 env = random.choice(envs)
                 episode = random.choice(range(self.episodes))
                 sample_range = range(
-                        image_offset_in_envs[env],
-                        -image_offset_in_envs[env] + self.number_of_images_in_envs[env][episode],
-                    )
+                    image_offset_in_envs[env],
+                    -image_offset_in_envs[env]
+                    + self.number_of_images_in_envs[env][episode],
+                )
                 if len(sample_range) == 0:
                     continue
                 location_1, location_2 = random.sample(sample_range, 2)
@@ -277,7 +282,7 @@ class GibsonDataset(Dataset):
                 if np.abs(start - end) > self.max_distance:
                     dataset.append((env, env, start, end, label, episode, episode))
                     break
-        
+
         # Get negative samples in different trajectories
         neg_samples_in_diff_traj = int((self.samples / 2) * (diff_traj_split))
         for _ in tqdm(range(neg_samples_in_diff_traj)):
@@ -288,17 +293,19 @@ class GibsonDataset(Dataset):
                 env2 = envs[0]
             episode1 = random.choice(range(self.episodes))
             episode2 = random.choice(range(self.episodes))
-            start_range =  range(
-                    image_offset_in_envs[env1],
-                    -image_offset_in_envs[env1] + self.number_of_images_in_envs[env1][episode1],
-                )
+            start_range = range(
+                image_offset_in_envs[env1],
+                -image_offset_in_envs[env1]
+                + self.number_of_images_in_envs[env1][episode1],
+            )
             if len(start_range) == 0:
                 continue
             start = random.choice(start_range)
             end_range = range(
-                    image_offset_in_envs[env2],
-                    -image_offset_in_envs[env2] + self.number_of_images_in_envs[env2][episode2],
-                )
+                image_offset_in_envs[env2],
+                -image_offset_in_envs[env2]
+                + self.number_of_images_in_envs[env2][episode2],
+            )
             if len(end_range) == 0:
                 continue
             end = random.choice(end_range)
@@ -308,7 +315,7 @@ class GibsonDataset(Dataset):
     # Don't forget map/trajectory is directed.
     # diff_traj_split controls what percent of negative samples are in
     def get_dataset(self, envs, diff_traj_split=0.5):
-        assert 1 == 0
+        print("Subtracting 0.5")
         if self.debug:
             envs = envs[0:3]
         image_offset_in_envs = {}
@@ -363,9 +370,10 @@ class GibsonDataset(Dataset):
                 env = random.choice(envs)
                 episode = random.choice(range(self.episodes))
                 sample_range = range(
-                        image_offset_in_envs[env],
-                        -image_offset_in_envs[env] + self.number_of_images_in_envs[env][episode],
-                    )
+                    image_offset_in_envs[env],
+                    -image_offset_in_envs[env]
+                    + self.number_of_images_in_envs[env][episode],
+                )
                 if len(sample_range) == 0:
                     continue
                 location_1, location_2 = random.sample(sample_range, 2)
@@ -374,7 +382,7 @@ class GibsonDataset(Dataset):
                 if np.abs(start - end) > self.max_distance:
                     dataset.append((env, env, start, end, label, episode, episode))
                     break
-        
+
         # Get negative samples in different trajectories
         neg_samples_in_diff_traj = int((self.samples / 2) * (diff_traj_split))
         for _ in tqdm(range(neg_samples_in_diff_traj)):
@@ -385,17 +393,19 @@ class GibsonDataset(Dataset):
                 env2 = envs[0]
             episode1 = random.choice(range(self.episodes))
             episode2 = random.choice(range(self.episodes))
-            start_range =  range(
-                    image_offset_in_envs[env1],
-                    -image_offset_in_envs[env1] + self.number_of_images_in_envs[env1][episode1],
-                )
+            start_range = range(
+                image_offset_in_envs[env1],
+                -image_offset_in_envs[env1]
+                + self.number_of_images_in_envs[env1][episode1],
+            )
             if len(start_range) == 0:
                 continue
             start = random.choice(start_range)
             end_range = range(
-                    image_offset_in_envs[env2],
-                    -image_offset_in_envs[env2] + self.number_of_images_in_envs[env2][episode2],
-                )
+                image_offset_in_envs[env2],
+                -image_offset_in_envs[env2]
+                + self.number_of_images_in_envs[env2][episode2],
+            )
             if len(end_range) == 0:
                 continue
             end = random.choice(end_range)
@@ -437,11 +447,11 @@ class GibsonDataset(Dataset):
                 + ".jpg"
             )
             image = plt.imread(location)
-            image = cv2.resize(image, (224, 224)) / 255
+            image = cv2.resize(image, (128, 128)) / 255
+            image = image - 0.5
             ret.append(image)
         return ret
 
-    # Images are offset by self.max_distance, because this should also detect going backwards which the robot can not do.
     def __getitem__(self, idx):
         env1, env2, l1, l2, y, ep1, ep2 = self.dataset[idx]
         seq1 = self.get_images(env1, ep1, l1)
@@ -455,14 +465,18 @@ class GibsonDataset(Dataset):
         direction_vector_agent = quaternion_rotate_vector(
             rot_agent.inverse(), direction_vector
         )
-        rho, phi = cartesian_to_polar(-direction_vector_agent[2], direction_vector_agent[0])
+        rho, phi = cartesian_to_polar(
+            -direction_vector_agent[2], direction_vector_agent[0]
+        )
         poseDiff = np.append(direction_vector, phi)
+        if poseDiff[3] == np.pi or poseDiff[3] == -np.pi:
+            poseDiff[3] = 0
         transform = transforms.Compose(
             [
                 transforms.ToTensor(),
                 transforms.Normalize(
                     mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-               ),
+                ),
             ]
         )
         for count, image in enumerate(seq1):
@@ -481,28 +495,23 @@ class GibsonDataset(Dataset):
         return (x, y, poseDiff)
 
 
-#Need to turn off transforms first...
+# Need to turn off transforms first...
 def vis_image_seq(x):
-    x = x.reshape(224*10, 224, 3)
+    x = x.reshape(224 * 10, 224, 3)
     plt.imshow(x)
     plt.show()
+
 
 if __name__ == "__main__":
     train_dataset = GibsonDataset(
         "test",
         seed=0,
-        samples=900,
+        samples=205,
         max_distance=50,
         episodes=20,
         ignore_0=False,
         debug=True,
         give_distance=True,
-    )
-    train_dataloader = data.DataLoader(
-        train_dataset,
-        batch_size=1,
-        shuffle=True,
-        num_workers=0,
     )
     max_angle = 0
     max_displacement = 0
@@ -512,34 +521,26 @@ if __name__ == "__main__":
     angles_l = []
     dist_l = []
     labels = []
-    for i, batch in enumerate(tqdm(train_dataloader)):
+    for i in range(72):
+        angles[i] = []
+        displacements[i] = []
+    pu.db
+    for batch in tqdm(train_dataset):
         (x, y, ys, poseDiff) = batch
         seq1, seq2 = x
-        for count,label in enumerate(y):
-            labels.append(label.item())
-            if label:
-                pose = poseDiff[count]
-                t = np.linalg.norm(pose[0:3])
-                if t >= 2.5:
-                    pu.db
-                r = pose[3].item()
-                print(r)
-                print(t)
-                image1 = seq1[count, 5, :, :, :]
-                image2 = seq2[count, 5, :, :, :]
-                image = np.hstack([image1,image2])
-                plt.imshow(image)
-                plt.show()
-                angles_l.append(r)
-                dist_l.append(t)
-    plt.hist(angles_l)
-    plt.title("angle histogram")
-    plt.savefig("./results/rotHist.png")
-    plt.clf()
-    plt.hist(dist_l)
-    plt.title("dist histogram")
-    plt.savefig("./results/distHist.png")
-
+        pu.db
+        t = np.linalg.norm(poseDiff[0:3])
+        r = poseDiff[3]
+        if ys >= 71:
+            ys = 70
+        if ys == -1:
+            ys = 71
+        angles[ys].append(r)
+        displacements[ys].append(t)
+        labels.append(y)
+        if ys != 70 and ys != 71:
+            angles_l.append(r)
+            dist_l.append(t)
     print("Number of 0 labels = " + str(labels.count(0)))
     print("Number of 1 labels = " + str(labels.count(1)))
     results_T = np.zeros((72, 1))
@@ -559,10 +560,10 @@ if __name__ == "__main__":
     plt.ylim(0, 2)
     plt.plot(results_T, label="Translation")
     plt.plot(results_R, label="Rotation")
-    plt.plot(results_R * 10 , label="Rotation 10")
-    plt.plot(results_R * 20 , label="Rotation 20")
-    plt.plot(results_R * 50 , label="Rotation 50")
-    plt.plot(results_R * 100 , label="Rotation 100")
+    plt.plot(results_R * 10, label="Rotation 10")
+    plt.plot(results_R * 20, label="Rotation 20")
+    plt.plot(results_R * 50, label="Rotation 50")
+    plt.plot(results_R * 100, label="Rotation 100")
     plt.legend()
 
-    plt.savefig("./results/plotPoseTRUE.png")
+    plt.savefig("plotPoseTRUE.png")

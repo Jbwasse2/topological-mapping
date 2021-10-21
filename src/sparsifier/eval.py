@@ -1,4 +1,5 @@
 from data_getter import GibsonDataset
+import matplotlib
 from torch import nn
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -8,16 +9,17 @@ import numpy as np
 import pudb
 from tqdm import tqdm
 from torch.utils import data
-from best_model.model import Siamese
+from best_model.model import Siamese, SiameseDeepVO
 import os
 from matplotlib import rc
+
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 rc("font", **{"family": "serif", "serif": ["Computer Modern"]})
 rc("text", usetex=True)
 sns.set(style="darkgrid", font_scale=1.9)
 
 
-#Make plots for loss
+# Make plots for loss
 lR = np.load("./best_model/lossesR.npy")
 lS = np.load("./best_model/lossesS.npy")
 lT = np.load("./best_model/lossesT.npy")
@@ -31,9 +33,9 @@ accv = np.load("./best_model/accuracy_v.npy")
 plt.plot(lR, label="RotationT")
 plt.plot(lRv, label="RotationV")
 plt.xlabel("Epochs")
-plt.ylabel("15 * MSE Loss")
+plt.ylabel("MSE Loss")
 plt.legend()
-plt.title("15 * Rotation Prediction Loss")
+plt.title("Rotation Prediction Loss")
 plt.savefig("./results/Rot_loss.png", bbox_inches="tight")
 plt.clf()
 plt.plot(lS, label="SimilarityT")
@@ -68,74 +70,91 @@ plt.legend()
 plt.title("Similarity Accuracy")
 plt.savefig("./results/Acc.png", bbox_inches="tight")
 plt.clf()
+assert 1 == 0
 
 
 sns.color_palette("flare", as_cmap=True)
-pu.db
-
+MAX_LENGTH = 100
 dataset = GibsonDataset(
     "test",
     seed=0,
-    samples=2000,
-    max_distance=50,
+    samples=10000,
+    max_distance=MAX_LENGTH,
     episodes=20,
     ignore_0=False,
-    debug=True,
+    debug=False,
     give_distance=True,
 )
 test_dataloader = data.DataLoader(
     dataset,
-    batch_size=64,
+    batch_size=20,
     shuffle=True,
-    num_workers=0,
+    num_workers=10,
 )
 mse = nn.MSELoss()
-device = torch.device("cuda:0")
+device = torch.device("cuda")
 test_envs = np.load("./best_model/test_env.npy")
-sparsifier = Siamese().to(device)
+sparsifier = SiameseDeepVO().to(device).float()
+sparsifier.device = device
 sparsifier.load_state_dict(torch.load("./best_model/saved_model.pth"))
 sparsifier.eval()
-results = np.zeros((72, 2))
+results = np.zeros((MAX_LENGTH + 2, 2))
 results_pose_T = {}
 results_pose_R = {}
 predict_T = []
 predict_R = []
-for i in range(72):
+data_T = []
+data_R = []
+for i in range(MAX_LENGTH + 2):
     results_pose_T[i] = []
     results_pose_R[i] = []
 for i, batch in enumerate(tqdm(test_dataloader)):
     (x, y, d, poseGT) = batch
-    d[torch.where(d>=71)] = 70
-    d[torch.where(d==-1)] = 71
-    poseGT = poseGT.to(device)
+    d[torch.where(d >= MAX_LENGTH + 1)] = MAX_LENGTH
+    d[torch.where(d == -1)] = MAX_LENGTH + 1
+    poseGT = poseGT.to(device).float()
     hidden = sparsifier.init_hidden(y.shape[0], sparsifier.hidden_size, device)
     sparsifier.hidden = hidden
     image1, image2 = x
     image1 = image1.to(device).float()
     image2 = image2.to(device).float()
-    pose, similarity = sparsifier(image1, image2)
-    #Handle distance estimation stuff
-    for di, pGT, p in zip(d,poseGT, pose):
+    pu.db
+    pose, similarity = sparsifier(image1, image2, poseGT)
+    # Handle distance estimation stuff
+    for di, pGT, p in zip(d, poseGT, pose):
         T_GT = torch.norm(pGT[0:3])
-        results_pose_T[di.item()].append(torch.sqrt(mse(p[0], T_GT)).detach().cpu().item())
-        results_pose_R[di.item()].append(torch.sqrt(mse(p[1], pGT[3])).detach().cpu().item())
+        results_pose_T[di.item()].append(
+            torch.sqrt(mse(p[0], T_GT)).detach().cpu().item()
+        )
+        results_pose_R[di.item()].append(
+            torch.sqrt(mse(p[1], pGT[3])).detach().cpu().item()
+        )
         predict_T.append(p[0].cpu().detach().numpy().item())
         predict_R.append(p[1].cpu().detach().numpy().item())
-    #Handle classifcaiton stuff
+        data_T.append(T_GT.cpu().detach().numpy().item())
+        data_R.append(pGT[3].cpu().detach().numpy().item())
+    # Handle classifcaiton stuff
     result = torch.argmax(similarity, axis=1).detach().cpu()
     for di, r in zip(d, result):
         results[di][r] += 1
-plt.hist(predict_T, color='r')
+plt.hist(predict_T, color="r")
 plt.title("Predictions of T")
 plt.savefig("./results/predictionT_hist.png")
 print("Max T = " + str(max(predict_T)) + " Min T = " + str(min(predict_T)))
 print("Max R = " + str(max(predict_R)) + " Min R = " + str(min(predict_R)))
 plt.clf()
 plt.title("Predictions of R")
-plt.hist(predict_R, color='r')
+plt.hist(predict_R, color="r")
 plt.savefig("./results/predictionR_hist.png")
 plt.clf()
-assert 1 == 0
+plt.title("Distribution of R")
+plt.hist(data_R, color="r")
+plt.savefig("./results/DistributionR.png")
+plt.clf()
+plt.title("Distribution of T")
+plt.hist(data_T, color="r")
+plt.savefig("./results/DistributionT.png")
+plt.clf()
 np.save("results.npy", results)
 np.save("resultsPoseR.npy", results_pose_R, allow_pickle=True)
 np.save("resultsPoseT.npy", results_pose_T, allow_pickle=True)
@@ -152,17 +171,23 @@ for i, row in enumerate(results):
     else:
         true += row[1]
 print(true / total)
-#Normalize by row
+# Normalize by row
 for counter, row in enumerate(results):
     s = np.sum(row)
-    if s >= 0:
-        results[counter] = row/s
-ax = sns.heatmap(results, linewidths=0.1)
+    if s > 0:
+        results[counter] = row / s
+# ax = sns.heatmap(results, linewidths=0.1)
+r = np.hstack([results[0:50, 1], results[50:, 0]])
+plt.plot(r)
 
-fig = ax.get_figure()
-fig.savefig("./results/plotSim.png")
-results_T = np.zeros((72,1))
-results_R = np.zeros((72,1))
+fig = matplotlib.pyplot.gcf()
+fig.set_size_inches(18.5, 10.5)
+plt.title("Model Similiarty Accuracy vs Distance")
+plt.xlabel("Distance")
+plt.ylabel("Accuracy")
+plt.savefig("./results/plotSim.png", bbox_inches="tight", dpi=600)
+results_T = np.zeros((MAX_LENGTH + 2, 1))
+results_R = np.zeros((MAX_LENGTH + 2, 1))
 plt.clf()
 for row, key in results_pose_T.items():
     if len(key) > 0:
@@ -178,7 +203,10 @@ plt.title("Average RMSE Pose error vs Distance")
 plt.plot(results_T, label="Translation")
 plt.plot(results_R, label="Rotation")
 plt.ylim(0, 2)
+plt.xlim(0, 50)
+fig = matplotlib.pyplot.gcf()
+fig.set_size_inches(18.5, 10.5)
 plt.legend()
 
-#fig = ax.get_figure()
-plt.savefig("./results/plotPose.png")
+# fig = ax.get_figure()
+plt.savefig("./results/plotPose.png", bbox_inches="tight", dpi=600)
